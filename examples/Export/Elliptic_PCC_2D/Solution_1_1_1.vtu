@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="13" NumberOfCells="16">
+      <PointData Scalars="Numeric">
+        <DataArray type="Float64" Name="Exact" format="binary" RangeMin="1.1" RangeMax="2.1">
+          AQAAAACAAABoAAAAHQAAAA==eJybNRMEPtrPwkGfPQMCDA645FHpXzhpANnQPoI=
+        </DataArray>
+        <DataArray type="Float64" Name="Numeric" format="binary" RangeMin="0.950606909430439" RangeMax="2.1681605975723626">
+          AQAAAACAAABoAAAASgAAAA==eJybNRMEPtrPgtIG8dl68dnv4PxpKRFTUyIYHWahqYtl2xjNtvEznJ5U+Xli5eef9pOhtFPUA8eoBz/tk+blJs7L/WkPAEMuNz4=
+        </DataArray>
+      </PointData>
+      <CellData>
+        <DataArray type="Float64" Name="Error H1" format="binary" RangeMin="0.051893145999776076" RangeMax="0.07932884454389962">
+          AQAAAACAAACAAAAAYAAAAA==eJzzcn7JuXfiKvvrS92Fnrits+eQZo08cmSVvRmD3zbmTRvg4kZQPgtU3hOqbzqnW3lY7ib7GQ6fVgh+3mQ/DUpPhYpzN1SszNu1yp4HSqfyftJ46rfFPgVKAwDtzzim
+        </DataArray>
+        <DataArray type="Float64" Name="Error L2" format="binary" RangeMin="8.978447698243618e-05" RangeMax="0.0015800788621004264">
+          AQAAAACAAACAAAAAXwAAAA==eJzb9ihK3sXF3f7O2uxDIY8j7dfxrb+xqcfN/gNz0VHTujD7l1Dxr1D+Fqj8Pqi+zIJ9E0M7xe2z2Ht9/xZo2DtDaU+ouMnOq9PPL9eE0933Gf64bDe0XwalARGdOzM=
+        </DataArray>
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="binary" RangeMin="0" RangeMax="1.4142135623730951">
+          AQAAAACAAACcAAAAMQAAAA==eJxjYEAGDfaobHQ+GNhDMQMSnwFVrMEeVRym1wHEtoOqsYPwYeIwNkgcogYA0DIK6Q==
+          <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+            <Value index="0">
+              0
+            </Value>
+            <Value index="1">
+              1.4142135624
+            </Value>
+          </InformationKey>
+        </DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" IdType="1" Name="connectivity" format="binary" RangeMin="0" RangeMax="12">
+          AQAAAACAAACAAQAAUgAAAA==eJx1j0ESgCAMA0UpReH/7/Vg97Iz9pJhA03I45tV2kujdIujs/QR5xzi7BnS+2c/PMXpSX7TPd4N+fBL/eg75cNP+eSnfDhDPv8O+fAX+HABPQ==
+        </DataArray>
+        <DataArray type="Int64" Name="offsets" format="binary" RangeMin="3" RangeMax="48">
+          AQAAAACAAACAAAAAMgAAAA==eJwtxdEGwCAAAMAYESMiImKMEbH//7oeunu5KxzRybezi6ubu4cfv/48vfx7A00AAZk=
+        </DataArray>
+        <DataArray type="UInt8" Name="types" format="binary" RangeMin="5" RangeMax="5">
+          AQAAAACAAAAQAAAACwAAAA==eJxjZUUFAAK4AFE=
+        </DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
