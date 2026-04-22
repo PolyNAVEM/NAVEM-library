@@ -27,6 +27,9 @@ def main():
     if not os.path.exists(export_file_path):
         os.makedirs(export_file_path)
 
+    pr = cProfile.Profile()
+    pr.enable()
+
     # Mesh file path
     export_mesh_path = args.export_path + "/Mesh"
     if not os.path.exists(export_mesh_path):
@@ -109,14 +112,10 @@ def main():
                                     cell2_ds_error_h1=post_process_data.cell2_ds_error_h1)
 
     print('\x1b[6;30;42m' + "Finish" + '\x1b[0m')
+
+    pr.disable()
+    pr.dump_stats(export_file_path + "/program.prof")
+
 if __name__=='__main__':
 
-    export_file_path = "./Export"
-    if not os.path.exists(export_file_path):
-        os.makedirs(export_file_path)
-
-    pr = cProfile.Profile()
-    pr.enable()
     main()
-    pr.disable()
-    pr.dump_stats("./Export/program.prof")  # call "snakeviz program.proof" from command line to visualize the result
