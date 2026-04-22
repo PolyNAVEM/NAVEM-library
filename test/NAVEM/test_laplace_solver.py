@@ -2,6 +2,7 @@ import unittest
 
 from src.NAVEM.LaplaceSolver import LaplaceSolver, LaplaceProblem
 from src.NAVEM.FunctionUtilities import *
+from src.GeDiM.geometry.geometry_utilities import *
 
 class TestLaplaceSolver(unittest.TestCase):
 
@@ -53,38 +54,71 @@ class TestLaplaceSolver(unittest.TestCase):
                                                        solver)
 
 
-    # def test_laplace_solver_generic(self):
-    #     geometry_utilities = GeometryUtilities()
-    #
-    #     polygon_vertices = np.zeros([3, 4])
-    #     polygon_vertices[0, :] = [0.0, 1.0, 1.0, 0.7]
-    #     polygon_vertices[1, :] = [0.0, 0.0, 1.0, 0.3]
-    #
-    #     # polygon_vertices[0, :] = [0.991845454696567, 0.991432923469537, 0.982447085304374, 0.974283483714996, 0.975515061763127, 0.984091372799074]
-    #     # polygon_vertices[1, :] = [0.96183742162844, 0.972750485403375, 0.978612595906933, 0.973791150141437, 0.963287609777623, 0.957220735709432]
-    #
-    #     internal_angles = geometry_utilities.compute_polygon_interior_angles(polygon_vertices)
-    #     kernel = geometry_utilities.compute_polygon_kernel(polygon_vertices, internal_angles)
-    #     area = geometry_utilities.compute_polygon_area(kernel)
-    #     internal_point = geometry_utilities.compute_polygon_centroid(kernel, area)
-    #     vem_id = 1
-    #     solver = LaplaceSolver('generic', function_type='total',
-    #                            num_iterations=120,
-    #                            polygon_vertices=polygon_vertices,
-    #                            internal_point=internal_point, polygon_scale=0.1, vem_id=vem_id)
-    #
-    #     num_rat_points = 30
-    #     HangingFunctionUtilities.plot_points_distributions(solver)
-    #
-    #     HangingFunctionUtilities.evaluate_accuracy(geometry_utilities,
-    #                                                10 * num_rat_points * solver.num_vertices,
-    #                                                solver, vem_id)
-    #
-    #     HangingFunctionUtilities.plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-    #                                                     10 * num_rat_points *
-    #                                                     solver.num_vertices,
-    #                                                     solver, vem_id)
-    #
+    def test_laplace_solver_generic(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities_config.tolerance1_d = 1.0e-12
+        geometry_utilities_config.tolerance2_d = 1.0e-12
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
+        num_vertices = 4
+        domain_vertices = np.zeros([3, num_vertices])
+        domain_vertices[0, :] = [0.0, 1.0, 1.0, 0.7]
+        domain_vertices[1, :] = [0.0, 0.0, 1.0, 0.3]
+        domain_scale = 0.1
+        vem_id = 1
+        iterations = np.arange(3, 120 + 1).tolist()
+        list_pole_vertices = np.arange(0, num_vertices).tolist()
+
+        def boundary_conditions(v: int, points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            prev_id = vem_id - 1 if vem_id > 0 else num_vertices - 1
+            next_id = (vem_id + 1) % num_vertices
+
+            if v == vem_id:
+                t = (domain_vertices[:, next_id]
+                     - domain_vertices[:, vem_id])
+                norm_squared_t = t[0] * t[0] + t[1] * t[1] + t[2] * t[2]
+                alpha = ((points - domain_vertices[:, vem_id]).T @ t) / norm_squared_t
+                return 1.0 - alpha
+            elif v == prev_id:
+                t = (domain_vertices[:, prev_id]
+                     - domain_vertices[:, vem_id])
+                norm_squared_t = t[0] * t[0] + t[1] * t[1] + t[2] * t[2]
+                alpha = ((points - domain_vertices[:, vem_id]).T @ t) / norm_squared_t
+                return 1.0 - alpha
+            else:
+                return 0.0 * points[1, :]
+
+
+        internal_angles = compute_polygon_interior_angles(domain_vertices)
+        kernel = compute_polygon_kernel(geometry_utilities, domain_vertices, internal_angles)
+        area = geometry_utilities.polygon_area(kernel)
+        internal_point = geometry_utilities.polygon_centroid(kernel, area)
+
+        problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
+
+        solver = LaplaceSolver(geometry_utilities, problem, iterations, list_pole_vertices)
+
+        num_rat_points = 30
+        err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
+                                                                      10 * num_rat_points * solver.problem.num_vertices,
+                                                                      solver)
+
+        # self.assertLess(err_max_l2, b=1.0e-7)
+        # self.assertLess(err_max_h1, b=1.0e-7)
+
+        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+              .format(err_max_l2, err_max_h1))
+
+        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+
+        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                       10 * num_rat_points *
+                                                       solver.problem.num_vertices,
+                                                       solver)
+
+
     def test_laplace_solver_concave(self):
 
         geometry_utilities_config = gedim.GeometryUtilitiesConfig()
@@ -92,36 +126,94 @@ class TestLaplaceSolver(unittest.TestCase):
         geometry_utilities_config.tolerance2_d = 1.0e-12
         geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
 
-        solver = LaplaceSolver('polygon_concave', num_iterations=50)
+        num_vertices = 5
+        domain_vertices = np.zeros([3, num_vertices])
+        domain_vertices[0, :] = [1.0, 2.0, -1.0, -1.0, 2.0]
+        domain_vertices[1, :] = [0.0, 1.0, 1.0, -1.0, -1.0]
+        internal_point = np.zeros([3, 1])
+        list_poles_vertices = [4, 0, 1]
+        iterations = [60]
+        domain_scale = 3.0
+
+        def boundary_conditions(v: int, points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            if v == 4:
+                return 2.0 - points[0, :]
+            elif v == 0:
+                return 2.0 - points[0, :]
+            else:
+                return 0.0 * points[0, :]
+
+        problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
+
+        solver = LaplaceSolver(geometry_utilities, problem, iterations, list_poles_vertices)
 
         num_rat_points = 30
-        HangingFunctionUtilities.evaluate_accuracy(geometry_utilities,
-                                                   10 * num_rat_points * solver.num_vertices,
-                                                   solver)
+        err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
+                                                                      10 * num_rat_points * solver.problem.num_vertices,
+                                                                      solver)
 
-        HangingFunctionUtilities.plot_points_distributions(solver)
+        self.assertLess(err_max_l2, b=1.0e-5)
+        self.assertLess(err_max_h1, b=1.0e-5)
 
-        HangingFunctionUtilities.plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-                                                                                10 * num_rat_points *
-                                                                                solver.num_vertices,
-                                                                                solver)
+        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+              .format(err_max_l2, err_max_h1))
 
-    # def test_laplace_solver_spike(self):
-    #     geometry_utilities = GeometryUtilities()
-    #     solver = LaplaceSolver('polygon_spike', num_iterations=50)
-    #
-    #     num_rat_points = 30
-    #     HangingFunctionUtilities.evaluate_accuracy(geometry_utilities,
-    #                                                10 * num_rat_points * solver.num_vertices,
-    #                                                solver)
-    #
-    #     HangingFunctionUtilities.plot_points_distributions(solver)
-    #
-    #     HangingFunctionUtilities.plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-    #                                                                             10 * num_rat_points *
-    #                                                                             solver.num_vertices,
-    #                                                                             solver)
-    #
+        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+
+        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                       10 * num_rat_points *
+                                                       solver.problem.num_vertices,
+                                                       solver)
+
+
+    def test_laplace_solver_spike(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities_config.tolerance1_d = 1.0e-5
+        geometry_utilities_config.tolerance2_d = 1.0e-8
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
+
+        num_vertices = 8
+        mag = 0.3
+        domain_vertices = np.zeros([3, num_vertices])
+        domain_vertices[0, :] = [(1.0 - mag), 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0]
+        domain_vertices[1, :] = [0.5, 0.7, 1.0, 1.0, 0.5, 0.0, 0.0, 0.3]
+        list_poles_vertices = np.arange(0, 8).tolist()
+        internal_point = np.zeros([3, 1])
+        domain_scale = 1.0
+        iterations = [60]
+
+        def boundary_conditions(v: int, points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            if v == 0 or v == 7:
+                return 1.0 - (1.0/mag) * (points[0, :] - (1.0 - mag))
+            else:
+                return 0.0 * points[0, :]
+
+        problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
+
+        solver = LaplaceSolver(geometry_utilities, problem, iterations, list_poles_vertices)
+
+        num_rat_points = 30
+        err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
+                                                                      10 * num_rat_points * solver.problem.num_vertices,
+                                                                      solver)
+
+        self.assertLess(err_max_l2, b=1.0e-2)
+        self.assertLess(err_max_h1, b=1.0e-2)
+
+        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+              .format(err_max_l2, err_max_h1))
+
+        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+
+        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                       10 * num_rat_points *
+                                                       solver.problem.num_vertices,
+                                                       solver)
+
     # def test_map_hanging_functions_1(self):
     #
     #     geometry_utilities = GeometryUtilities()

@@ -71,3 +71,70 @@ def compute_polygon_external_bisectors(geometry_utilities: gedim.GeometryUtiliti
         vertex_bisectors[:, v] = vertex_bisectors[:, v] / norm_values
 
     return vertex_bisectors
+
+def z_cross_2d(v1, v2):
+    return v1[0] * v2[1] - v1[1] * v2[0]
+
+def compute_polygon_kernel(geometry_utilities: gedim.GeometryUtilities, vertices: NDArray[np.float64],
+                           polygon_internal_angles: List[float]) -> NDArray[np.float64]:
+
+    num_vertices = vertices.shape[1]
+
+    if num_vertices == 3:
+        return vertices
+
+    assert num_vertices >= 4
+
+    kernel = vertices
+    for v in range(num_vertices):
+
+        # concave angle
+        edge_origin = vertices[:, v]
+        edge_direction = vertices[:, (v + 1) % num_vertices] - vertices[:, v]
+
+        if (polygon_internal_angles[v] > np.pi or
+                polygon_internal_angles[(v + 1) % num_vertices] > np.pi):
+
+            kernel_next = np.array([], dtype=np.float64).reshape(3, 0)
+            num_vertices_actual_kernel = kernel.shape[1]
+
+            x = kernel[:, num_vertices_actual_kernel - 1]
+            a = z_cross_2d(edge_direction, x - edge_origin) > -geometry_utilities.tolerance1_d()
+
+            for j in np.arange(0, num_vertices_actual_kernel):
+
+                # if the current vertex is on the right side w.r.t. lines, it is in the kernel
+
+                x = kernel[:, j]
+                b = z_cross_2d(edge_direction, x - edge_origin) > -geometry_utilities.tolerance1_d()
+
+                if (not a and b) or (not b and a):
+
+                    segment_origin = kernel[:, j - 1 if j > 0 else num_vertices_actual_kernel - 1]
+                    segment_end = x
+                    intersection_results: gedim.GeometryUtilities.IntersectionSegmentSegmentResult = (
+                        geometry_utilities.intersection_segment_segment(segment_origin,
+                                                                        segment_end, edge_origin, vertices[:, (v + 1) % num_vertices]))
+
+                    if len(intersection_results.first_segment_intersections) == 1:
+
+                        intersection: gedim.GeometryUtilities.IntersectionSegmentSegmentResult.IntersectionPosition = intersection_results.first_segment_intersections[0]
+                        match intersection.type:
+                            case gedim.GeometryUtilities.PointSegmentPositionTypes.inside_segment:
+                                # TO DO: is the point already inserted?
+                                points = segment_origin + intersection.curvilinear_coordinate * (segment_end - segment_origin)
+                                kernel_next = np.concatenate([kernel_next, np.expand_dims(points, axis=1)], axis=1)
+                            case _:
+                                pass
+
+                if b:
+                    kernel_next = np.concatenate([kernel_next, np.expand_dims(x, axis=1)], axis=1)
+
+                a = b
+
+            kernel = kernel_next
+
+    if kernel.shape[1] < 3:
+        kernel = np.zeros([3, 0])
+
+    return kernel

@@ -13,6 +13,8 @@ from src.NAVEM.border_sampler import reference_points_distribution, PointsDistri
 use("Qt5Agg")
 importlib.reload(plt)
 
+
+
 class LaplaceProblem:
 
     def __init__(self, domain_vertices: NDArray[np.float64], domain_scale: float, internal_point: NDArray[np.float64],
@@ -156,7 +158,7 @@ class LaplaceSolver(Function):
 
                 for j in range(num_poles):
 
-                    dist = np.linalg.norm(self.problem.domain_vertices[:, v] - poles[v][:, j])
+                    dist = np.linalg.norm(self.problem.domain_vertices[:, v] - poles[p][:, j])
 
                     for k in range(3):
                         t = (k + 1) / 3 * dist

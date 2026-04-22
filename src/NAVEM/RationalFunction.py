@@ -75,9 +75,9 @@ class RationalFunction:
 
         flat_poles = np.zeros([3, num_total_poles])
         offset = 0
-        for v in list_pole_vertices:
-            flat_poles[:, offset:offset + poles[v].shape[1]] = poles[v]
-            offset += poles[v].shape[1]
+        for p in range(len(list_pole_vertices)):
+            flat_poles[:, offset:offset + poles[p].shape[1]] = poles[p]
+            offset += poles[p].shape[1]
 
         return poles, flat_poles
 
