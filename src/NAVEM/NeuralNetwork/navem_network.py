@@ -12,9 +12,11 @@ class Flags(TypedDict):
     num_hidden_layers: int
     num_neurons_per_layer: int
     harmonic_degree: int
+    normalization_diameter: float
     use_hanging_function: bool
     list_id_vertices_rationals: List[int]
     regularization_coefficient: float
+    num_points_on_each_edge: int
     name_storage: str
 
 def set_flags(network_input_dimension: int,
@@ -23,9 +25,11 @@ def set_flags(network_input_dimension: int,
               num_hidden_layers: int,
               num_neurons_per_layer: int,
               harmonic_degree: int,
+              normalization_diameter: float,
               use_hanging_function: bool,
               list_id_vertices_rationals: List[int],
               regularization_coefficient: float,
+              num_points_on_each_edge: int,
               export_training_data_file_path: str) -> Flags:
 
     flags: Flags = {'input_dim': network_input_dimension,
@@ -35,9 +39,11 @@ def set_flags(network_input_dimension: int,
                     'num_hidden_layers': num_hidden_layers,
                     'num_neurons_per_layer': num_neurons_per_layer,
                     'harmonic_degree': harmonic_degree,
+                    'normalization_diameter': normalization_diameter,
                     'use_hanging_function': use_hanging_function,
                     'list_id_vertices_rationals': list_id_vertices_rationals,
                     'regularization_coefficient': regularization_coefficient,
+                    'num_points_on_each_edge': num_points_on_each_edge,
                     'name_storage': export_training_data_file_path}
 
     return flags

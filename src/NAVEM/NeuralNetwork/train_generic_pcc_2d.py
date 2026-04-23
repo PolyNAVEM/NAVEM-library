@@ -1,4 +1,6 @@
 from pypolydim import gedim
+
+from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
 from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from typing import List
@@ -110,51 +112,20 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
                                                    regularization_coefficient: float,
                                                    export_training_data_file_path: str,
                                                    harmonic_degree: int = 20,
+                                                   normalization_diameter: float = 3.0,
                                                    use_hanging_function: bool = True):
 
     assert method_order == 1
     assert method_type == NAVEMType.NAVEM
 
-    nkm2_polynomial = int(0.5 * vem_k * (vem_k - 1))
-    n_dofs = vem_k * n_vertices + nkm2_polynomial  # boundary + internal dofs
-    index_bin_size = int(np.floor(np.log2(n_dofs - 1)) + 1)
-    network_input_dimension = 2 + 2 * (n_vertices - 1)
+    index_bin_size = int(np.floor(np.log2(num_vertices - 1)) + 1)
+    network_input_dimension = 2 + 2 * (num_vertices - 1)
 
-    tf.print('\n')
-    tf.print('The total number of dof per element is: {}'.format(n_dofs))
-    tf.print('\n')
-
-    # set geometry tolerance
-    tol = 1.0e-12
-    geometry_utilities = GeometryUtilities(tol, tol_almost_hanging_nodes)
-    if concave_convex_both == 0 or concave_convex_both == 2:
-        if use_hanging_function:
-            list_id_vertices_hanging = list(np.arange(0, n_vertices))
-        else:
-            list_id_vertices_hanging = []
-
-        if use_rational_function:
-            list_id_vertices_rationals = list(np.arange(0, n_vertices))
-        else:
-            list_id_vertices_rationals = []
-    else:
-        if use_hanging_function:
-            list_id_vertices_hanging = [0, 1, n_vertices - 1]
-        else:
-            list_id_vertices_hanging = []
-
-        if use_rational_function:
-            list_id_vertices_rationals = [0, 1, n_vertices - 1]
-        else:
-            list_id_vertices_rationals = []
-
-    hang_func = LaplaceSolver('polygon_hanging')
-    navem_polynomial = NAVEMPolynomialBasis(geometry_utilities, vem_k, harm_deg, harmonic_type_function,
-                                            use_hanging_function, list_id_vertices_hanging,
-                                            use_rational_function, rational_num_rat_points,
-                                            list_id_vertices_rationals, rational_type_function,
-                                            edge_normalization_square, hang_func)
-
+    navem_generators = NAVEMGenerators(geometry_utilities,
+                                       num_vertices,
+                                       harmonic_degree,
+                                       use_hanging_function,
+                                       normalization_diameter)
 
     flags: Flags = set_flags(network_input_dimension,
                               method_order,
@@ -162,21 +133,22 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
                               num_hidden_layers,
                               num_neurons_per_layer,
                               harmonic_degree,
+                              normalization_diameter,
                               use_hanging_function,
-                              list_id_vertices_rationals,
+                              navem_generators.list_id_vertices_hanging,
                               regularization_coefficient,
+                              num_points_on_each_edge,
                               export_training_data_file_path)
 
-    # Build the polynomial+harm correction. If no harmonic correction is requested,
-    # all harmonic nn weights and biases are automatically set to zero
+
     nn = NAVEMNetwork(flags)
     nn.build_network()
 
     num_training_polygons = mesh.cell2_d_total_number()
 
     # Initialize edge loss
-    tf.print('The number of points on each edge is: {}'.format(n_points_on_each_edge))
-    bloss = losses.EdgesLoss(geometry_utilities, n_points_on_each_edge, vem_k, n_edges)
+    tf.print('The number of points on each edge is: {}'.format(num_points_on_each_edge))
+    bloss = losses.EdgesLoss(geometry_utilities, num_points_on_each_edge, method_order, num_vertices)
 
     points = np.array([], dtype=np.float64).reshape(0, network_input_dimension)
     angles = np.array([], dtype=np.float64).reshape(0, num_vertices)
@@ -190,13 +162,11 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
     labels_derivs = np.array([], dtype=np.float64)
     vertex_filter = np.array([], dtype=np.float64).reshape(0)
 
-    super_vandermonde = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_polynomial.n_tot_polynomial))
-    super_vander_dx = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_polynomial.n_tot_polynomial))
-    super_vander_dy = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_polynomial.n_tot_polynomial))
+    super_vandermonde = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
+    super_vander_dx = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
+    super_vander_dy = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
     input_network = np.zeros((num_training_polygons * num_vertices, network_input_dimension))
 
-    already_considered_polygons = []
-    second_or_subsequent_polygon = False
 
     exact_bfgs = True
     for c in range(num_training_polygons):
@@ -227,31 +197,11 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
             zeros = np.zeros([1, Npoint])
             vander_points = np.concatenate((vander_points, zeros), axis=0)
 
-            # I store the vandermonde matrix that will be used
-            if use_rational_function:
-                polygon_edge_normals = geometry_utilities.compute_polygon_edge_normals(rotated_vertices)
-                polygon_vertex_bisectors = geometry_utilities.compute_polygon_vertex_bisectors(polygon_edge_normals)
-                polygon_bounding_box = geometry_utilities.compute_points_bounding_box(rotated_vertices)
-                polygon_scale = max([polygon_bounding_box[0, 1] - polygon_bounding_box[0, 0],
-                                     polygon_bounding_box[1, 1] - polygon_bounding_box[1, 0]])
-
-                flat_poles, poles = RationalFunction.compute_poles(geometry_utilities, rational_num_rat_points,
-                                                                   list_id_vertices_rationals, rotated_vertices,
-                                                                   polygon_vertex_bisectors, polygon_scale)
-                num_total_poles = flat_poles.shape[1]
-                dist = RationalFunction.compute_dist(list_id_vertices_rationals, poles, flat_poles, rotated_vertices)
-
-                local_vandermonde_grads = navem_polynomial.vander_derivatives(vander_points, rotated_vertices,
-                                                                              flat_poles, dist, internal_angles=internal_angles,
-                                                                              vertex_distance=vertex_distance)
-                local_vander = navem_polynomial.vander(vander_points, rotated_vertices, flat_poles, dist, internal_angles=internal_angles,
-                                                       vertex_distance=vertex_distance)
-            else:
-                local_vander, local_vandermonde_grads = (
-                    navem_polynomial.vander_and_vander_derivatives(vander_points,
-                                                                   rotated_vertices,
-                                                                   internal_angles=internal_angles,
-                                                                   vertex_distance=vertex_distance))
+            local_vander, local_vandermonde_grads = (
+                navem_polynomial.vander_and_vander_derivatives(vander_points,
+                                                               rotated_vertices,
+                                                               internal_angles=internal_angles,
+                                                               vertex_distance=vertex_distance))
 
             super_vandermonde[c * num_vertices + v_id, :, :] = local_vander
             super_vander_dx[c * num_vertices + v_id, :, :] = local_vandermonde_grads[0, :, :]

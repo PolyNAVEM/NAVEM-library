@@ -7,20 +7,24 @@ from src.NAVEM.Utilities.LaplaceSolver import hanging_function
 class NAVEMGenerators:
 
     def __init__(self, geometry_utilities: gedim.GeometryUtilities,
+                 num_vertices: int,
                  harmonic_degree: int,
                  use_hanging_function: bool,
-                 list_id_vertices_hanging: List[int],
                  normalization_diameter):
 
         self.normalization_diameter = normalization_diameter
         self.normalization_centroid = np.zeros([3, 1])
         self.geometry_utilities = geometry_utilities
-        
+        self.num_vertices = num_vertices
+
         self.harmonic_degree = harmonic_degree
         self.harmonic_polynomials = HarmonicPolynomials(self.harmonic_degree, HarmonicPolynomials.HarmonicType.real)
 
         self.use_hanging_function = use_hanging_function
-        self.list_id_vertices_hanging = list_id_vertices_hanging
+        self.list_id_vertices_hanging: List[int] = []
+        if use_hanging_function:
+            self.list_id_vertices_hanging = [0, 1, num_vertices - 1]
+
 
         self.num_harmonic_polynomials = self.harmonic_polynomials.num_harmonic_polynomials
 
@@ -49,10 +53,9 @@ class NAVEMGenerators:
             self.num_generators += self.num_hanging_functions
 
 
-    def vander(self, points, polygon_vertices, flat_poles=np.zeros(0), dist=np.zeros(0),
-                                      internal_angles=np.zeros(0), vertex_distance=[]):
+    def vander(self, points, polygon_vertices):
 
-        harmonic_vandermonde = (
+        vandermonde = (
                 self.harmonic_polynomials.vander(points,
                                                  self.normalization_diameter,
                                                  self.normalization_centroid)[0] @ self.change_basis_matrix)
@@ -70,6 +73,7 @@ class NAVEMGenerators:
 
                 hang_vandermonde = self.hanging_function.vander(original_points)
                 vandermonde = np.concatenate((vandermonde, hang_vandermonde), axis=1)
+
 
         return vandermonde
 
