@@ -1,7 +1,7 @@
 import numpy as np
 from pypolydim import gedim
 from typing import List
-from src.NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials
+from src.NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials, change_basis_matrix
 from src.NAVEM.Utilities.LaplaceSolver import hanging_function
 
 class NAVEMGenerators:
@@ -41,10 +41,7 @@ class NAVEMGenerators:
         harmonic_vandermonde = self.harmonic_polynomials.vander(change_basis_points, self.normalization_diameter,
                                                             self.normalization_centroid)[0]
 
-
-
-        self.change_basis_matrix = pol_utils.change_basis_matrix(harmonic_vandermonde)
-
+        self.change_basis_matrix = change_basis_matrix(harmonic_vandermonde)
         self.num_generators = self.num_harmonic_polynomials
 
         if self.use_hanging_function:

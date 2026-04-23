@@ -4,6 +4,44 @@ from enum import Enum
 from typing import Tuple
 
 
+def mgs(x_matrix: NDArray[np.float64]) -> Tuple[NDArray[np.float64],  NDArray[np.float64]]:
+
+    # Modified Gram - Schmidt.[Q, R] = MGS(X);
+    # G.W.Stewart, "Matrix Algorithms, Volume 1", SIAM, 1998.
+    m: int = x_matrix.shape[0]
+    n: int = x_matrix.shape[1]
+
+    q_matrix = np.zeros((m, n))
+    r_matrix = np.zeros((n, n))
+
+    for i in range(n):
+        q_matrix[:, i] = x_matrix[:, i]
+        for j in range(i):
+
+            r_matrix[j, i] = np.dot(q_matrix[:, i], q_matrix[:, j])
+            q_matrix[:, i] = q_matrix[:, i] - r_matrix[j, i] * q_matrix[:, j]
+
+        r_matrix[i, i] = np.linalg.norm(q_matrix[:, i])
+        q_matrix[:, i] = (1.0 / r_matrix[i, i]) * q_matrix[:, i]
+
+    return q_matrix, r_matrix
+
+
+def change_basis_matrix(vander_matrix: NDArray[np.float64]) -> NDArray[np.float64]:
+
+    q1_matrix, r1_matrix = mgs(vander_matrix)
+    q2_matrix, r2_matrix = mgs(q1_matrix)
+
+    change_basis = np.linalg.inv(r2_matrix @ r1_matrix)
+
+    #if np.linalg.norm(q2_matrix.T @ q2_matrix - np.identity(q2_matrix.shape[1])) >= 1.0e-10:
+    #    raise Exception("mgs factorization fail")
+
+    # if np.linalg.norm(vander_matrix @ change_basis - q2_matrix) >= 1.0e-10:
+    #     raise Exception("mgs factorization fail")
+
+    return change_basis
+
 class HarmonicPolynomials:
 
     class HarmonicType(Enum):

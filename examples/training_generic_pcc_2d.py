@@ -112,6 +112,10 @@ def main():
                                                   args.harmonic_degree,
                                                   args.normalization_diameter,
                                                   args.use_hanging_function)
+        case method_type.B_NAVEM:
+            pass
+        case method_type.P_NAVEM:
+            pass
         case _:
             raise ValueError("not valid method")
 

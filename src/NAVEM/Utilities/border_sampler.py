@@ -58,21 +58,13 @@ def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: float,
     ref_xy_near_singularity = reference_points_distribution(0.0, 1.0, n_pts_on_edge, distribution_type)
 
     pts = np.zeros((3, n_pts_on_edge * num_vertices))
-    labels = np.zeros(n_pts_on_edge * num_vertices)
 
     pts[:, :n_pts_on_edge] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, 1:2] - vertices[:, 0:1])
     for v in range(1, num_vertices-1):
         pts[:, v*n_pts_on_edge:(v+1)*n_pts_on_edge] = vertices[:, v:v+1] + ref_xy_standard * (vertices[:, v+1:v+2] - vertices[:, v:v+1])
     pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
 
-    if v_id == 0:
-        labels[:n_pts_on_edge] = 1.0-ref_xy_near_singularity
-        labels[-n_pts_on_edge:] = 1.0-ref_xy_near_singularity
-    else:
-        labels[v_id * n_pts_on_edge:(v_id + 1) * n_pts_on_edge] = 1.0 - ref_xy_near_singularity
-        labels[(v_id - 1) * n_pts_on_edge:v_id * n_pts_on_edge] = ref_xy_near_singularity
-
-    return pts, labels, n_pts_on_edge
+    return pts
 
 def dataset_on_polygonal_border_not_including_vertices(vertices: np.ndarray, npts: float,
                                                        distribution_type: PointsDistributionType,
@@ -84,8 +76,6 @@ def dataset_on_polygonal_border_not_including_vertices(vertices: np.ndarray, npt
     ref_xy_near_singularity = reference_points_distribution(0.0, 1.0, n_pts_on_edge + 2, distribution_type)[1:-1]
 
     pts = np.zeros((3, n_pts_on_edge * num_vertices))
-    labels = np.zeros(n_pts_on_edge * num_vertices)
-    der_labels = np.zeros(n_pts_on_edge * num_vertices)
 
     pts[:, :n_pts_on_edge] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, 1:2] - vertices[:, 0:1])
     for v in range(1, num_vertices - 1):
@@ -93,23 +83,7 @@ def dataset_on_polygonal_border_not_including_vertices(vertices: np.ndarray, npt
                     vertices[:, v + 1:v + 2] - vertices[:, v:v + 1])
     pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
 
-    if v_id == 0:
-        labels[:n_pts_on_edge] = 1.0 - ref_xy_near_singularity
-        der_labels[:n_pts_on_edge] = (-1.0/np.linalg.norm(vertices[:, 1:2] - vertices[:, 0:1])
-                                      * np.ones(n_pts_on_edge))
-        labels[-n_pts_on_edge:] = 1.0 - ref_xy_near_singularity
-        der_labels[-n_pts_on_edge:] = (1.0 / np.linalg.norm(vertices[:, -1:] - vertices[:, 0:1])
-                                       * np.ones(n_pts_on_edge))
-    else:
-        labels[v_id * n_pts_on_edge:(v_id + 1) * n_pts_on_edge] = 1.0 - ref_xy_near_singularity
-        labels[(v_id - 1) * n_pts_on_edge:v_id * n_pts_on_edge] = ref_xy_near_singularity
-        der_labels[v_id * n_pts_on_edge:(v_id + 1) * n_pts_on_edge] \
-            = -1.0 / np.linalg.norm(vertices[:, 1:2] - vertices[:, 0:1]) * np.ones(
-            n_pts_on_edge)
-        der_labels[(v_id - 1) * n_pts_on_edge:v_id * n_pts_on_edge] \
-            = 1.0 / np.linalg.norm(vertices[:, -1:] - vertices[:, 0:1]) * np.ones(
-            n_pts_on_edge)
-    return pts, labels, n_pts_on_edge, der_labels
+    return pts
 
 def dataset_on_curved_border(n_pts: int, theta: float, radius: float):
     len_extern_perimeter = (2 * np.pi - theta) * radius

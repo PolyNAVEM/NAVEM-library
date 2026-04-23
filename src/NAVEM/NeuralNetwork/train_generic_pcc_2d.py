@@ -4,7 +4,7 @@ from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
 from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from typing import List
-from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork
+from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss
 import numpy as np
 import tensorflow as tf
 
@@ -133,6 +133,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
                              num_vertices,
+                             navem_generators.num_generators,
                              num_hidden_layers,
                              num_neurons_per_layer,
                              num_epoches_opt_order1,
@@ -150,13 +151,11 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
 
     nn = NAVEMNetwork(flags)
-    nn.build_network()
-
     num_training_polygons = mesh.cell2_d_total_number()
 
     # Initialize edge loss
     tf.print('The number of points on each edge is: {}'.format(num_points_on_each_edge))
-    bloss = losses.EdgesLoss(geometry_utilities, num_points_on_each_edge, method_order, num_vertices)
+    boundary_loss = BoundaryLoss(geometry_utilities, num_points_on_each_edge, method_order, num_vertices)
 
     points = np.array([], dtype=np.float64).reshape(0, network_input_dimension)
     angles = np.array([], dtype=np.float64).reshape(0, num_vertices)
