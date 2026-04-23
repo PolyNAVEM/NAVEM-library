@@ -1,5 +1,5 @@
 from pypolydim import gedim
-from src.NAVEM.border_sampler import *
+from src.NAVEM.Utilities.border_sampler import *
 from abc import ABC, abstractmethod
 from typing import Tuple
 from numpy.typing import NDArray

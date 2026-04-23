@@ -1,14 +1,14 @@
 import importlib
 
 from scipy.sparse import diags
-from src.NAVEM.HarmonicPolynomials import HarmonicPolynomials
-from src.NAVEM.RationalFunction import RationalFunction
+from src.NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials
+from src.NAVEM.Utilities.RationalFunction import RationalFunction
 from src.GeDiM.geometry.geometry_utilities import *
-from src.NAVEM.FunctionUtilities import Function
+from src.NAVEM.Utilities.FunctionUtilities import Function
 import matplotlib.pyplot as plt
 from matplotlib import use
 from typing import Tuple, Callable
-from src.NAVEM.border_sampler import reference_points_distribution, PointsDistributionType
+from src.NAVEM.Utilities.border_sampler import reference_points_distribution, PointsDistributionType
 
 use("Qt5Agg")
 importlib.reload(plt)
@@ -255,3 +255,28 @@ class LaplaceSolver(Function):
 
 
         # print('n: ', self.num_actual_iteration, ' NumFlatPoles: ', self.flat_poles.shape[1], ' N2: ', self.harm_deg, ' error: ', self.error)
+
+
+def hanging_function(geometry_utilities: gedim.GeometryUtilities) -> LaplaceSolver:
+    num_vertices = 5
+    domain_vertices = np.zeros([3, num_vertices])
+    domain_vertices[0, :] = [1.0, 1.0, -1.0, -1.0, 1.0]
+    domain_vertices[1, :] = [0.0, 1.0, 1.0, -1.0, -1.0]
+    internal_point = np.zeros([3, 1])
+    list_pole_vertices = [0]
+    iterations = [50]
+    domain_scale = 2.0
+
+    def boundary_conditions(v: int, points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+        if v == 4:
+            return 1.0 + points[1, :]
+        elif v == 0:
+            return 1.0 - points[1, :]
+        else:
+            return 0.0 + 0.0 * points[1, :]
+
+    problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
+    solver = LaplaceSolver(geometry_utilities, problem, iterations, list_pole_vertices)
+
+    return solver

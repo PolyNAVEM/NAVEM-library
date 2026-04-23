@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from pypolydim import gedim
-from src.NAVEM.NAVEMPolygon import NAVEMPolygon
+from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.GeDiM.geometry.geometry_utilities import *
 
 try:

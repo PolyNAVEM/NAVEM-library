@@ -1,7 +1,7 @@
 import unittest
 
-from src.NAVEM.LaplaceSolver import LaplaceSolver, LaplaceProblem
-from src.NAVEM.FunctionUtilities import *
+from src.NAVEM.Utilities.LaplaceSolver import LaplaceSolver, LaplaceProblem
+from src.NAVEM.Utilities.FunctionUtilities import *
 from src.GeDiM.geometry.geometry_utilities import *
 
 class TestLaplaceSolver(unittest.TestCase):
