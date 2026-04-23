@@ -13,8 +13,9 @@ class Flags(TypedDict):
     num_neurons_per_layer: int
     num_epoches_opt_order1: int
     num_epoches_opt_order2: int
-    learning_rate_opt_order1: float
-    learning_rate_opt_order2: float
+    learning_rate_max: float
+    learning_rate_min: float
+    use_sqrt_in_train: bool
     harmonic_degree: int
     normalization_diameter: float
     use_hanging_function: bool
@@ -30,8 +31,9 @@ def set_flags(network_input_dimension: int,
               num_neurons_per_layer: int,
               num_epoches_opt_order1: int,
               num_epoches_opt_order2: int,
-              learning_rate_opt_order1: float,
-              learning_rate_opt_order2: float,
+              learning_rate_max: float,
+              learning_rate_min: float,
+              use_sqrt_in_train: bool,
               harmonic_degree: int,
               normalization_diameter: float,
               use_hanging_function: bool,
@@ -48,8 +50,9 @@ def set_flags(network_input_dimension: int,
                     'num_neurons_per_layer': num_neurons_per_layer,
                     'num_epoches_opt_order1': num_epoches_opt_order1,
                     'num_epoches_opt_order2': num_epoches_opt_order2,
-                    'learning_rate_opt_order1': learning_rate_opt_order1,
-                    'learning_rate_opt_order2': learning_rate_opt_order2,
+                    'learning_rate_max': learning_rate_max,
+                    'learning_rate_min': learning_rate_min,
+                    'use_sqrt_in_train': use_sqrt_in_train,
                     'harmonic_degree': harmonic_degree,
                     'normalization_diameter': normalization_diameter,
                     'use_hanging_function': use_hanging_function,

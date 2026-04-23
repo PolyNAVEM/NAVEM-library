@@ -132,17 +132,6 @@ class NAVEMGenerators:
                     = grad_hang_vandermonde[1, :, :]
 
 
-        if self.use_rational_function:
-            n_hangings = self.num_hanging_functions
-            grad_rat_vandermonde = self.rational_function.vander_derivatives(points, flat_poles, dist)
-
-            grad_vandermonde[0, :, (self.n_polynomial + n_hangings ):
-                                   (self.n_polynomial + n_hangings + self.num_rational_functions)] \
-                = grad_rat_vandermonde[0, :, :]
-            grad_vandermonde[1, :, (self.n_polynomial + n_hangings ):
-                                   (self.n_polynomial + n_hangings + self.num_rational_functions)] \
-                = grad_rat_vandermonde[1, :, :]
-
         return grad_vandermonde
 
     def vander_and_vander_derivatives(self, points, polygon_vertices, flat_poles=np.zeros(0), dist=np.zeros(0),
@@ -205,26 +194,4 @@ class NAVEMGenerators:
 
                 vandermonde = np.concatenate((vandermonde, hang_vandermonde), axis=1)
 
-        if self.use_rational_function:
-            n_hangings = self.num_hanging_functions
-            grad_rat_vandermonde = self.rational_function.vander_derivatives(points, flat_poles, dist)
-
-            grad_vandermonde[0, :, (self.n_polynomial + n_hangings):
-                                   (self.n_polynomial + n_hangings + self.num_rational_functions)] \
-                = grad_rat_vandermonde[0, :, :]
-            grad_vandermonde[1, :, (self.n_polynomial + n_hangings):
-                                   (self.n_polynomial + n_hangings + self.num_rational_functions)] \
-                = grad_rat_vandermonde[1, :, :]
-
-            vandermonde_rat = self.rational_function.vander(points, flat_poles, dist)
-            vandermonde = np.concatenate((vandermonde, vandermonde_rat), axis=1)
-
-        return vandermonde, grad_vandermonde
-
-
-class EmptyHangingFunction:
-    def __init__(self):
-        self.harm_deg = 0
-        self.flat_poles = np.array([]).reshape([0, 0])
-        self.function_type = 0
 

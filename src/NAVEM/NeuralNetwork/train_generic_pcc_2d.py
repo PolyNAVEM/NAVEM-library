@@ -98,23 +98,25 @@ def write_dictionary(network_input_dimension: int,
     file.close()
 
 
-def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMType,
-                                                   num_vertices: int,
-                                                   geometry_utilities: gedim.GeometryUtilities,
-                                                   mesh: gedim.MeshMatricesDAO,
-                                                   mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
-                                                   num_hidden_layers: int,
-                                                   num_neurons_per_layer: int,
-                                                   num_epoches_opt_order1: int,
-                                                   num_epoches_opt_order2: int,
-                                                   learning_rate_opt_order1: float,
-                                                   learning_rate_opt_order2: float,
-                                                   num_points_on_each_edge: int,
-                                                   regularization_coefficient: float,
-                                                   export_training_data_file_path: str,
-                                                   harmonic_degree: int = 20,
-                                                   normalization_diameter: float = 3.0,
-                                                   use_hanging_function: bool = True):
+def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMType,
+                                           num_vertices: int,
+                                           geometry_utilities: gedim.GeometryUtilities,
+                                           mesh: gedim.MeshMatricesDAO,
+                                           mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
+                                           num_hidden_layers: int,
+                                           num_neurons_per_layer: int,
+                                           num_epoches_opt_order1: int,
+                                           num_epoches_opt_order2: int,
+                                           learning_rate_max: float,
+                                           learning_rate_min: float,
+                                           num_points_on_each_edge: int,
+                                           regularization_coefficient: float,
+                                           export_training_data_file_path: str,
+                                           export_training_info: bool = False,
+                                           use_sqrt_in_train: bool = False,
+                                           harmonic_degree: int = 20,
+                                           normalization_diameter: float = 3.0,
+                                           use_hanging_function: bool = True):
 
     assert method_order == 1
     assert method_type == NAVEMType.NAVEM
@@ -129,17 +131,22 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
                                        normalization_diameter)
 
     flags: Flags = set_flags(network_input_dimension,
-                              method_order,
-                              num_vertices,
-                              num_hidden_layers,
-                              num_neurons_per_layer,
-                              harmonic_degree,
-                              normalization_diameter,
-                              use_hanging_function,
-                              navem_generators.list_id_vertices_hanging,
-                              regularization_coefficient,
-                              num_points_on_each_edge,
-                              export_training_data_file_path)
+                             method_order,
+                             num_vertices,
+                             num_hidden_layers,
+                             num_neurons_per_layer,
+                             num_epoches_opt_order1,
+                             num_epoches_opt_order2,
+                             learning_rate_max,
+                             learning_rate_min,
+                             use_sqrt_in_train,
+                             harmonic_degree,
+                             normalization_diameter,
+                             use_hanging_function,
+                             navem_generators.list_id_vertices_hanging,
+                             regularization_coefficient,
+                             num_points_on_each_edge,
+                             export_training_data_file_path)
 
 
     nn = NAVEMNetwork(flags)

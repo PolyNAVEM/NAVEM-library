@@ -35,7 +35,8 @@ def create_mesh(geometry_utilities: gedim.GeometryUtilities, mesh_utilities: ged
     elif (polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D.csv_importer == mesh_type or
             polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D.off_importer == mesh_type):
 
-        polydim.pde_tools.mesh.pde_mesh_utilities.import_mesh_2_d(mesh_utilities,
+        polydim.pde_tools.mesh.pde_mesh_utilities.import_mesh_2_d(geometry_utilities,
+                                                                  mesh_utilities,
                                                                   mesh_type,
                                                                   import_path,
                                                                   mesh)
