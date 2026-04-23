@@ -3,7 +3,7 @@ import tensorflow as tf
 from typing import List, TypedDict
 from tensorflow.keras.layers import Dense
 from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.border_sampler import reference_points_distribution, PointsDistributionType, map_pts_from_1d_to_2d
+from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsDistributionType, map_pts_from_1d_to_2d
 
 class Flags(TypedDict):
     input_dim: int
@@ -23,7 +23,7 @@ class Flags(TypedDict):
     harmonic_degree: int
     normalization_diameter: float
     use_hanging_function: bool
-    list_id_vertices_rationals: List[int]
+    list_id_vertices_hanging: List[int]
     regularization_coefficient: float
     num_points_on_each_edge: int
     name_storage: str
@@ -32,8 +32,8 @@ def set_flags(network_input_dimension: int,
               method_order: int,
               num_vertices: int,
               num_generators: int,
-mesh_import_path: str,
-num_training_polygons: int,
+              mesh_import_path: str,
+              num_training_polygons: int,
               num_hidden_layers: int,
               num_neurons_per_layer: int,
               num_epoches_opt_order1: int,
@@ -44,7 +44,7 @@ num_training_polygons: int,
               harmonic_degree: int,
               normalization_diameter: float,
               use_hanging_function: bool,
-              list_id_vertices_rationals: List[int],
+              list_id_vertices_hanging: List[int],
               regularization_coefficient: float,
               num_points_on_each_edge: int,
               export_training_data_file_path: str) -> Flags:
@@ -66,7 +66,7 @@ num_training_polygons: int,
                     'harmonic_degree': harmonic_degree,
                     'normalization_diameter': normalization_diameter,
                     'use_hanging_function': use_hanging_function,
-                    'list_id_vertices_rationals': list_id_vertices_rationals,
+                    'list_id_vertices_hanging': list_id_vertices_hanging,
                     'regularization_coefficient': regularization_coefficient,
                     'num_points_on_each_edge': num_points_on_each_edge,
                     'name_storage': export_training_data_file_path}

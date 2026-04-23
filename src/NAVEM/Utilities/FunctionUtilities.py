@@ -1,9 +1,11 @@
+import numpy as np
 from pypolydim import gedim
-from src.NAVEM.Utilities.border_sampler import *
+from src.NAVEM.Utilities.points_generator import *
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Callable, List
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
+from src.GeDiM.geometry.geometry_utilities import *
 
 class Function(ABC):
 
@@ -21,14 +23,19 @@ class Function(ABC):
 
 
 def evaluate_accuracy_on_domain_boundary(geometry_utilities: gedim.GeometryUtilities, n_err_pts: int,
-                                         function: Function, v_id: int = 0) -> Tuple[float, float]:
+                                         function: Function,
+                                         boundary_dirichlet_conditions: Callable[[int, NDArray[np.float64]], NDArray[np.float64]],
+                                         v_id: int = 0) -> Tuple[float, float]:
 
     distribution = PointsDistributionType.uniform
     polygon_vertices = function.domain_vertices()
     num_vertices = polygon_vertices.shape[1]
 
-    err_points_on_edges, err_labels, _ = dataset_on_polygonal_border(polygon_vertices,
-                                                                     n_err_pts, distribution, v_id)
+    err_points_on_edges = dataset_on_polygonal_border(polygon_vertices,
+                                                      n_err_pts,
+                                                      distribution)
+
+    err_labels = boundary_dirichlet_conditions(v_id, err_points_on_edges)
 
     predicted_labels = np.squeeze(function.vander(err_points_on_edges), axis=1)
     err_max_l2 = float(np.linalg.norm(predicted_labels - err_labels, ord=np.inf))
@@ -151,140 +158,8 @@ def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.Geo
     ##################################################################
 
 
-def plot_function_on_edges(geometry_utilities: gedim.GeometryUtilities, n_err_pts, function, v_id=0):
 
-    distribution = "uniform"
-    points_on_edges, true_labels, _ = (dataset_on_polygonal_border(function.polygon_vertices,
-                                                                                  n_err_pts, distribution, v_id))
-
-    predicted_labels = np.squeeze(function.vander(points_on_edges), axis=1)
-
-    ##################################################################
-    fig = plt.figure(figsize=plt.figaspect(0.5))
-    ax = fig.add_subplot(projection='3d')
-    # ax = fig.add_subplot(1, 2, 1, projection='3d')
-
-    coord = np.zeros([3, function.num_vertices + 1])
-    coord[:, 0:function.num_vertices] = function.polygon_vertices
-    coord[:, function.num_vertices] = function.polygon_vertices[:, 0]
-    ax.plot(coord[0, :], coord[1, :], coord[2, :], label='vertices')
-    #################################################################
-
-    ##################################################################
-    ax.scatter(points_on_edges[0, :],
-               points_on_edges[1, :],
-               true_labels,
-               label='true labels')
-
-    ax.scatter(points_on_edges[0, :],
-               points_on_edges[1, :],
-               predicted_labels,
-               label='predicted labels')
-    ##################################################################
-
-    plt.legend()
-    plt.show()
-    ##################################################################
-
-
-def plot_function_and_tangent_derivatives_on_mapped_elements(geometry_utilities: gedim.GeometryUtilities,
-                                                             polygon_vertices,
-                                                             n_err_pts, function,
-                                                             internal_angles,
-                                                             vertex_distance):
-
-    distribution = "uniform"
-    points_on_edges, _, _ = (dataset_on_polygonal_border(function.polygon_vertices,
-                                                                        n_err_pts, distribution))
-
-    points_on_edges_nv, _, num_points_on_edge_nv, _ \
-        = (dataset_on_polygonal_border_not_including_vertices(function.polygon_vertices,
-                                                                             n_err_pts, distribution))
-
-    predicted_labels = np.squeeze(function.vander(points_on_edges), axis=1)
-    num_phisical_vertices = polygon_vertices.shape[1]
-
-    ##################################################################
-    fig = plt.figure(figsize=plt.figaspect(0.5))
-    #################################################################
-
-    for v in range(num_phisical_vertices):
-
-        translation_1, translation_2, B, B_inv = compute_map_f(geometry_utilities, v, polygon_vertices, function.polygon_vertices, internal_angles, vertex_distance)
-
-        mapped_reference_vertices, _ = map_f(translation_1, translation_2, B, B_inv, function.polygon_vertices)
-
-        mapped_points_on_edges, _ = map_f(translation_1, translation_2, B, B_inv, points_on_edges)
-
-        mapped_points_on_edges_nv, _ = map_f(translation_1, translation_2, B, B_inv, points_on_edges_nv)
-
-        ##################################################################
-        ax = fig.add_subplot(int(np.floor(num_phisical_vertices * 0.5)), int(np.ceil(num_phisical_vertices * 0.5)),
-                             v + 1, projection='3d')
-
-        coord = np.zeros([3, polygon_vertices.shape[1] + 1])
-        coord[:, 0:polygon_vertices.shape[1]] = polygon_vertices
-        coord[:, polygon_vertices.shape[1]] = polygon_vertices[:, 0]
-        ax.plot(coord[0, :], coord[1, :], coord[2, :], label='vertices')
-        #################################################################
-
-        ##################################################################
-        coord = np.zeros([3, function.num_vertices + 1])
-        coord[:, 0:function.num_vertices] = mapped_reference_vertices
-        coord[:, function.num_vertices] = mapped_reference_vertices[:, 0]
-        ax.plot(coord[0, :], coord[1, :], coord[2, :], label='hang vertices')
-        #################################################################
-
-        #################################################################
-        ax.scatter(mapped_points_on_edges[0, :],
-                   mapped_points_on_edges[1, :],
-                   predicted_labels,
-                   label='predicted labels')
-        #################################################################
-
-        jac = B_inv.T
-        d_predicted_labels = compute_vander_derivatives(points_on_edges_nv, jac, function)
-
-        dx_predicted_labels = d_predicted_labels[0, :, :]
-        dy_predicted_labels = d_predicted_labels[1, :, :]
-
-        d_tangent_predicted_labels_interpolation = np.zeros([points_on_edges_nv.shape[1], 1])
-        for v in range(function.num_vertices):
-            tangent = geometry_utilities.compute_segment_tangent(mapped_reference_vertices[:, v],
-                                                                 mapped_reference_vertices[:,
-                                                                 (v + 1) % function.num_vertices])
-            tangent = tangent / np.linalg.norm(tangent)
-
-            d_tangent_predicted_labels_interpolation[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] \
-                = (dx_predicted_labels[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] * tangent[0] +
-                   dy_predicted_labels[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] * tangent[1])
-
-        ax.scatter(mapped_points_on_edges_nv[0, :],
-                   mapped_points_on_edges_nv[1, :],
-                   np.squeeze(d_tangent_predicted_labels_interpolation),
-                   label='tangent derivatives')
-
-    ##################################################################
-
-    plt.legend()
-    plt.show()
-    ##################################################################
-
-
-def compute_vander_derivatives(original_points, jac, function):
-
-    grad_hang_vandermonde = function.vander_derivatives(original_points)
-
-    grad_vandermonde = np.zeros(grad_hang_vandermonde.shape)
-
-    grad_vandermonde[0, :, :] = (jac[0, 0] * grad_hang_vandermonde[0, :, :]
-                                 + jac[0, 1] * grad_hang_vandermonde[1, :, :])
-    grad_vandermonde[1, :, :] = (jac[1, 0] * grad_hang_vandermonde[0, :, :]
-                                 + jac[1, 1] * grad_hang_vandermonde[1, :, :])
-
-    return grad_vandermonde
-
-def map_vander_derivatives(grad_hang_vandermonde, jac):
+def map_vander_derivatives(grad_hang_vandermonde: NDArray[np.float64], jac: NDArray[np.float64]) -> NDArray[np.float64]:
 
     grad_vandermonde = np.zeros(grad_hang_vandermonde.shape)
 
@@ -298,32 +173,33 @@ def map_vander_derivatives(grad_hang_vandermonde, jac):
 
 # Map F : reference -> polygon
 def compute_map_f(geometry_utilities: gedim.GeometryUtilities,
-                  v_id: int, vertices: np.ndarray, reference_vertices: np.ndarray,
-                  internal_angles, vertex_distance):
+                  v_id: int, vertices: NDArray[np.float64], reference_vertices: NDArray[np.float64],
+                  internal_angles: List[float], vertex_distance: List[float]) \
+        -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
     assert (vertices.shape[0] == 3 and vertices.shape[1] >= 3)
     num_vertices = vertices.shape[1]
 
     vert_after = vertices[:, (v_id + 1) % num_vertices]
-    interior_angle = internal_angles[0, v_id]
+    interior_angle = internal_angles[v_id]
 
-    _, tangent = geometry_utilities.compute_exterior_bisector_direction(interior_angle,
-                                                                        vertices[:, v_id],
-                                                                        vert_after)
+    _, tangent = compute_exterior_bisector_direction(interior_angle,
+                                                     vertices[:, v_id],
+                                                     vert_after)
 
 
     argument = tangent[0]
 
     # to avoid +-1.000000000000002
-    if argument < -1.0 + geometry_utilities.geometry_tol_1D:
+    if argument < -1.0 + geometry_utilities.tolerance1_d():
         argument = -1.0
-    elif argument > 1.0 - geometry_utilities.geometry_tol_1D:
+    elif argument > 1.0 - geometry_utilities.tolerance1_d():
         argument = 1.0
 
     # counterclockwise-wise rotation
     theta = np.arccos(argument)
 
-    if tangent[1] < -geometry_utilities.geometry_tol_1D:
+    if tangent[1] < -geometry_utilities.tolerance1_d():
         theta = -theta  # clockwise rotation
 
     rotation_matrix = np.array(
@@ -334,25 +210,25 @@ def compute_map_f(geometry_utilities: gedim.GeometryUtilities,
     assert np.linalg.det(rotation_matrix) > 0
 
     # Compute transformation matrices
-    B = scaling * rotation_matrix
-    B_inv = (1.0/scaling) * rotation_matrix.T
+    b_matrix = scaling * rotation_matrix
+    b_matrix_inv = (1.0/scaling) * rotation_matrix.T
 
     # Compute translations
     translation_1 = -reference_vertices[:, 0:1]
     translation_2 = vertices[:, v_id:v_id+1]
 
-    return translation_1, translation_2, B, B_inv
+    return translation_1, translation_2, b_matrix, b_matrix_inv
 
 
-def map_f_inv(translation_1, translation_2, B, B_inv, points: np.ndarray):
+def map_f_inv(translation_1, translation_2, b_matrix, b_matrix_inv, points: np.ndarray):
 
-    mapped_points = B_inv @ (points - translation_2) - translation_1
+    mapped_points = b_matrix_inv @ (points - translation_2) - translation_1
 
-    return mapped_points, B.T
+    return mapped_points, b_matrix.T
 
 
-def map_f(translation_1, translation_2, B, B_inv, points: np.ndarray):
+def map_f(translation_1, translation_2, b_matrix, b_matrix_inv, points: np.ndarray):
 
-    mapped_points = B @ (points + translation_1) + translation_2
+    mapped_points = b_matrix @ (points + translation_1) + translation_2
 
-    return mapped_points, B_inv.T
+    return mapped_points, b_matrix_inv.T

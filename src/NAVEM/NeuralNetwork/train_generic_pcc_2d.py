@@ -1,14 +1,12 @@
 from pypolydim import gedim
-
 from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
-from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
-from typing import List
 from src.NAVEM.NeuralNetwork.training_utilities import *
 from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss
 import numpy as np
 import tensorflow as tf
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
+import csv
 
 
 def write_dictionary(flags: Flags) -> None:
@@ -70,7 +68,6 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     assert method_order == 1
     assert method_type == NAVEMType.NAVEM
 
-    index_bin_size = int(np.floor(np.log2(num_vertices - 1)) + 1)
     network_input_dimension = 2 + 2 * (num_vertices - 1)
 
     navem_generators = NAVEMGenerators(geometry_utilities,

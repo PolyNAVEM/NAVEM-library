@@ -8,8 +8,6 @@ from enum import Enum
 use("Qt5Agg")
 importlib.reload(plt)
 
-
-
 class PointsDistributionType(Enum):
     uniform = 1
     chebyshev_lobatto = 2
@@ -53,8 +51,8 @@ def map_pts_from_1d_to_2d(abscissa: NDArray[np.float64], edge_start: NDArray[np.
     mapped_points_2d = edge_start + abscissa * (edge_end - edge_start)
     return mapped_points_2d
 
-def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: float,
-                                distribution_type: PointsDistributionType, v_id: int = 0):
+def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: int,
+                                distribution_type: PointsDistributionType) -> NDArray[np.float64]:
 
     num_vertices = vertices.shape[1]
     n_pts_on_edge = int(np.ceil(npts / num_vertices))
@@ -71,9 +69,8 @@ def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: float,
 
     return pts
 
-def dataset_on_polygonal_border_not_including_vertices(vertices: np.ndarray, npts: float,
-                                                       distribution_type: PointsDistributionType,
-                                                       v_id: int = 0):
+def dataset_on_polygonal_border_not_including_vertices(vertices: NDArray[np.float64], npts: int,
+                                                       distribution_type: PointsDistributionType) -> NDArray[np.float64]:
     num_vertices = vertices.shape[1]
     n_pts_on_edge = int(np.ceil(npts / num_vertices))
 
@@ -89,28 +86,3 @@ def dataset_on_polygonal_border_not_including_vertices(vertices: np.ndarray, npt
     pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
 
     return pts
-
-def dataset_on_curved_border(n_pts: int, theta: float, radius: float):
-    len_extern_perimeter = (2 * np.pi - theta) * radius
-    pts_ext = int(np.ceil(len_extern_perimeter / (len_extern_perimeter + 2.0 * radius) * n_pts))
-    pts_edg = int(np.ceil(0.5 * (n_pts - pts_ext)))
-    tot_pts = pts_ext + 2 * pts_edg - 1
-    half_theta = 0.5 * theta
-
-    pts = np.zeros((tot_pts, 3))
-    labels = np.zeros((tot_pts, 1))
-
-    cheb_pts_1d = np.expand_dims(chebyshev_lobatto_nodes(0, 2.0, 2 * pts_edg)[:pts_edg], 1)
-    pts[:pts_edg, :2] = cheb_pts_1d * np.array([np.cos(half_theta), np.sin(half_theta)])
-    labels[:pts_edg] = 1.0 - cheb_pts_1d
-
-    pts[pts_edg:2 * pts_edg - 1, :2] = cheb_pts_1d[1:] * np.array([np.cos(-half_theta), np.sin(-half_theta)])
-    labels[pts_edg:2 * pts_edg - 1] = 1.0 - cheb_pts_1d[1:]
-
-    angles = np.linspace(half_theta, 2 * np.pi - half_theta, pts_ext)
-    pts[2 * pts_edg - 1:, :2] = np.array([np.cos(angles), np.sin(angles)]).T
-
-    pts = pts * radius + np.array([1, 0, 0])
-    return pts.T, np.squeeze(labels)
-
-        

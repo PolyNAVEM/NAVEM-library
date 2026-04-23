@@ -18,7 +18,6 @@ def main():
                         help='Number of vertices of the polygon(s)')
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
-    parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Training', type=str, help="Export Path")
 
     # Network
     parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
@@ -53,17 +52,17 @@ def main():
                         help='Flag to specify to add the hanging function in the linear combination')
 
     # B-NAVEM and P-NAVEM
-    parser.add_argument('-qo', '--quadorder', dest='quadorder', default=7, type=int,
+    parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=7, type=int,
                         help='Order of the quadrature rule to generate the training points')
-    parser.add_argument('-pt', '--pts-type', dest='pts_type', default="gauss_polygon",
+    parser.add_argument('-pt', '--distribution-points-type', dest='distribution_points_type', default="gauss_polygon",
                         help='Type of points: uniform, gauss_triangle or gauss_polygon')
-    parser.add_argument('-neo', '--napem-exact-one', dest='napem_exact_one', default=1, type=int,
+    parser.add_argument('-neo', '--p-navem-exact-constant', dest='p_navem_exact_constant', default=1, type=int,
                         help='Flag to specify if function 1 is contained in the space by construction')
 
 
     args = parser.parse_args()
 
-    export_file_path = args.export_path
+    export_file_path = args.export_training_data_file_path
     if not os.path.exists(export_file_path):
         os.makedirs(export_file_path)
 
@@ -114,9 +113,47 @@ def main():
                                                   args.normalization_diameter,
                                                   args.use_hanging_function)
         case method_type.B_NAVEM:
-            pass
+            train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
+                                                           method_type,
+                                                           args.num_vertices,
+                                                           geometry_utilities,
+                                                           mesh,
+                                                           mesh_geometric_data,
+                                                           args.import_path,
+                                                           args.num_hidden_layers,
+                                                           args.num_neurons_per_layer,
+                                                           args.num_epoches_opt_order1,
+                                                           args.num_epoches_opt_order2,
+                                                           args.learning_rate_max,
+                                                           args.learning_rate_min,
+                                                           args.quadrature_order,
+                                                           args.distribution_points_type,
+                                                           args.p_navem_exact_constant,
+                                                           args.regularization_coefficient,
+                                                           args.export_training_data_file_path,
+                                                           args.export_training_info,
+                                                           args.use_sqrt_in_train)
         case method_type.P_NAVEM:
-            pass
+            train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
+                                                           method_type,
+                                                           args.num_vertices,
+                                                           geometry_utilities,
+                                                           mesh,
+                                                           mesh_geometric_data,
+                                                           args.import_path,
+                                                           args.num_hidden_layers,
+                                                           args.num_neurons_per_layer,
+                                                           args.num_epoches_opt_order1,
+                                                           args.num_epoches_opt_order2,
+                                                           args.learning_rate_max,
+                                                           args.learning_rate_min,
+                                                           args.quadrature_order,
+                                                           args.distribution_points_type,
+                                                           args.p_navem_exact_constant,
+                                                           args.regularization_coefficient,
+                                                           args.export_training_data_file_path,
+                                                           args.export_training_info,
+                                                           args.use_sqrt_in_train)
         case _:
             raise ValueError("not valid method")
 

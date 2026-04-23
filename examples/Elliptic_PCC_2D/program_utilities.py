@@ -1,7 +1,7 @@
-from Elliptic_PCC_2D.test_definition import ITest, EllipticPolynomialProblem
+from examples.Elliptic_PCC_2D.test_definition import ITest, EllipticPolynomialProblem
 from pypolydim import gedim, polydim
 from pypolydim.assembler_utilities import assembler_utilities
-from Elliptic_PCC_2D.assembler import Assembler
+from examples.Elliptic_PCC_2D.assembler import Assembler
 import os
 
 def create_test(test_id: int) -> ITest:

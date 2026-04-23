@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from typing import List
+from typing import List, Tuple
 from pypolydim import gedim, polydim
 from numpy.typing import NDArray
 from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
@@ -91,6 +91,22 @@ def compute_polygon_interior_angles(vertices: NDArray[np.float64]) -> List[float
         angles.append(compute_interior_angle(vertices[:, i], vertices[:, i_prev], vertices[:, i_next]))
 
     return angles
+
+def compute_exterior_bisector_direction(interior_angle: float, v: NDArray[np.float64], v_next: NDArray[np.float64]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+
+    # clockwise rotation
+    theta = -(np.pi - interior_angle * 0.5)
+
+    tangent = v_next - v  # center at the origin to correctly rotate
+
+    rotation_matrix = np.array(
+        [[np.cos(theta), -np.sin(theta), 0.0], [np.sin(theta), np.cos(theta), 0.0], [0.0, 0.0, 1.0]])
+
+    tangent = rotation_matrix @ tangent
+    tangent = tangent / np.linalg.norm(tangent)
+    origin = v
+
+    return origin, tangent
 
 def compute_polygon_external_bisectors(geometry_utilities: gedim.GeometryUtilities, polygon_edge_normals: NDArray[np.float64]) -> NDArray[np.float64]:
 

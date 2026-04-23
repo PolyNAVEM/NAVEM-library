@@ -1,260 +1,97 @@
 from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
-
-def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMType,
-                                                   num_vertices: int, mesh: gedim.MeshMatricesDAO,
-                                                   num_hidden_layers: int, num_epoches_opt_order1: int,
-                                                   num_epoches_opt_order2: int,
-                                                   learning_rate_opt_order1: float, learning_rate_opt_order2: float,
-                                                   regularization_coefficient: float,
-                                                   export_training_data_file_path: str):
-
-    assert method_order == 1
+from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
+import numpy as np
+from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
+from src.NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
+from src.NAVEM.NeuralNetwork.p_navem_super_network import PNAVEMSupernetwork
+from src.NAVEM.NeuralNetwork.training_utilities import *
+import csv
 
 
-    nkm2_polynomial = int(0.5 * vem_k * (vem_k - 1))
-    n_dofs = vem_k * n_vertices + nkm2_polynomial  # boundary + internal dofs
-    index_bin_size = int(np.floor(np.log2(n_dofs - 1)) + 1)
-    network_input_dimension = 2 + 2 * (n_vertices - 1)
+def write_dictionary(flags: Flags) -> None:
 
-    tf.print('\n')
-    tf.print('The total number of dof per element is: {}'.format(n_dofs))
-    tf.print('\n')
+    file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
+    file.write("network_input_dimension = {}\n".format(flags['input_dim']))
+    file.write("output_dim = {}\n".format(flags['output_dim']))
+    file.write("method_order = {}\n".format(flags['method_order']))
+    file.write("method_type = '{}'\n".format(flags['method_type']))
+    file.write("num_vertices = {}\n".format(flags['num_vertices']))
+    file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
+    file.write("regularization_coefficient = {}\n".format(flags['regularization_coefficient']))
+    file.write("mesh_import_path = '{}'\n".format(flags['mesh_import_path']))
+    file.write("quadrature_order = '{}'\n".format(flags['quadrature_order']))
+    file.write("distribution_points_type = {}\n".format(flags['distribution_points_type']))
 
-    # set geometry tolerance
-    tol = 1.0e-12
-    geometry_utilities = GeometryUtilities(tol, tol_almost_hanging_nodes)
+    file.write("num_hidden_layers = {}\n".format(flags['num_hidden_layers']))
+    file.write("num_neurons_per_layer = {}\n".format(flags['num_neurons_per_layer']))
+    file.write("num_epoches_opt_order1 = {}\n".format(flags['num_epoches_opt_order1']))
+    file.write("num_epoches_opt_order2 = {}\n".format(flags['num_epoches_opt_order2']))
+    file.write("learning_rate_max = {}\n".format(flags['learning_rate_max']))
+    file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
 
-    FLAGS = {}
-    FLAGS['input_dim'] = 2 * n_vertices
-    FLAGS['output_dim'] = 1
-    FLAGS['vem_order'] = vem_k
-    FLAGS['n_edges'] = n_vertices
-
-    FLAGS['n_hidden_layers'] = n_hidden_layers
-    FLAGS['n_neurons'] = n_neurons
-    FLAGS['net_reg_coef'] = net_reg_coef
-    FLAGS['split_deriv'] = split_deriv
-    FLAGS['use_grad'] = use_grad_in_train
-    FLAGS['copy_pols'] = copy_pols_in_train
-    FLAGS['napem_exact_one'] = napem_exact_one
-
-    FLAGS['name_storage'] = ('NeuralNetwork/savedModels/{}_{}_k{}_nedges{}_arch_{}_{}_'
-                             'tolAlmostHang{}_convex{}').format(
-        method, name, vem_k, n_vertices, n_hidden_layers, n_neurons, int(tol_almost_hanging_nodes), concave_convex_both)
-
-    # Network definition
-    if method == "BNAVEM":
-        nn = BCNetwork()
-        nn.build_network(FLAGS)
-    elif method == "NAPEM":
-        nn = NapemSupernetwork(FLAGS)
+    if flags['p_navem_exact_constant']:
+        file.write("p_navem_exact_constant = True\n")
     else:
-        raise ValueError("You can only use BNAVEM or NAPEM")
-
-    if fine_tune:
-        if method == "BNAVEM":
-            neural_file = ('./Navem2D/NetworkConfiguration2D/bnavem_models_2d/{}_{}_k{}_nedges{}_arch_{}_{}_'
-                           'tolAlmostHang{}_convex{}.ckpt').format(
-                "BNAVEM", name, vem_k, n_vertices, n_hidden_layers, n_neurons, int(tol_almost_hanging_nodes),
-                concave_convex_both)
-
-        elif method == "NAPEM":
-            neural_file = ('./Navem2D/NetworkConfiguration2D/napem_models_2d/{}_{}_k{}_nedges{}_arch_{}_{}_'
-                           'tolAlmostHang{}_convex{}.ckpt').format(
-                "NAPEM", name, vem_k, n_vertices, n_hidden_layers, n_neurons, int(tol_almost_hanging_nodes),
-                concave_convex_both)
-        else:
-            raise ValueError("not valid method")
-
-        FLAGS['name_storage'] = FLAGS['name_storage'] + "_fineTuned"
-        nn.load_weights(neural_file).expect_partial()
-
-        n_epochs_order1 = 1
-        lr_min = 1e-30
-        lr_max = 1e-30
-
-    file = open('{}_dictionary.txt'.format(FLAGS['name_storage']), 'w')
-    file.write("network_input_dimension = {}\n".format(FLAGS['input_dim']))
-    file.write("output_dim = {}\n".format(FLAGS['output_dim']))
-    file.write("vem_k = {}\n".format(FLAGS['vem_order']))
-    file.write("n_vertices = {}\n".format(FLAGS['n_edges']))
-    file.write("n_edges = {}\n".format(n_vertices))
-    file.write("n_training_polygons = {}\n".format(n_training_polygons))
-    file.write("net_reg_coef = {}\n".format(net_reg_coef))
-    if read_mesh:
-        file.write("read_mesh = True\n")
-    else:
-        file.write("read_mesh = False\n")
-    file.write("name_mesh = '{}'\n".format(name_mesh))
-    file.write("tol_almost_hanging_nodes = {}\n".format(tol_almost_hanging_nodes))
-    file.write("use_almost_hanging = {}\n".format(use_almost_hanging))
-    file.write("name = '{}'\n".format(name))
-    file.write("n_hidden_layers = {}\n".format(FLAGS['n_hidden_layers']))
-    file.write("n_neurons = {}\n".format(FLAGS['n_neurons']))
-    file.write("n_epochs_order1 = {}\n".format(n_epochs_order1))
-    file.write("n_epochs_order2 = {}\n".format(n_epochs_order2))
-    file.write("pts_type = '{}'\n".format(pts_type))
-    file.write("quadrature_order = {}\n".format(quadrature_order))
-    file.write("lr_max = {}\n".format(lr_min))
-    file.write("lr_min = {}\n".format(lr_min))
-    file.write("concave_convex_both = {}\n".format(concave_convex_both))
-    file.write("split_deriv = {}\n".format(split_deriv))
-    file.write("method = '{}'\n".format(method))
-    if copy_pols_in_train:
-        file.write("copy_pols_in_train = True\n")
-    else:
-        file.write("copy_pols_in_train = False\n")
-    if use_grad_in_train:
-        file.write("use_grad_in_train = True\n")
-    else:
-        file.write("use_grad_in_train = False\n")
-    if napem_exact_one:
-        file.write("napem_exact_one = True\n")
-    else:
-        file.write("napem_exact_one = False\n")
+        file.write("p_navem_exact_constant = False\n")
 
     file.close()
 
-    # Define the training set
-    if read_mesh:
+def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
+                                                   method_type: NAVEMType,
+                                                   num_vertices: int,
+                                                   geometry_utilities: gedim.GeometryUtilities,
+                                                   mesh: gedim.MeshMatricesDAO,
+                                                   mesh_geometric_data: MeshGeometricData2D,
+                                                   mesh_import_path: str,
+                                                   num_hidden_layers: int,
+                                                   num_neurons_per_layer: int,
+                                                   num_epoches_opt_order1: int,
+                                                   num_epoches_opt_order2: int,
+                                                   learning_rate_max: float,
+                                                   learning_rate_min: float,
+                                                   quadrature_order: int,
+                                                   distribution_points_type: int,
+                                                   p_navem_exact_constant: bool,
+                                                   regularization_coefficient: float,
+                                                   export_training_data_file_path: str,
+                                                   export_training_info: bool = False,
+                                                   use_sqrt_in_train: bool = False):
 
-        if name_mesh == "convex_concave" or name_mesh == "structured_concave":
-            domain_vertices = np.empty([3, 4])
-            domain_vertices[0] = [0.0, 1.0, 1.0, 0.0]
-            domain_vertices[1] = [0.0, 0.0, 1.0, 1.0]
-            domain_vertices[2] = [0.0, 0.0, 0.0, 0.0]
+    assert method_order == 1
 
-            rectangle_origin = domain_vertices[:, 0]
-            rectangle_base_tangent = domain_vertices[:, 1] - domain_vertices[:, 0]
-            rectangle_height_tangent = domain_vertices[:, 3] - domain_vertices[:, 0]
+    network_input_dimension = 2 + 2 * (num_vertices - 1)
+    num_training_polygons = mesh.cell2_d_total_number()
 
-            if name_mesh == "convex_concave":
-                train_mesh = mesh_generators.create_convex_concave_mesh(rectangle_origin, rectangle_base_tangent,
-                                                                        rectangle_height_tangent,
-                                                                        2, 2)
-            elif name_mesh == "structured_concave":
-                train_mesh = mesh_generators.create_structured_concave_mesh(rectangle_origin, rectangle_base_tangent,
-                                                                            rectangle_height_tangent,
-                                                                            1, 1)
-        else:
-            train_mesh = mesh_utilities.import_mesh_from_csv(name_mesh)
-    elif concave_convex_both == 0:
-        pol_generator = PolygonGenerator(geometry_utilities)
-        num_concave_polygons = n_training_polygons
-        train_mesh = pol_generator.generate_polygons(0, num_concave_polygons, 1,
-                                                     n_vertices, use_almost_hanging)
-    elif n_training_polygons == 1 and n_edges == 4:
-        train_mesh = mesh_square(geometry_utilities)
-    elif concave_convex_both == 1:
-        pol_generator = PolygonGenerator(geometry_utilities)
-        num_convex_polygons = n_training_polygons
-        train_mesh = pol_generator.generate_polygons(num_convex_polygons, 0, 1,
-                                                     n_vertices, use_almost_hanging)
-    elif concave_convex_both == 2:
-        pol_generator = PolygonGenerator(geometry_utilities)
-        num_convex_polygons = int(n_training_polygons/2)
-        num_concave_polygons = n_training_polygons - num_convex_polygons
-        train_mesh = pol_generator.generate_polygons(num_convex_polygons, num_concave_polygons, 1,
-                                                     n_vertices, use_almost_hanging)
+    flags: Flags = set_flags(network_input_dimension,
+                             method_order,
+                             method_type.value,
+                             num_vertices,
+                             mesh_import_path,
+                             num_training_polygons,
+                             num_hidden_layers,
+                             num_neurons_per_layer,
+                             num_epoches_opt_order1,
+                             num_epoches_opt_order2,
+                             learning_rate_max,
+                             learning_rate_min,
+                             use_sqrt_in_train,
+                             regularization_coefficient,
+                             export_training_data_file_path,
+                             p_navem_exact_constant,
+                             quadrature_order,
+                             distribution_points_type)
 
-    path = "./ExportParaview/Training_Polygon"
-    # Check whether the specified path exists or not
-    is_exist = os.path.exists(path)
-    if is_exist:
-        import shutil
+    write_dictionary(flags)
 
-        shutil.rmtree(path)
-        os.makedirs(path)
-        print("The new directory is created!")
-    else:
-        # Create a new directory because it does not exist
-        os.makedirs(path)
-        print("The new directory is created!")
+    match method_type:
+        case NAVEMType.P_NAVEM:
+            nn = PNAVEMSupernetwork(flags)
+        case NAVEMType.B_NAVEM:
+            nn = BNAVEMNetwork(flags)
+        case _:
+            raise ValueError("not valid method")
 
-    csv_path = FLAGS['name_storage']
-    # Check whether the specified path exists or not
-    is_exist = os.path.exists(csv_path)
-    if is_exist:
-        import shutil
-
-        shutil.rmtree(csv_path)
-        os.makedirs(csv_path)
-    else:
-        # Create a new directory because it does not exist
-        os.makedirs(csv_path)
-
-    mesh_utilities.export_mesh_to_csv(train_mesh, csv_path)
-
-    # Actual number of polygons
-    geometric_data = mesh_utilities.compute_geometric_properties_mesh_2(geometry_utilities, train_mesh)
-
-    concave_counter = 0
-    if read_mesh:
-        list_element = []
-        tmp_n_training_polygons = 0
-        num_elements = len(train_mesh.cells_2)
-        for c in range(num_elements):
-            if len(train_mesh.cells_2[c].vertices) == n_vertices:
-                # Select convex or concave polygons
-                if concave_convex_both == 1 and not geometric_data[c].mapped_polygon_is_convex:
-                    continue
-                if concave_convex_both == 0 and geometric_data[c].mapped_polygon_is_convex:
-                    continue
-                if (concave_convex_both == 2 and
-                        concave_counter >= n_training_polygons / 2 and
-                        not geometric_data[c].mapped_polygon_is_convex):  # already more than half concave
-                    continue
-
-                if (concave_convex_both == 2 and
-                        tmp_n_training_polygons - concave_counter >= n_training_polygons / 2 and
-                        geometric_data[c].mapped_polygon_is_convex):  # already more than half convex
-                    continue
-
-                if not geometric_data[c].mapped_polygon_is_convex:
-                    concave_counter += 1
-
-                list_element.append(c)
-                tmp_n_training_polygons += 1
-                if tmp_n_training_polygons == n_training_polygons:
-                    break
-        n_training_polygons = tmp_n_training_polygons
-    else:
-        list_element = [c for c in range(n_training_polygons)]
-
-    (num_total_element, min_num_vertices, avg_num_vertices, max_num_vertices,
-     min_area, avg_area, max_area, min_diameter, avg_diameter, max_diameter,
-     min_edge_ratio, avg_edge_ratio, max_edge_ratio,
-     min_anisotropic_ratio, avg_anisotropic_ratio, max_anisotropic_ratio) \
-        = mesh_utilities.reset_mesh_statistics()
-
-    (num_total_element, min_num_vertices, avg_num_vertices, max_num_vertices,
-     min_area, avg_area, max_area, min_diameter, avg_diameter, max_diameter,
-     min_edge_ratio, avg_edge_ratio, max_edge_ratio,
-     min_anisotropic_ratio, avg_anisotropic_ratio, max_anisotropic_ratio) \
-        = mesh_utilities.compute_mesh_geometry_statistics(geometry_utilities, train_mesh, geometric_data,
-                                                          num_total_element, min_num_vertices,
-                                                          avg_num_vertices, max_num_vertices,
-                                                          min_area, avg_area, max_area,
-                                                          min_diameter, avg_diameter, max_diameter,
-                                                          min_edge_ratio, avg_edge_ratio, max_edge_ratio,
-                                                          min_anisotropic_ratio, avg_anisotropic_ratio,
-                                                          max_anisotropic_ratio)
-
-    mesh_utilities.export_mesh_geometry_statistics(csv_path, 'training_mesh',
-                                                   num_total_element, min_num_vertices,
-                                                   avg_num_vertices, max_num_vertices,
-                                                   min_area, avg_area, max_area,
-                                                   min_diameter, avg_diameter, max_diameter,
-                                                   min_edge_ratio, avg_edge_ratio, max_edge_ratio,
-                                                   min_anisotropic_ratio, avg_anisotropic_ratio,
-                                                   max_anisotropic_ratio)
-
-    tf.print('\n')
-    tf.print('The actual number of polygons is: {}'.format(n_training_polygons))
-    tf.print(
-        'Convex polygons: {}. \t Concave polygons: {}'.format(n_training_polygons - concave_counter, concave_counter))
-    tf.print('\n')
 
     if pts_type == "gauss_triangle":
         quadrature = QuadratureGauss2DTriangle(quadrature_order)
@@ -280,18 +117,18 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
 
     n_functions_per_pol = n_vertices - napem_exact_one
 
-    inputs = np.zeros((n_training_polygons * n_points_per_pol * n_functions_per_pol, network_input_dimension))
-    training_quad_w = np.zeros((n_training_polygons * n_points_per_pol * n_functions_per_pol, 1))
+    inputs = np.zeros((num_training_polygons * n_points_per_pol * n_functions_per_pol, network_input_dimension))
+    training_quad_w = np.zeros((num_training_polygons * n_points_per_pol * n_functions_per_pol, 1))
 
-    xy_per_pol = np.zeros(shape=(n_training_polygons, n_points_per_pol, 2))
-    vertices_per_pol = np.zeros(shape=(n_training_polygons, 2, n_vertices))
-    jac_per_pol = np.zeros(shape=(n_training_polygons, 2, 2, n_functions_per_pol))
-    jac_inv_per_pol = np.zeros(shape=(n_training_polygons, 2, 2, n_functions_per_pol))
+    xy_per_pol = np.zeros(shape=(num_training_polygons, n_points_per_pol, 2))
+    vertices_per_pol = np.zeros(shape=(num_training_polygons, 2, n_vertices))
+    jac_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, n_functions_per_pol))
+    jac_inv_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, n_functions_per_pol))
 
     exact_bfgs = True
 
-    for i in range(n_training_polygons):
-        c = list_element[i]
+    for c in range(num_training_polygons):
+
         vertices_idxs = train_mesh.cells_2[c].vertices
         hanging_vertices = geometric_data[c].id_aligned_vertices
         internal_point = train_mesh.cells_2[c].internal_point
@@ -300,20 +137,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
         centroid = geometric_data[c].centroid
         polygon = geometric_data[c].polygon
 
-        # I use this polygon to train only if it has the current number of vertices
-        # (if we work with meshes with different typologies of polygons,
-        # not all the polygons are to be taken into account!)
-        if len(vertices_idxs) != n_vertices:
-            continue
 
-        # # Select convex or concave polygons
-        # if not train_on_concave and not geometric_data[c].mapped_polygon_is_convex:
-        #     tf.print(c, ' is not convex')
-        #     continue
-        #
-        # if train_on_concave and geometric_data[c].mapped_polygon_is_convex:
-        #     tf.print(c, ' is convex')
-        #     continue
 
         inertia_mapped_internal_point, _ = polygon.map_inertia_inv(internal_point)
         inertia_mapped_list_triangles = geometry_utilities.compute_triangulation_by_internal_point(
@@ -385,14 +209,14 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
     nn.setupModel_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives,
                                geometry_utilities)
 
-    expCyclLr = trainlib.ExpCyclicLr(n_epochs_order1, lr_min, lr_max)
+    expCyclLr = ExpCyclicLr(n_epochs_order1, lr_min, lr_max)
     cb_list = [expCyclLr]
 
-    if export_train_info:
+    if export_training_info:
         list_of_losses = []
         list_of_times = []
-        storeLoss = trainlib.StoreLoss(list_of_losses, n_steps=1)
-        storeTime = trainlib.StoreTime(list_of_times, n_steps=1)
+        storeLoss = StoreLoss(list_of_losses, n_steps=1)
+        storeTime = StoreTime(list_of_times, n_steps=1)
         cb_list = [expCyclLr, storeLoss, storeTime]
 
     tf.print("\n---------- Start training ----------\n")
@@ -428,7 +252,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
             results2 = trainlib.train_adam_bfgs(nn.nn_grad, nn.nn_grad.inter_grad_loss, inputs, labels, n_epochs_order1,
                                                 n_epochs_order2, cb_list, use_bfgs=exact_bfgs)
 
-    if export_train_info:
+    if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
         bfgs_steps = np.arange(len(list_of_losses), len(list_of_losses)+len(results[1].losses))
 
@@ -455,22 +279,19 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
 
 
     # Storing the final loss and the l2 and h1 errors
-    with open('{}_loss.csv'.format(FLAGS['name_storage']), 'w', newline='') as file:
+    with open('{}_loss.csv'.format(flags['name_storage']), 'w', newline='') as file:
         writer = csv.writer(file, delimiter=';')
         writer.writerow(['NPolygons', 'Laplacian loss'])
 
         nn_output = nn.call(inputs)
         considered_loss(labels, nn_output)
         if method == "BNAVEM":
-            writer.writerow([n_training_polygons,
+            writer.writerow([num_training_polygons,
                              np.sqrt(nn.curr_laplacian.numpy())])
         elif method == "NAPEM":
-            writer.writerow([n_training_polygons,
+            writer.writerow([num_training_polygons,
                              nn.nn_func.loss_one.numpy(),
                              nn.nn_func.loss_x.numpy(),
                              nn.nn_func.loss_y.numpy()])
     # Final storage
     nn.saveModel()
-
-    ending_time = time.perf_counter()
-    print("Total execution time:", ending_time - starting_time)

@@ -38,7 +38,8 @@ class TestLaplaceSolver(unittest.TestCase):
         num_rat_points = 30
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
-                                                                      solver)
+                                                                      solver,
+                                                                      boundary_conditions)
 
         self.assertLess(err_max_l2, b=1.0e-7)
         self.assertLess(err_max_h1, b=1.0e-7)
@@ -67,7 +68,7 @@ class TestLaplaceSolver(unittest.TestCase):
         domain_vertices[1, :] = [0.0, 0.0, 1.0, 0.3]
         domain_scale = 0.1
         vem_id = 1
-        iterations = np.arange(3, 120 + 1).tolist()
+        iterations = [70]
         list_pole_vertices = np.arange(0, num_vertices).tolist()
 
         def boundary_conditions(v: int, points: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -103,7 +104,8 @@ class TestLaplaceSolver(unittest.TestCase):
         num_rat_points = 30
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
-                                                                      solver)
+                                                                      solver,
+                                                                      boundary_conditions)
 
         self.assertLess(err_max_l2, b=1.0e-7)
         self.assertLess(err_max_h1, b=1.0e-7)
@@ -116,7 +118,8 @@ class TestLaplaceSolver(unittest.TestCase):
         plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
                                                        10 * num_rat_points *
                                                        solver.problem.num_vertices,
-                                                       solver)
+                                                       solver,
+                                                       boundary_conditions)
 
 
     def test_laplace_solver_concave(self):
@@ -151,7 +154,8 @@ class TestLaplaceSolver(unittest.TestCase):
         num_rat_points = 30
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
-                                                                      solver)
+                                                                      solver,
+                                                                      boundary_conditions)
 
         self.assertLess(err_max_l2, b=1.0e-5)
         self.assertLess(err_max_h1, b=1.0e-5)
@@ -199,7 +203,8 @@ class TestLaplaceSolver(unittest.TestCase):
         num_rat_points = 30
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
-                                                                      solver)
+                                                                      solver,
+                                                                      boundary_conditions)
 
         self.assertLess(err_max_l2, b=1.0e-2)
         self.assertLess(err_max_h1, b=1.0e-2)

@@ -8,7 +8,7 @@ from src.NAVEM.Utilities.FunctionUtilities import Function
 import matplotlib.pyplot as plt
 from matplotlib import use
 from typing import Tuple, Callable
-from src.NAVEM.Utilities.border_sampler import reference_points_distribution, PointsDistributionType
+from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsDistributionType
 
 use("Qt5Agg")
 importlib.reload(plt)
