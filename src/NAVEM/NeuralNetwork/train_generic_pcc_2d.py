@@ -107,7 +107,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
                                                    num_neurons_per_layer: int,
                                                    num_epoches_opt_order1: int,
                                                    num_epoches_opt_order2: int,
-                                                   learning_rate_opt_order1: float, learning_rate_opt_order2: float,
+                                                   learning_rate_opt_order1: float,
+                                                   learning_rate_opt_order2: float,
                                                    num_points_on_each_edge: int,
                                                    regularization_coefficient: float,
                                                    export_training_data_file_path: str,
@@ -209,19 +210,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int, method_typ
 
             input_network[c * num_vertices + v_id, :] = rotated_vertices[:2, 1:].flatten()
 
-
-
-    Npoint = points.shape[0]
-
-    print("Global Max value vandermonde: ", np.max(abs(super_vandermonde)))
-
-    print("\nNodi totali:", Npoint,
-          "\nNodi totali filtrati:", sum(vertex_filter == 0),
-          "\nNodi filtrati per un poligono (in media):", sum(vertex_filter == 0) / (num_training_polygons * n_vertices),
-          "\nNodi filtrati attorno ad un vertice (in media):", sum(vertex_filter == 0) / (num_training_polygons * n_vertices**2))
-
-    if Npoint == 0:
-        raise ValueError("Not valid polygons")
 
     points = tf.convert_to_tensor(points, dtype=tf.float64)
     angles = tf.convert_to_tensor(angles, dtype=tf.float64)

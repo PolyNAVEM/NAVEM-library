@@ -11,6 +11,10 @@ class Flags(TypedDict):
     num_vertices: int
     num_hidden_layers: int
     num_neurons_per_layer: int
+    num_epoches_opt_order1: int
+    num_epoches_opt_order2: int
+    learning_rate_opt_order1: float
+    learning_rate_opt_order2: float
     harmonic_degree: int
     normalization_diameter: float
     use_hanging_function: bool
@@ -24,6 +28,10 @@ def set_flags(network_input_dimension: int,
               num_vertices: int,
               num_hidden_layers: int,
               num_neurons_per_layer: int,
+              num_epoches_opt_order1: int,
+              num_epoches_opt_order2: int,
+              learning_rate_opt_order1: float,
+              learning_rate_opt_order2: float,
               harmonic_degree: int,
               normalization_diameter: float,
               use_hanging_function: bool,
@@ -38,6 +46,10 @@ def set_flags(network_input_dimension: int,
                     'num_vertices': num_vertices,
                     'num_hidden_layers': num_hidden_layers,
                     'num_neurons_per_layer': num_neurons_per_layer,
+                    'num_epoches_opt_order1': num_epoches_opt_order1,
+                    'num_epoches_opt_order2': num_epoches_opt_order2,
+                    'learning_rate_opt_order1': learning_rate_opt_order1,
+                    'learning_rate_opt_order2': learning_rate_opt_order2,
                     'harmonic_degree': harmonic_degree,
                     'normalization_diameter': normalization_diameter,
                     'use_hanging_function': use_hanging_function,
