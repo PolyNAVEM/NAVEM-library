@@ -4,6 +4,7 @@ import numpy as np
 from pypolydim import gedim
 import matplotlib.pyplot as plt
 
+
 def plot_polygon_with_external_bisectors(polygon_vertices: NDArray[np.float64],
                                          external_bisectors: NDArray[np.float64], scale=0.5):
 
