@@ -48,6 +48,11 @@ def reference_points_distribution(a: float, b: float, npts: int, distribution_ty
         case _:
             raise ValueError("Choose a valid distribution")
 
+def map_pts_from_1d_to_2d(abscissa: NDArray[np.float64], edge_start: NDArray[np.float64], edge_end: NDArray[np.float64]) -> NDArray[np.float64]:
+
+    mapped_points_2d = edge_start + abscissa * (edge_end - edge_start)
+    return mapped_points_2d
+
 def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: float,
                                 distribution_type: PointsDistributionType, v_id: int = 0):
 

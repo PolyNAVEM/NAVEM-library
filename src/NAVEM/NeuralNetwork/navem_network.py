@@ -3,7 +3,7 @@ import tensorflow as tf
 from typing import List, TypedDict
 from tensorflow.keras.layers import Dense
 from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.border_sampler import reference_points_distribution, PointsDistributionType
+from src.NAVEM.Utilities.border_sampler import reference_points_distribution, PointsDistributionType, map_pts_from_1d_to_2d
 
 class Flags(TypedDict):
     input_dim: int
@@ -11,6 +11,7 @@ class Flags(TypedDict):
     method_order: int
     num_vertices: int
     num_generators: int
+    mesh_import_path: str
     num_training_polygons: int
     num_hidden_layers: int
     num_neurons_per_layer: int
@@ -31,6 +32,7 @@ def set_flags(network_input_dimension: int,
               method_order: int,
               num_vertices: int,
               num_generators: int,
+mesh_import_path: str,
 num_training_polygons: int,
               num_hidden_layers: int,
               num_neurons_per_layer: int,
@@ -52,6 +54,7 @@ num_training_polygons: int,
                     'method_order': method_order,
                     'num_vertices': num_vertices,
                     'num_generators': num_generators,
+                    'mesh_import_path': mesh_import_path,
                     'num_training_polygons': num_training_polygons,
                     'num_hidden_layers': num_hidden_layers,
                     'num_neurons_per_layer': num_neurons_per_layer,
@@ -127,9 +130,9 @@ class BoundaryLoss:
                     self.new_dpol_dx_evals[
                         e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
 
-    def add_0_pols_from_internal_dofs(self, n_internal_dofs: int, nodes: List[float]):
-        rep_nodes = np.tile(nodes, (n_internal_dofs, 1))
-        zero_pols = np.zeros(self.num_vertices * self.n_pts * n_internal_dofs)
+    def add_0_pols_from_internal_do_fs(self, n_internal_do_fs: int, nodes: List[float]):
+        rep_nodes = np.tile(nodes, (n_internal_do_fs, 1))
+        zero_pols = np.zeros(self.num_vertices * self.n_pts * n_internal_do_fs)
         return rep_nodes, zero_pols
 
     def add_polygon(self, vertices: np.ndarray, add_coords: bool = False):
@@ -141,8 +144,7 @@ class BoundaryLoss:
             v_end = np.expand_dims(vertices[:, (e + 1) % self.num_vertices], 1)
             # tf.print("vertices",v_start, v_end)
             first_idx, last_idx = [e * self.n_pts, (e + 1) * self.n_pts]
-            nodes[:, first_idx:last_idx] = self.geometry_utilities.map_pts_from_1d_to_2d(self.xref_cost,
-                                                                                         v_start, v_end)[:2, :]
+            nodes[:, first_idx:last_idx] = map_pts_from_1d_to_2d(self.reference_eval_points, v_start, v_end)[:2, :]
             normals[:, first_idx:last_idx] = (v_end - v_start)[:2, :]
 
         nodes = nodes.T
@@ -321,26 +323,26 @@ class NAVEMNetwork(tf.keras.Model):
             self.best_w.assign(zero_1d)
             self.bfgs_regularization_grads.assign(zero_1d)
             
-            self.nn_pol.best_w.assign(zero_1d)
-            self.nn_pol.bfgs_regularization_grads.assign(zero_1d)
-            self.nn_pol.tangent_x.assign(zero_2d)
-            self.nn_pol.tangent_y.assign(zero_2d)
-            self.nn_pol.deriv_labels.assign(zero_2d)
-            self.nn_pol.vertex_filter.assign(zero_2d+1)
-            self.nn_pol.train_vander.assign(zero_3d)
-            self.nn_pol.train_vander_dx.assign(zero_3d)
-            self.nn_pol.train_vander_dy.assign(zero_3d)
+            self.nn_basis_function.best_w.assign(zero_1d)
+            self.nn_basis_function.bfgs_regularization_grads.assign(zero_1d)
+            self.nn_basis_function.tangent_x.assign(zero_2d)
+            self.nn_basis_function.tangent_y.assign(zero_2d)
+            self.nn_basis_function.deriv_labels.assign(zero_2d)
+            self.nn_basis_function.vertex_filter.assign(zero_2d+1)
+            self.nn_basis_function.train_vander.assign(zero_3d)
+            self.nn_basis_function.train_vander_dx.assign(zero_3d)
+            self.nn_basis_function.train_vander_dy.assign(zero_3d)
             
 
-            self.nn_pol_deriv.best_w.assign(zero_1d)
-            self.nn_pol_deriv.bfgs_regularization_grads.assign(zero_1d)
-            self.nn_pol_deriv.tangent_x.assign(zero_2d)
-            self.nn_pol_deriv.tangent_y.assign(zero_2d)
-            self.nn_pol_deriv.deriv_labels.assign(zero_2d)
-            self.nn_pol_deriv.vertex_filter.assign(zero_2d+1)
-            self.nn_pol_deriv.train_vander.assign(zero_3d)
-            self.nn_pol_deriv.train_vander_dx.assign(zero_3d)
-            self.nn_pol_deriv.train_vander_dy.assign(zero_3d)
+            self.nn_basis_derivatives.best_w.assign(zero_1d)
+            self.nn_basis_derivatives.bfgs_regularization_grads.assign(zero_1d)
+            self.nn_basis_derivatives.tangent_x.assign(zero_2d)
+            self.nn_basis_derivatives.tangent_y.assign(zero_2d)
+            self.nn_basis_derivatives.deriv_labels.assign(zero_2d)
+            self.nn_basis_derivatives.vertex_filter.assign(zero_2d+1)
+            self.nn_basis_derivatives.train_vander.assign(zero_3d)
+            self.nn_basis_derivatives.train_vander_dx.assign(zero_3d)
+            self.nn_basis_derivatives.train_vander_dy.assign(zero_3d)
                 
         if filename is None:
             tf.print("saving weights on file ", self.flags['name_storage'])

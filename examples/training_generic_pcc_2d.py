@@ -5,6 +5,7 @@ from pypolydim import gedim, polydim
 from src.NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
 from src.NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
+from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 
 def main():
 
@@ -20,7 +21,8 @@ def main():
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Training', type=str, help="Export Path")
 
     # Network
-    parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path', default='test', help='Storage path of the neural network')
+    parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
+                        default='./Export/test', help='Storage path of the neural network')
     parser.add_argument('-nhl', '--num-hidden-layers', dest='num_hidden_layers', default=3, type=int,
                         help='Number of hidden layers for the polynomial neural network')
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
@@ -84,9 +86,7 @@ def main():
                                                               args.import_path,
                                                               mesh)
 
-    mesh_geometric_data = polydim.pde_tools.mesh.pde_mesh_utilities.compute_mesh_2_d_geometry_data(geometry_utilities,
-                                                                                                   mesh_utilities, mesh)
-
+    mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     method_type = NAVEMType(args.method_type)
 
@@ -98,6 +98,7 @@ def main():
                                                   geometry_utilities,
                                                   mesh,
                                                   mesh_geometric_data,
+                                                  args.import_path,
                                                   args.num_hidden_layers,
                                                   args.num_neurons_per_layer,
                                                   args.num_epoches_opt_order1,

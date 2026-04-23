@@ -8,6 +8,8 @@ from src.NAVEM.NeuralNetwork.training_utilities import *
 from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss
 import numpy as np
 import tensorflow as tf
+from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
+
 
 def write_dictionary(flags: Flags) -> None:
 
@@ -18,7 +20,7 @@ def write_dictionary(flags: Flags) -> None:
     file.write("num_vertices = {}\n".format(flags['num_vertices']))
     file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
     file.write("regularization_coefficient = {}\n".format(flags['regularization_coefficient']))
-    file.write("name_mesh = '{}'\n".format(name_mesh))
+    file.write("mesh_import_path = '{}'\n".format(flags['mesh_import_path']))
     file.write("num_points_on_each_edge = {}\n".format(flags['num_points_on_each_edge']))
 
     file.write("num_hidden_layers = {}\n".format(flags['num_hidden_layers']))
@@ -33,12 +35,8 @@ def write_dictionary(flags: Flags) -> None:
 
     if flags['use_hanging_function']:
         file.write("use_hanging_function = True\n")
-        for i in range(len(flags['list_id_vertices_hanging']) - 1):
-            file.write(", {}".format(flags['list_id_vertices_hanging'][i + 1]))
-        file.write("]\n")
     else:
         file.write("use_hanging_function = False\n")
-        file.write("list_id_vertices_hanging = []\n")
 
     if flags['use_sqrt_in_train']:
         file.write("use_sqrt_in_train = True\n")
@@ -52,7 +50,8 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
                                            num_vertices: int,
                                            geometry_utilities: gedim.GeometryUtilities,
                                            mesh: gedim.MeshMatricesDAO,
-                                           mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
+                                           mesh_geometric_data: MeshGeometricData2D,
+                                           mesh_import_path: str,
                                            num_hidden_layers: int,
                                            num_neurons_per_layer: int,
                                            num_epoches_opt_order1: int,
@@ -86,6 +85,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
                              method_order,
                              num_vertices,
                              navem_generators.num_generators,
+                             mesh_import_path,
                              num_training_polygons,
                              num_hidden_layers,
                              num_neurons_per_layer,
@@ -106,13 +106,9 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
     nn = NAVEMNetwork(flags)
 
-
     # Initialize edge loss
-    tf.print('The number of points on each edge is: {}'.format(num_points_on_each_edge))
     boundary_loss = BoundaryLoss(geometry_utilities, num_points_on_each_edge, method_order, num_vertices)
 
-    points = np.array([], dtype=np.float64).reshape(0, network_input_dimension)
-    angles = np.array([], dtype=np.float64).reshape(0, num_vertices)
     tangents = np.array([], dtype=np.float64).reshape(0, 2)
     labels = np.array([], dtype=np.float64)
     labels_derivatives = np.array([], dtype=np.float64)
@@ -120,15 +116,13 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     super_vandermonde = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
     super_vander_dx = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
     super_vander_dy = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
-    input_network = np.zeros((num_training_polygons * num_vertices, network_input_dimension))
+    input_network = np.zeros((num_training_polygons * num_vertices, network_input_dimension - 2))
 
     exact_bfgs = True
     for c in range(num_training_polygons):
 
-        polygon = NAVEMPolygon(geometry_utilities, mesh_geometric_data.cell2_ds_vertices[c],
-                               mesh_geometric_data.cell2_ds_diameters[c],
-                               mesh_geometric_data.cell2_ds_centroids[c],
-                               mesh_geometric_data.cell2_ds_triangulations[c])
+        polygon = mesh_geometric_data.cell2_ds_polygon[c]
+        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1)
 
         for v_id in range(num_vertices):
 
@@ -138,7 +132,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
             c_points, c_labels, c_tangents, c_labels_derivatives = boundary_loss.add_polygon(rotated_vertices, add_coords=True)
 
-            points = np.concatenate([points, c_points])
+            internal_angles = np.roll(mapped_angles, axis=1, shift=-v_id)
 
             labels = np.concatenate([labels, c_labels])
             labels_derivatives = np.concatenate([labels_derivatives, c_labels_derivatives])
@@ -163,8 +157,6 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
             input_network[c * num_vertices + v_id, :] = rotated_vertices[:2, 1:].flatten()
 
 
-    points = tf.convert_to_tensor(points, dtype=tf.float64)
-    angles = tf.convert_to_tensor(angles, dtype=tf.float64)
     labels = tf.squeeze(tf.convert_to_tensor(labels, dtype=tf.float64))
     labels_derivatives = tf.convert_to_tensor(labels_derivatives, dtype=tf.float64)
     tangents = tf.convert_to_tensor(tangents, dtype=tf.float64)
@@ -179,34 +171,34 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
         storeTime = StoreTime(list_of_times, n_steps=1)
         cb_list = [expCyclLr, storeLoss, storeTime]
 
-    nn.nn_pol.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_pol.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_pol.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_pol.train_vander_dx.assign(tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64))
-    nn.nn_pol.train_vander_dy.assign(tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64))
+    nn.nn_basis_function.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_function.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_function.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_function.train_vander_dx.assign(tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64))
+    nn.nn_basis_function.train_vander_dy.assign(tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64))
 
-    nn.nn_pol.train_vander.assign( tf.convert_to_tensor(super_vandermonde, dtype=tf.float64) )
+    nn.nn_basis_function.train_vander.assign( tf.convert_to_tensor(super_vandermonde, dtype=tf.float64) )
 
-    training_input = tf.convert_to_tensor(input_verts, dtype=tf.float64)
+    training_input = tf.convert_to_tensor(input_network, dtype=tf.float64)
     labels = tf.reshape(labels, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge))
 
-    considered_loss = nn.nn_pol.copy_value_and_grad
-    tf.print("\n---------- I train the vem_k + harmonic polynomial part ----------\n")
+    considered_loss = nn.nn_basis_function.copy_value_and_grad
+    tf.print("\n---------- Start Training ----------\n")
 
 
     tf.print("------------------- Copy of the basis functions -------------------\n")
-    pol_results = train_adam_bfgs(nn.nn_pol, considered_loss, training_input, labels, num_epoches_opt_order1,
+    pol_results = train_adam_bfgs(nn.nn_basis_function, considered_loss, training_input, labels, num_epoches_opt_order1,
                                   num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
 
-    tf.print("\n---------- Copy of the basis functios derivatives ----------\n")
-    nn.nn_pol_deriv.copy_weights(nn.nn_pol)
+    tf.print("\n---------- Copy of the basis functions derivatives ----------\n")
+    nn.nn_basis_derivatives.copy_weights(nn.nn_pol)
 
-    nn.nn_pol_deriv.train_vander_dx.assign( tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64) )
-    nn.nn_pol_deriv.train_vander_dy.assign( tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64) )
-    nn.nn_pol_deriv.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_pol_deriv.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_pol_deriv.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    considered_loss_dx = nn.nn_pol_deriv.copy_grad
+    nn.nn_basis_derivatives.train_vander_dx.assign( tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64) )
+    nn.nn_basis_derivatives.train_vander_dy.assign( tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64) )
+    nn.nn_basis_derivatives.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    considered_loss_dx = nn.nn_basis_derivatives.copy_grad
 
     if export_training_info:
         list_of_losses_deriv = []

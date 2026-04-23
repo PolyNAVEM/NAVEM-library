@@ -1,8 +1,54 @@
 import numpy as np
 import math
 from typing import List
-from pypolydim import gedim
+from pypolydim import gedim, polydim
 from numpy.typing import NDArray
+from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
+
+class MeshGeometricData2D:
+
+    def __init__(self, mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
+                 cell2_ds_list_triangles: List[List[int]], cell2_ds_polygon: List[NAVEMPolygon],
+                 cell2_ds_mapped_polygon_internal_angles: List[List[float]]):
+
+        self.mesh_geometric_data = mesh_geometric_data
+        self.cell2_ds_list_triangles = cell2_ds_list_triangles
+        self.cell2_ds_polygon = cell2_ds_polygon
+        self.cell2_ds_mapped_polygon_internal_angles = cell2_ds_mapped_polygon_internal_angles
+
+
+def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilities,
+                                        mesh_utilities: gedim.MeshUtilities,
+                                        mesh: gedim.MeshMatricesDAO) -> MeshGeometricData2D:
+
+    mesh_geometric_data = polydim.pde_tools.mesh.pde_mesh_utilities.compute_mesh_2_d_geometry_data(geometry_utilities,
+                                                                                                   mesh_utilities,
+                                                                                                   mesh)
+
+    cell2_ds_list_triangles = []
+    cell2_ds_polygon = []
+    cell2_ds_mapped_polygon_internal_angles = []
+
+    for c in range(mesh.cell2_d_total_number()):
+
+        vertex_points = mesh_geometric_data.cell2_ds_vertices[c]
+        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
+        cell2_ds_list_triangles.append(list_triangles)
+
+        polygon = NAVEMPolygon(geometry_utilities, mesh_geometric_data.cell2_ds_vertices[c],
+                               mesh_geometric_data.cell2_ds_diameters[c],
+                               mesh_geometric_data.cell2_ds_centroids[c],
+                               list_triangles)
+        cell2_ds_polygon.append(polygon)
+
+        # for v in range(vertex_points.shape[1]):
+        #     polygon.mapped_max_vertex_distance.append(
+        #         geometry_utilities.compute_polygon_max_distance(v, polygon.mapped_vertices))
+
+        mapped_polygon_internal_angles = compute_polygon_interior_angles(polygon.mapped_vertices)
+        cell2_ds_mapped_polygon_internal_angles.append(mapped_polygon_internal_angles)
+
+    return MeshGeometricData2D(mesh_geometric_data, cell2_ds_list_triangles, cell2_ds_polygon, cell2_ds_mapped_polygon_internal_angles)
 
 
 def compute_interior_angle(v: NDArray[np.float64],
