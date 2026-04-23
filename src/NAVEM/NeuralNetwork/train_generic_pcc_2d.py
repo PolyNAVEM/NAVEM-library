@@ -4,93 +4,43 @@ from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
 from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from typing import List
+from src.NAVEM.NeuralNetwork.training_utilities import *
 from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss
 import numpy as np
 import tensorflow as tf
 
-def write_dictionary(network_input_dimension: int,
-                     method_order: int,
-                     num_vertices: int,
-                     num_hidden_layers: int,
-                     num_neurons_per_layer: int,
-                     harmonic_degree: int,
-                     use_hanging_function: bool,
-                     num_rational_poles_per_vertex: int,
-                     list_id_vertices_rationals: List[int],
-                     regularization_coefficient: float,
-                     export_training_data_file_path: str):
+def write_dictionary(flags: Flags) -> None:
 
-    file = open('{}_dictionary.txt'.format(FLAGS['name_storage']), 'w')
-    file.write("network_input_dimension = {}\n".format(FLAGS['input_dim']))
-    file.write("output_dim = {}\n".format(FLAGS['output_dim']))
-    file.write("vem_k = {}\n".format(FLAGS['vem_order']))
-    file.write("n_vertices = {}\n".format(FLAGS['n_edges']))
-    file.write("n_edges = {}\n".format(n_vertices))
-    file.write("n_training_polygons = {}\n".format(n_training_polygons))
-    file.write("edge_normalization_square = {}\n".format(edge_normalization_square))
-    file.write("net_reg_coef = {}\n".format(net_reg_coef))
-
-    if read_mesh:
-        file.write("read_mesh = True\n")
-    else:
-        file.write("read_mesh = False\n")
-
+    file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
+    file.write("network_input_dimension = {}\n".format(flags['input_dim']))
+    file.write("output_dim = {}\n".format(flags['output_dim']))
+    file.write("method_order = {}\n".format(flags['method_order']))
+    file.write("num_vertices = {}\n".format(flags['num_vertices']))
+    file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
+    file.write("regularization_coefficient = {}\n".format(flags['regularization_coefficient']))
     file.write("name_mesh = '{}'\n".format(name_mesh))
-    file.write("n_points_on_each_edge = {}\n".format(n_points_on_each_edge))
-    file.write("name = '{}'\n".format(name))
-    file.write("n_pol_hidden_layers = {}\n".format(FLAGS['n_pol_hidden_layers']))
-    file.write("n_pol_neurons = {}\n".format(FLAGS['n_pol_neurons']))
-    file.write("n_pol_epochs_order1 = {}\n".format(n_pol_epochs_order1))
-    file.write("n_pol_epochs_order2 = {}\n".format(n_pol_epochs_order2))
-    file.write("lr_max = {}\n".format(lr_min))
-    file.write("lr_min = {}\n".format(lr_min))
-    file.write("concave_convex_both = {}\n".format(concave_convex_both))
+    file.write("num_points_on_each_edge = {}\n".format(flags['num_points_on_each_edge']))
 
-    file.write("tol_almost_hanging_nodes = {}\n".format(tol_almost_hanging_nodes))
-    file.write("use_almost_hanging = {}\n".format(use_almost_hanging))
+    file.write("num_hidden_layers = {}\n".format(flags['num_hidden_layers']))
+    file.write("num_neurons_per_layer = {}\n".format(flags['num_neurons_per_layer']))
+    file.write("num_epoches_opt_order1 = {}\n".format(flags['num_epoches_opt_order1']))
+    file.write("num_epoches_opt_order2 = {}\n".format(flags['num_epoches_opt_order2']))
+    file.write("learning_rate_max = {}\n".format(flags['learning_rate_max']))
+    file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
 
-    file.write("harm_deg = {}\n".format(harm_deg))
-    file.write("harmonic_type_function = '{}'\n".format(harmonic_type_function))
+    file.write("harmonic_degree = {}\n".format(flags['harmonic_degree']))
+    file.write("normalization_diameter = {}\n".format(flags['normalization_diameter']))
 
-    if use_hanging_function:
+    if flags['use_hanging_function']:
         file.write("use_hanging_function = True\n")
-        file.write("hanging_num_rat_points = {}\n".format(navem_polynomial.hanging_function.flat_poles.shape[1]))
-        file.write("hanging_harm_deg = {}\n".format(navem_polynomial.hanging_function.harm_deg))
-        file.write("hanging_type_rational = '{}'\n".format(navem_polynomial.hanging_function.function_type))
-        file.write("hanging_type_harmonic = '{}'\n".format(navem_polynomial.hanging_function.function_type))
-        file.write("list_id_vertices_hanging = [{}".format(list_id_vertices_hanging[0]))
-        for id in range(len(list_id_vertices_hanging) - 1):
-            file.write(", {}".format(list_id_vertices_hanging[id + 1]))
+        for i in range(len(flags['list_id_vertices_hanging']) - 1):
+            file.write(", {}".format(flags['list_id_vertices_hanging'][i + 1]))
         file.write("]\n")
     else:
         file.write("use_hanging_function = False\n")
-        file.write("hanging_harm_deg = {}\n".format(navem_polynomial.hanging_function.harm_deg))
-        file.write("hanging_num_rat_points = {}\n".format(navem_polynomial.hanging_function.flat_poles.shape[1]))
-        file.write("hanging_type_rational = '{}'\n".format(navem_polynomial.hanging_function.function_type))
-        file.write("hanging_type_harmonic = '{}'\n".format(navem_polynomial.hanging_function.function_type))
         file.write("list_id_vertices_hanging = []\n")
 
-    if use_rational_function:
-        file.write("use_rational_function = True\n")
-        file.write("rational_num_rat_points = {}\n".format(rational_num_rat_points))
-        file.write("rational_type_function = '{}'\n".format(rational_type_function))
-        file.write("list_id_vertices_rationals = [{}".format(list_id_vertices_rationals[0]))
-        for id in range(len(list_id_vertices_rationals) - 1):
-            file.write(", {}".format(list_id_vertices_rationals[id + 1]))
-        file.write("]\n")
-    else:
-        file.write("use_rational_function = False\n")
-        file.write("rational_num_rat_points = {}\n".format(rational_num_rat_points))
-        file.write("rational_type_function = '{}'\n".format(rational_type_function))
-        file.write("list_id_vertices_rationals = []\n")
-
-    file.write("split_deriv = {}\n".format(split_deriv))
-    if use_grad_in_train:
-        file.write("use_grad_in_train = True\n")
-    else:
-        file.write("use_grad_in_train = False\n")
-
-    if use_sqrt_in_train:
+    if flags['use_sqrt_in_train']:
         file.write("use_sqrt_in_train = True\n")
     else:
         file.write("use_sqrt_in_train = False\n")
@@ -130,10 +80,13 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
                                        use_hanging_function,
                                        normalization_diameter)
 
+    num_training_polygons = mesh.cell2_d_total_number()
+
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
                              num_vertices,
                              navem_generators.num_generators,
+                             num_training_polygons,
                              num_hidden_layers,
                              num_neurons_per_layer,
                              num_epoches_opt_order1,
@@ -149,9 +102,10 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
                              num_points_on_each_edge,
                              export_training_data_file_path)
 
+    write_dictionary(flags)
 
     nn = NAVEMNetwork(flags)
-    num_training_polygons = mesh.cell2_d_total_number()
+
 
     # Initialize edge loss
     tf.print('The number of points on each edge is: {}'.format(num_points_on_each_edge))
@@ -197,7 +151,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
             vander_points = np.concatenate((vander_points, zeros), axis=0)
 
             local_vander, local_vandermonde_grads = (
-                navem_polynomial.vander_and_vander_derivatives(vander_points,
+                navem_generators.vander_and_vander_derivatives(vander_points,
                                                                rotated_vertices,
                                                                internal_angles=internal_angles,
                                                                vertex_distance=vertex_distance))
@@ -215,14 +169,14 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     labels_derivatives = tf.convert_to_tensor(labels_derivatives, dtype=tf.float64)
     tangents = tf.convert_to_tensor(tangents, dtype=tf.float64)
 
-    expCyclLr = trainlib.ExpCyclicLr(n_pol_epochs_order1, lr_min, lr_max)
+    expCyclLr = ExpCyclicLr(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
     cb_list = [expCyclLr]
 
     if export_training_info:
         list_of_losses = []
         list_of_times = []
-        storeLoss = trainlib.StoreLoss(list_of_losses, n_steps=1)
-        storeTime = trainlib.StoreTime(list_of_times, n_steps=1)
+        storeLoss = StoreLoss(list_of_losses, n_steps=1)
+        storeTime = StoreTime(list_of_times, n_steps=1)
         cb_list = [expCyclLr, storeLoss, storeTime]
 
     nn.nn_pol.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
@@ -241,8 +195,8 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
 
     tf.print("------------------- Copy of the basis functions -------------------\n")
-    pol_results = trainlib.train_adam_bfgs(nn.nn_pol, considered_loss, training_input, labels, n_pol_epochs_order1,
-                                           n_pol_epochs_order2, cb_list, use_bfgs=exact_bfgs)
+    pol_results = train_adam_bfgs(nn.nn_pol, considered_loss, training_input, labels, num_epoches_opt_order1,
+                                  num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
 
     tf.print("\n---------- Copy of the basis functios derivatives ----------\n")
     nn.nn_pol_deriv.copy_weights(nn.nn_pol)
@@ -257,13 +211,13 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     if export_training_info:
         list_of_losses_deriv = []
         list_of_times_deriv = []
-        storeLoss = trainlib.StoreLoss(list_of_losses_deriv, n_steps=1)
-        storeTime = trainlib.StoreTime(list_of_times_deriv, n_steps=1)
+        storeLoss = StoreLoss(list_of_losses_deriv, n_steps=1)
+        storeTime = StoreTime(list_of_times_deriv, n_steps=1)
         cb_list = [expCyclLr, storeLoss, storeTime]
 
-    pol_deriv_results = trainlib.train_adam_bfgs(nn.nn_pol_deriv, considered_loss_dx, training_input, labels,
-                                                 n_pol_epochs_order1, n_pol_epochs_order2, cb_list,
-                                                 use_bfgs=exact_bfgs)
+    pol_deriv_results = train_adam_bfgs(nn.nn_pol_deriv, considered_loss_dx, training_input, labels,
+                                        num_epoches_opt_order1, num_epoches_opt_order2, cb_list,
+                                        use_bfgs=exact_bfgs)
 
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
@@ -273,7 +227,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
         losses = np.concatenate([np.array(list_of_losses), np.array(pol_results[1].losses)], axis=0)
         times = np.concatenate([np.array(list_of_times), list_of_times[-1] + np.array(pol_results[1].times)], axis=0)
 
-        fake_header = np.array([[n_pol_epochs_order1, len(pol_results[1].losses), 999999]])
+        fake_header = np.array([[num_epoches_opt_order1, len(pol_results[1].losses), 999999]])
         export_data = np.stack([steps, losses, times], axis=1)
 
         adam_steps_deriv = np.arange(0, len(list_of_losses_deriv))

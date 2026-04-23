@@ -1,0 +1,6 @@
+network_input_dimension = 8
+output_dim = 1
+method_order = 1
+num_vertices = 4
+num_training_polygons = 6
+regularization_coefficient = 1e-08

@@ -11,6 +11,7 @@ class Flags(TypedDict):
     method_order: int
     num_vertices: int
     num_generators: int
+    num_training_polygons: int
     num_hidden_layers: int
     num_neurons_per_layer: int
     num_epoches_opt_order1: int
@@ -30,6 +31,7 @@ def set_flags(network_input_dimension: int,
               method_order: int,
               num_vertices: int,
               num_generators: int,
+num_training_polygons: int,
               num_hidden_layers: int,
               num_neurons_per_layer: int,
               num_epoches_opt_order1: int,
@@ -50,6 +52,7 @@ def set_flags(network_input_dimension: int,
                     'method_order': method_order,
                     'num_vertices': num_vertices,
                     'num_generators': num_generators,
+                    'num_training_polygons': num_training_polygons,
                     'num_hidden_layers': num_hidden_layers,
                     'num_neurons_per_layer': num_neurons_per_layer,
                     'num_epoches_opt_order1': num_epoches_opt_order1,
