@@ -231,7 +231,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
         export_data_deriv = np.stack([steps_deriv, losses_deriv, times_deriv], axis=1)
         data = np.concatenate([fake_header, export_data, export_data_deriv], axis=0)
 
-        np.savetxt('NeuralNetwork/savedModels/NAVEM_train_info.csv', data, delimiter='; ')
+        np.savetxt(export_training_data_file_path + '/' + method_type.name + 'train_info.csv', data, delimiter=';')
 
     # Storing the final loss and the l2 and h1 errors
     with open('{}_loss.csv'.format(flags['name_storage']), 'w', newline='') as file:
