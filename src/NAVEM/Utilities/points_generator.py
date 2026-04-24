@@ -251,7 +251,10 @@ def concentrating_grid_over_triangle(n: int, power: float, border_type: BorderTy
     return points
 
 
-def grid_over_triangle(points_distribution_type: PointsTriangleDistributionType, quadrature_order: int = 2) -> NDArray[np.float64]:
+def grid_over_triangle(points_distribution_type: PointsTriangleDistributionType, quadrature_order: int,
+                       uniform_boundary: bool = False, uniform_rescale: bool = True,
+                       accumulating_power: float = 1.0, accumulating_border: BorderType = BorderType.no_borders,
+                       polygon: bool = True) -> NDArray[np.float64]:
 
     match points_distribution_type:
         case PointsTriangleDistributionType.gauss:
@@ -259,24 +262,22 @@ def grid_over_triangle(points_distribution_type: PointsTriangleDistributionType,
             return quadrature.points
         case PointsTriangleDistributionType.uniform:
             n_points_per_pol = int((quadrature_order + 1) * (quadrature_order + 0) * 0.5)
+            return uniform_grid_over_triangle(n_points_per_pol, boundary=uniform_boundary,
+                                              rescale=uniform_rescale, polygon=polygon)
         case PointsTriangleDistributionType.accumulated:
-            border_type = 1
-            ref_nodes = concentrating_grid_over_triangle(quadrature_order, 1, border_type)
-            n_points_per_pol = ref_nodes.shape[1]
+            return concentrating_grid_over_triangle(quadrature_order, accumulating_power, accumulating_border)
         case _:
-            raise ValueError("The pts-type variable should be uniform, gauss_triangle or gauss_polygon!")
+            raise ValueError("invalid points triangle distribution type")
 
-def uniform_grid_over_polygon(m: int, polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
-                              boundary: bool = False, rescale: bool = False) -> NDArray[np.float64]:
+def uniform_grid_over_polygon(reference_points: NDArray[np.float64],
+                              polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
+                              boundary: bool = False) -> NDArray[np.float64]:
 
     # Triangulation by interior point
-
     num_triangles = len(polygon_triangulation_by_interior_points)
     polygon: bool = (num_triangles > 1)
 
-    xy_points = uniform_grid_over_triangle(m, boundary=boundary, rescale=rescale, polygon=polygon)
-
-    num_quadrature = xy_points.shape[1]
+    num_quadrature = reference_points.shape[1]
     if polygon and boundary:
         nodes = np.zeros([3, num_quadrature * num_triangles + 1], dtype=float)
     else:
@@ -287,7 +288,7 @@ def uniform_grid_over_polygon(m: int, polygon_triangulation_by_interior_points: 
         triangle_vertices = polygon_triangulation_by_interior_points[idx_t]
         map_data: gedim.MapTriangle.MapTriangleData = map_triangle.compute(triangle_vertices)
 
-        nodes[:, (idx_t * num_quadrature): ((idx_t + 1) * num_quadrature)] = map_triangle.f(map_data, xy_points)
+        nodes[:, (idx_t * num_quadrature): ((idx_t + 1) * num_quadrature)] = map_triangle.f(map_data, reference_points)
 
         if idx_t == num_triangles - 1 and polygon and boundary:
             nodes[:, -1:] = map_triangle.f(map_data, np.zeros([3, 1]))
@@ -295,14 +296,14 @@ def uniform_grid_over_polygon(m: int, polygon_triangulation_by_interior_points: 
     return nodes
 
 
-def concentrating_grid_over_polygon(m: int, polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
-                                    power: float, border_type: BorderType) -> NDArray[np.float64]:
+def concentrating_grid_over_polygon(reference_points: NDArray[np.float64],
+                                    polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
+                                    border_type: BorderType) -> NDArray[np.float64]:
 
+    # Triangulation by interior point
     num_triangles = len(polygon_triangulation_by_interior_points)
 
-    xy_points = concentrating_grid_over_triangle(m, power=power, border_type=border_type)
-
-    num_quadrature = xy_points.shape[1]
+    num_quadrature = reference_points.shape[1]
     nodes = np.zeros([3, num_quadrature * num_triangles], dtype=float)
 
     map_triangle = gedim.MapTriangle()
@@ -310,7 +311,7 @@ def concentrating_grid_over_polygon(m: int, polygon_triangulation_by_interior_po
         triangle_vertices = polygon_triangulation_by_interior_points[idx_t]
         map_data: gedim.MapTriangle.MapTriangleData = map_triangle.compute(triangle_vertices)
 
-        nodes[:, (idx_t * num_quadrature): ((idx_t + 1) * num_quadrature)] = map_triangle.f(map_data, xy_points)
+        nodes[:, (idx_t * num_quadrature): ((idx_t + 1) * num_quadrature)] = map_triangle.f(map_data, reference_points)
 
     if border_type == BorderType.all_borders:
         nodes = np.unique(nodes, axis=1)

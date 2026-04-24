@@ -59,6 +59,8 @@ def main():
                         help='Type of points: uniform, gauss_triangle or gauss_polygon')
     parser.add_argument('-neo', '--p-navem-exact-constant', dest='p_navem_exact_constant', default=1, type=int,
                         help='Flag to specify if function 1 is contained in the space by construction')
+    parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False, type=bool,
+                        help='Flag to specify if distance from basis functions should be added to the loss')
 
 
     args = parser.parse_args()
@@ -135,6 +137,7 @@ def main():
                                                            args.regularization_coefficient,
                                                            args.export_training_data_file_path,
                                                            args.export_training_info,
+                                                           args.copy_basis_in_train,
                                                            args.use_sqrt_in_train)
         case method_type.P_NAVEM:
             train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
@@ -156,6 +159,7 @@ def main():
                                                            args.regularization_coefficient,
                                                            args.export_training_data_file_path,
                                                            args.export_training_info,
+                                                           args.copy_basis_in_train,
                                                            args.use_sqrt_in_train)
         case _:
             raise ValueError("not valid method")

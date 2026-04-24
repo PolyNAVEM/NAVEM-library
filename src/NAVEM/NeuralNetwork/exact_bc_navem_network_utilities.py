@@ -17,6 +17,7 @@ class Flags(TypedDict):
     use_sqrt_in_train: bool
     regularization_coefficient: float
     name_storage: str
+    copy_basis_in_train: bool
     p_navem_exact_constant: bool
     quadrature_order: int
     distribution_points_type: int
@@ -37,6 +38,7 @@ def set_flags(network_input_dimension: int,
               use_sqrt_in_train: bool,
               regularization_coefficient: float,
               export_training_data_file_path: str,
+              copy_basis_in_train: bool,
               p_navem_exact_constant: bool,
               quadrature_order: int,
               distribution_points_type: int) -> Flags:
@@ -57,6 +59,7 @@ def set_flags(network_input_dimension: int,
                     'use_sqrt_in_train': use_sqrt_in_train,
                     'regularization_coefficient': regularization_coefficient,
                     'name_storage': export_training_data_file_path,
+                    'copy_basis_in_train': copy_basis_in_train,
                     'p_navem_exact_constant': p_navem_exact_constant,
                     'quadrature_order': quadrature_order,
                     'distribution_points_type': distribution_points_type}

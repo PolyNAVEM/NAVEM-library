@@ -7,6 +7,7 @@ from src.NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from src.NAVEM.NeuralNetwork.p_navem_super_network import PNAVEMSupernetwork
 from src.NAVEM.NeuralNetwork.training_utilities import *
 import csv
+from src.NAVEM.Utilities.points_generator import *
 
 
 def write_dictionary(flags: Flags) -> None:
@@ -56,6 +57,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    regularization_coefficient: float,
                                                    export_training_data_file_path: str,
                                                    export_training_info: bool = False,
+                                                   copy_basis_in_train: bool = False,
                                                    use_sqrt_in_train: bool = False):
 
     assert method_order == 1
@@ -78,6 +80,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                              use_sqrt_in_train,
                              regularization_coefficient,
                              export_training_data_file_path,
+                             copy_basis_in_train,
                              p_navem_exact_constant,
                              quadrature_order,
                              distribution_points_type)
@@ -92,38 +95,23 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         case _:
             raise ValueError("not valid method")
 
+    distribution_points_type = PointsTriangleDistributionType(distribution_points_type)
+    reference_nodes = grid_over_triangle(PointsTriangleDistributionType(distribution_points_type), quadrature_order,
+                                         uniform_boundary = False, uniform_rescale = True,
+                                         accumulating_power = 1.0, accumulating_border = BorderType.no_borders,
+                                         polygon=num_vertices > 3)
 
-    if pts_type == "gauss_triangle":
-        quadrature = QuadratureGauss2DTriangle(quadrature_order)
-        ref_nodes, ref_weights = quadrature.fill_points_and_weights()
-        n_points_per_pol = ref_weights.shape[0] * n_vertices
+    num_points_per_polygon = reference_nodes.shape[1] * num_vertices
 
-    else:
-        nodes_generator = TrianglesGrid()
-        if pts_type == "uniform":
-            border_pts = False
-            if border_pts:
-                n_points_per_pol = int((quadrature_order + 1) * (quadrature_order + 0) * 0.5) * n_vertices + 1
-            else:
-                n_points_per_pol = int((quadrature_order - 1) * (quadrature_order - 2) * 0.5) * n_vertices
-        elif pts_type == "gauss_polygon":
-            border_type = 1
-            ref_nodes = nodes_generator.concentrating_grid_over_triangle(quadrature_order, 1, border_type)
-            n_points_per_pol = ref_nodes.shape[1] * n_vertices
-            if border_type == 0:
-                n_points_per_pol -= quadrature_order * n_vertices + (n_vertices - 1)
-        else:
-            raise ValueError("The pts-type variable should be uniform, gauss_triangle or gauss_polygon!")
+    num_functions_per_polygon = num_vertices - p_navem_exact_constant
 
-    n_functions_per_pol = n_vertices - napem_exact_one
+    inputs = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))
+    training_quad_w = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon, 1))
 
-    inputs = np.zeros((num_training_polygons * n_points_per_pol * n_functions_per_pol, network_input_dimension))
-    training_quad_w = np.zeros((num_training_polygons * n_points_per_pol * n_functions_per_pol, 1))
-
-    xy_per_pol = np.zeros(shape=(num_training_polygons, n_points_per_pol, 2))
-    vertices_per_pol = np.zeros(shape=(num_training_polygons, 2, n_vertices))
-    jac_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, n_functions_per_pol))
-    jac_inv_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, n_functions_per_pol))
+    xy_per_pol = np.zeros(shape=(num_training_polygons, num_points_per_polygon, 2))
+    vertices_per_pol = np.zeros(shape=(num_training_polygons, 2, num_vertices))
+    jac_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, num_functions_per_polygon))
+    jac_inv_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, num_functions_per_polygon))
 
     exact_bfgs = True
 
@@ -155,10 +143,10 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                                                             inertia_mapped_list_triangles,
                                                                                             power=0.75, border_type=1)
 
-        xy_per_pol[i, :, :] = inertia_mapped_internal_nodes[:2, :].T
-        vertices_per_pol[i, :, :] = polygon.mapped_vertices[:2, :]
+        xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T
+        vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]
 
-        for v_id in range(n_functions_per_pol):
+        for v_id in range(num_functions_per_polygon):
             rotated_vertices, resc_mapped_points, jac_inv, jac, inv_rescaling_factor = map_fix_vertex_inv(
                 polygon.mapped_vertices,
                 inertia_mapped_internal_nodes,
@@ -166,19 +154,14 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
 
             flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
-            rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [n_points_per_pol, 1])
+            rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
             c_inputs = np.concatenate([resc_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
 
-            inputs[(i * n_functions_per_pol + v_id) * n_points_per_pol: (
-                                                                                i * n_functions_per_pol + v_id + 1) * n_points_per_pol,
-            :] = c_inputs
-            # training_quad_w[(i*n_functions_per_pol + v_id) * n_points_per_pol : (i*n_functions_per_pol + v_id+1) * n_points_per_pol, 0] = inertia_mapped_internal_weights * inv_rescaling_factor
-            jac_per_pol[i, :, :, v_id] = jac[:2, :2]
-            jac_inv_per_pol[i, :, :, v_id] = jac_inv[:2, :2]
+            inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon: (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
+            jac_per_pol[c, :, :, v_id] = jac[:2, :2]
+            jac_inv_per_pol[c, :, :, v_id] = jac_inv[:2, :2]
 
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
-    # training_quad_w = tf.convert_to_tensor(training_quad_w, dtype=tf.float64)
-    # nn.training_quad_w.assign(training_quad_w)
     labels = 0 * inputs[:, 0:1]
 
     if method == "BNAVEM":
@@ -203,13 +186,10 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         else:
             raise ValueError("At least one between use_grad_in_train and copy_pols_in_train must be True")
 
-    # print(xy_per_pol.shape, vertices_per_pol.shape, jac_per_pol.shape)
-    # aa
 
-    nn.setupModel_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives,
-                               geometry_utilities)
+    nn.setupModel_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives, geometry_utilities)
 
-    expCyclLr = ExpCyclicLr(n_epochs_order1, lr_min, lr_max)
+    expCyclLr = ExpCyclicLr(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
     cb_list = [expCyclLr]
 
     if export_training_info:
@@ -229,28 +209,27 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         del geometric_data
         del train_mesh
 
-        results = trainlib.train_adam_bfgs(nn, considered_loss, inputs, labels, n_epochs_order1,
-                                           n_epochs_order2, cb_list, use_bfgs=exact_bfgs)
+        results = train_adam_bfgs(nn, considered_loss, inputs, labels, num_epoches_opt_order1,
+                                           num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
     else:
-        results = trainlib.train_adam_bfgs(nn.nn_func, considered_loss, inputs, labels, n_epochs_order1,
-                                           n_epochs_order2, cb_list, use_bfgs=exact_bfgs)
+        results = train_adam_bfgs(nn.nn_func, considered_loss, inputs, labels, num_epoches_opt_order1,
+                                           num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
 
-        if split_deriv:
-            tf.print("\n---------- Start gradient training ----------\n")
-            func_pred_grad = nn.nn_func.get_u_and_du(inputs)[:, 1:]
-            nn.nn_grad.store_terms_for_loss(func_pred_grad, vertices_per_pol, jac_inv_per_pol)
-            expCyclLr = trainlib.ExpCyclicLr(n_epochs_order1, lr_min, lr_max)
-            cb_list = [expCyclLr]
+        tf.print("\n---------- Start gradient training ----------\n")
+        func_pred_grad = nn.nn_func.get_u_and_du(inputs)[:, 1:]
+        nn.nn_grad.store_terms_for_loss(func_pred_grad, vertices_per_pol, jac_inv_per_pol)
+        expCyclLr = ExpCyclicLr(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
+        cb_list = [expCyclLr]
 
-            if export_train_info:
-                list_of_losses_deriv = []
-                list_of_times_deriv = []
-                storeLoss = trainlib.StoreLoss(list_of_losses_deriv, n_steps=1)
-                storeTime = trainlib.StoreTime(list_of_times_deriv, n_steps=1)
-                cb_list = [expCyclLr, storeLoss, storeTime]
+        if export_training_info:
+            list_of_losses_deriv = []
+            list_of_times_deriv = []
+            storeLoss = StoreLoss(list_of_losses_deriv, n_steps=1)
+            storeTime = StoreTime(list_of_times_deriv, n_steps=1)
+            cb_list = [expCyclLr, storeLoss, storeTime]
 
-            results2 = trainlib.train_adam_bfgs(nn.nn_grad, nn.nn_grad.inter_grad_loss, inputs, labels, n_epochs_order1,
-                                                n_epochs_order2, cb_list, use_bfgs=exact_bfgs)
+        results2 = train_adam_bfgs(nn.nn_grad, nn.nn_grad.inter_grad_loss, inputs, labels, num_epoches_opt_order1,
+                                   num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
 
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
@@ -260,7 +239,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         losses = np.concatenate([np.array(list_of_losses), np.array(results[1].losses)], axis=0)
         times = np.concatenate([np.array(list_of_times), list_of_times[-1] + np.array(results[1].times)], axis=0)
 
-        fake_header = np.array([[n_epochs_order1, len(results[1].losses), 999999]])
+        fake_header = np.array([[num_epoches_opt_order1, len(results[1].losses), 999999]])
         export_data = np.stack([steps, losses, times], axis=1)
 
         if split_deriv and method == "NAPEM":

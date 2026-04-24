@@ -69,15 +69,18 @@ class TestNodeDistribution(unittest.TestCase):
         list_triangulation_points = geometry_utilities.extract_triangulation_points_by_internal_point(polygon, internal_point, list_triangles)
 
         # Test 4:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=False, rescale=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=False, rescale=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=False)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 5:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=True)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 6:
-        nodes = concentrating_grid_over_polygon(m, list_triangulation_points, power, border_type)
+        xy_points = concentrating_grid_over_triangle(m, power=power, border_type=border_type)
+        nodes = concentrating_grid_over_polygon(xy_points, list_triangulation_points, border_type)
         plot_grid_over_polygon(polygon, nodes)
 
     def test_polygon_2(self):
@@ -99,15 +102,18 @@ class TestNodeDistribution(unittest.TestCase):
         list_triangulation_points = geometry_utilities.extract_triangulation_points_by_internal_point(polygon, internal_point, list_triangles)
 
         # Test 4:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=False, rescale=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=False, rescale=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=False)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 5:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=True)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 6:
-        nodes = concentrating_grid_over_polygon(m, list_triangulation_points, power, border_type)
+        xy_points = concentrating_grid_over_triangle(m, power=power, border_type=border_type)
+        nodes = concentrating_grid_over_polygon(xy_points, list_triangulation_points, border_type)
         plot_grid_over_polygon(polygon, nodes)
 
     def test_polygon_3(self):
@@ -132,15 +138,18 @@ class TestNodeDistribution(unittest.TestCase):
                                                                                                       list_triangles)
 
         # Test 4:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=False, rescale=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=False, rescale=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=False)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 5:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=True)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 6:
-        nodes = concentrating_grid_over_polygon(m, list_triangulation_points, power, border_type)
+        xy_points = concentrating_grid_over_triangle(m, power=power, border_type=border_type)
+        nodes = concentrating_grid_over_polygon(xy_points, list_triangulation_points, border_type)
         plot_grid_over_polygon(polygon, nodes)
 
     def test_polygon_4(self):
@@ -165,15 +174,18 @@ class TestNodeDistribution(unittest.TestCase):
                                                                                                       list_triangles)
 
         # Test 4:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=False, rescale=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=True, rescale=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=True)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 5:
-        nodes = uniform_grid_over_polygon(m, list_triangulation_points, boundary=True)
+        xy_points = uniform_grid_over_triangle(m, boundary=True, polygon=polygon.shape[1] > 3)
+        nodes = uniform_grid_over_polygon(xy_points, list_triangulation_points, boundary=True)
         plot_grid_over_polygon(polygon, nodes)
 
         # Test 6:
-        nodes = concentrating_grid_over_polygon(m, list_triangulation_points, power, border_type)
+        xy_points = concentrating_grid_over_triangle(m, power=power, border_type=border_type)
+        nodes = concentrating_grid_over_polygon(xy_points, list_triangulation_points, border_type)
         plot_grid_over_polygon(polygon, nodes)
 
 
