@@ -235,9 +235,6 @@ class PolynomialNetwork(tf.keras.Model):
         value_cost = tf.reduce_mean(tf.square(u - tf.squeeze(y_true)))
         self.curr_distance_l2.assign(value_cost)
 
-        # coeff_norm_pol = tf.reduce_mean(tf.abs(y_pred), axis=1)
-        # coeff_norm_tot = tf.reduce_mean(tf.square(coeff_norm_pol))
-        # value_cost += 1e-4 * coeff_norm_tot
         if self.use_sqrt:
             return tf.sqrt(value_cost)
         else:
@@ -251,9 +248,6 @@ class PolynomialNetwork(tf.keras.Model):
         deriv_cost = tf.reduce_mean(tf.square(tangent_derivative - self.deriv_labels)*self.vertex_filter)
         self.curr_distance_h1.assign(deriv_cost)
 
-        # coeff_norm_pol = tf.reduce_mean(tf.abs(y_pred), axis=1)
-        # coeff_norm_tot = tf.reduce_mean(tf.square(coeff_norm_pol))
-        # deriv_cost += 1e-4 * coeff_norm_tot
         if self.use_sqrt:
             return tf.sqrt(deriv_cost)
         else:

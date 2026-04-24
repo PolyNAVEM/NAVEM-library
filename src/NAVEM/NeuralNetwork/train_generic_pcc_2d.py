@@ -109,6 +109,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     tangents = np.array([], dtype=np.float64).reshape(0, 2)
     labels = np.array([], dtype=np.float64)
     labels_derivatives = np.array([], dtype=np.float64)
+    vertex_filter = np.array([], dtype=np.float64).reshape(0)
 
     super_vandermonde = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
     super_vander_dx = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
@@ -153,58 +154,60 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
             input_network[c * num_vertices + v_id, :] = rotated_vertices[:2, 1:].flatten()
 
+            local_vertex_filter = np.ones((num_points,))
+            for vi in range(num_vertices):
+                local_vertex_filter *= np.linalg.norm(c_points[:, :2] - rotated_vertices[:2, vi], axis=1) > 4e-2
+            vertex_filter = np.concatenate([vertex_filter, local_vertex_filter])
 
     labels = tf.squeeze(tf.convert_to_tensor(labels, dtype=tf.float64))
     labels_derivatives = tf.convert_to_tensor(labels_derivatives, dtype=tf.float64)
     tangents = tf.convert_to_tensor(tangents, dtype=tf.float64)
+    vertex_filter = tf.convert_to_tensor(vertex_filter, dtype=tf.float64)
 
-    expCyclLr = ExpCyclicLr(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
-    cb_list = [expCyclLr]
-
+    learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
+    exponential_learning_rate = tf.keras.callbacks.LearningRateScheduler(learning_rate_scheduler)
+    cb_list = [exponential_learning_rate]
     if export_training_info:
         list_of_losses = []
         list_of_times = []
         storeLoss = StoreLoss(list_of_losses, n_steps=1)
         storeTime = StoreTime(list_of_times, n_steps=1)
-        cb_list = [expCyclLr, storeLoss, storeTime]
-
-    nn.nn_basis_function.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_basis_function.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_basis_function.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_basis_function.train_vander_dx.assign(tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64))
-    nn.nn_basis_function.train_vander_dy.assign(tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64))
+        cb_list = [exponential_learning_rate, storeLoss, storeTime]
 
     nn.nn_basis_function.train_vander.assign( tf.convert_to_tensor(super_vandermonde, dtype=tf.float64) )
 
     training_input = tf.convert_to_tensor(input_network, dtype=tf.float64)
     labels = tf.reshape(labels, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge))
 
-    considered_loss = nn.nn_basis_function.copy_value_and_grad
+    considered_loss = nn.nn_basis_function.copy_value
     tf.print("\n---------- Start Training ----------\n")
-
 
     tf.print("------------------- Copy of the basis functions -------------------\n")
     pol_results = train_adam_bfgs(nn.nn_basis_function, considered_loss, training_input, labels, num_epoches_opt_order1,
                                   num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
 
     tf.print("\n---------- Copy of the basis functions derivatives ----------\n")
-    nn.nn_basis_derivatives.copy_weights(nn.nn_pol)
+    nn.nn_basis_derivatives.copy_weights(nn.nn_basis_function)
 
     nn.nn_basis_derivatives.train_vander_dx.assign( tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64) )
     nn.nn_basis_derivatives.train_vander_dy.assign( tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64) )
     nn.nn_basis_derivatives.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
     nn.nn_basis_derivatives.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
     nn.nn_basis_derivatives.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.vertex_filter.assign(tf.reshape(vertex_filter, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
     considered_loss_dx = nn.nn_basis_derivatives.copy_grad
 
+    learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
+    exponential_learning_rate = tf.keras.callbacks.LearningRateScheduler(learning_rate_scheduler)
+    cb_list = [exponential_learning_rate]
     if export_training_info:
         list_of_losses_deriv = []
         list_of_times_deriv = []
         storeLoss = StoreLoss(list_of_losses_deriv, n_steps=1)
         storeTime = StoreTime(list_of_times_deriv, n_steps=1)
-        cb_list = [expCyclLr, storeLoss, storeTime]
+        cb_list = [exponential_learning_rate, storeLoss, storeTime]
 
-    pol_deriv_results = train_adam_bfgs(nn.nn_pol_deriv, considered_loss_dx, training_input, labels,
+    pol_deriv_results = train_adam_bfgs(nn.nn_basis_derivatives, considered_loss_dx, training_input, labels,
                                         num_epoches_opt_order1, num_epoches_opt_order2, cb_list,
                                         use_bfgs=exact_bfgs)
 
@@ -235,15 +238,15 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
         writer = csv.writer(file, delimiter=';')
         writer.writerow(['NPolygons', 'L2 loss', 'H1 loss'])
 
-        pol_coeffs = nn.nn_pol.call(training_input)
+        pol_coeffs = nn.nn_basis_function.call(training_input)
         considered_loss(labels, pol_coeffs)
 
-        pol_coeffs_deriv = nn.nn_pol_deriv.call(training_input)
+        pol_coeffs_deriv = nn.nn_basis_derivatives.call(training_input)
         considered_loss_dx(labels, pol_coeffs_deriv)
 
         writer.writerow([num_training_polygons,
-                         np.sqrt(nn.nn_pol.curr_distance_l2.numpy()),
-                         np.sqrt(nn.nn_pol_deriv.curr_distance_h1.numpy())])
+                         np.sqrt(nn.nn_basis_function.curr_distance_l2.numpy()),
+                         np.sqrt(nn.nn_basis_derivatives.curr_distance_h1.numpy())])
 
     # Final storage
-    nn.saveModel()
+    nn.save_model()

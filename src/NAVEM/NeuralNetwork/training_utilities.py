@@ -4,28 +4,29 @@ import tensorflow_probability as tfp
 import time
 
 
-class ExpCyclicLr(tf.keras.callbacks.Callback):
-    def __init__(self, n_epochs, lower, upper):
-        super(ExpCyclicLr, self).__init__()
-        self.n_epochs = n_epochs
-        self.lower_lr = tf.convert_to_tensor(lower)
-        self.upper_lr = tf.convert_to_tensor(upper)
-
-    def on_epoch_end(self, epoch, logs=None):  # esponenziale
-        lr = self.upper_lr * np.exp(np.log(self.lower_lr / self.upper_lr) * epoch / self.n_epochs)
-        tf.keras.backend.set_value(self.model.optimizer.lr, lr)
-
-        # if epoch % 100 == 0:
-        #     # current = logs.get("loss")
-        #     tf.print(("Performed {:<d} / {:<d} epochs. Current distance L2 and H1: {:<.16e} \t {:<.16e}").
-        #              format(epoch, self.n_epochs,
-        #                     self.model.curr_distance_l2.read_value(), self.model.curr_distance_h1.read_value()))
-        #     # tf.print(("{:<.16e} \t {:<.16e}").
-        #     #          format(self.model.curr_distance_l2.read_value(), self.model.curr_distance_h1.read_value()))
-
-    # def on_train_end(self, logs=None):
-    #     current = logs.get("loss")
-    #     tf.print("Final loss: {:<.16e}".format(current))
+# class ExpCyclicLr(tf.keras.callbacks.Callback):
+#     def __init__(self, n_epochs, lower, upper):
+#         super(ExpCyclicLr, self).__init__()
+#         self.n_epochs = tf.convert_to_tensor(n_epochs, dtype=tf.float64)
+#         self.lower_lr = tf.convert_to_tensor(lower, dtype=tf.float64)
+#         self.upper_lr = tf.convert_to_tensor(upper, dtype=tf.float64)
+#
+#     def on_epoch_end(self, epoch, logs=None):  # exponential decay
+#         lr = self.upper_lr * np.exp(np.log(self.lower_lr / self.upper_lr) * epoch / self.n_epochs)
+#         self.model.optimizer.learning_rate.assign(lr)
+#         #
+#         # if epoch % 100 == 0:
+#         #     current = logs.get("loss")
+#         #     tf.print(current, lr, self.lower_lr, self.upper_lr)
+#             # tf.print(("Performed {:<d} / {:<d} epochs. Current distance L2 and H1: {:<.16e} \t {:<.16e}").
+#             #          format(epoch, self.n_epochs,
+#             #                 self.model.curr_distance_l2.read_value(), self.model.curr_distance_h1.read_value()))
+#         #     # tf.print(("{:<.16e} \t {:<.16e}").
+#         #     #          format(self.model.curr_distance_l2.read_value(), self.model.curr_distance_h1.read_value()))
+#
+#     # def on_train_end(self, logs=None):
+#     #     current = logs.get("loss")
+#     #     tf.print("Final loss: {:<.16e}".format(current))
 
 
 class PrintInfoCb(tf.keras.callbacks.Callback):
@@ -67,6 +68,12 @@ class StoreTime(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         if epoch % self.n_steps == 0:
             self.list_of_times.append(time.perf_counter() - self.t0)
+
+
+def get_lr_scheduler(n_epochs, lower, upper):
+    def scheduler(epoch, lr):
+        return upper * np.exp(np.log(lower / upper) * epoch / n_epochs)
+    return scheduler
 
 
 def train_with_first_order(model, loss_f, x, y, bsize, n_epochs, shuffle, cb_list, info_printer):
@@ -177,7 +184,7 @@ def function_factory(model, loss, train_x, train_y, info_printer):
     part = []  # partition indices
 
     for i, shape in enumerate(shapes):
-        n = np.product(shape)
+        n = np.prod(shape)
         idx.append(tf.reshape(tf.range(count, count + n, dtype=tf.int32), shape))
         part.extend([i] * n)
         count += n

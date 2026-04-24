@@ -6,12 +6,13 @@ from src.NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_g
 from src.NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+import tensorflow as tf
 
 def main():
 
     parser =argparse.ArgumentParser()
-    parser.add_argument('-order','--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method','--method-type',dest='method_type', default=1, type=int, help="Method type")
+    parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
+    parser.add_argument('-method', '--method-type',dest='method_type', default=1, type=int, help="Method type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingVoro_4', type=str, help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
@@ -26,11 +27,11 @@ def main():
                         help='Number of hidden layers for the polynomial neural network')
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
                         help='Number of nodes per hidden layers for the polynomial neural network')
-    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=1000, type=int,
+    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=300, type=int,
                         help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=500, type=int,
+    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=150, type=int,
                         help='Number of training epochs with second order optimizer')
-    parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-3, type=float,
+    parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-2, type=float,
                         help='Maximum value of the learning rate')
     parser.add_argument('-lr_min', '--lr-min', dest='learning_rate_min', default=1e-3, type=float,
                         help='Minimum value of the learning rate')
@@ -66,6 +67,8 @@ def main():
     if not os.path.exists(export_file_path):
         os.makedirs(export_file_path)
 
+    tf.keras.backend.set_floatx('float64')
+    tf.keras.backend.set_epsilon(args.tolerance1_d)
 
     pr = cProfile.Profile()
     pr.enable()
