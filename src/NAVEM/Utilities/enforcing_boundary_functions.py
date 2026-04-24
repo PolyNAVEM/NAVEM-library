@@ -55,7 +55,7 @@ class EnforcingBoundary:
         # Compute the final quantity: nxV * (xP - xV) + nyV * (yP - yV) with shape (Npts, Nvrts)
         # -eps serve a valutare sempre leggermente dentro al poligono anche quando si valuta sul bordo
         # return tf.reduce_sum(abs(self.normals[:, None, :, :] * diffs), axis=-1) - self.geometry_utilities.geometry_tol_2d
-        return tf.reduce_sum(self.normals[:, None, :, :] * diffs, axis=-1) - self.geometry_utilities.geometry_tol_2d
+        return tf.reduce_sum(self.normals[:, None, :, :] * diffs, axis=-1) - self.geometry_utilities.tolerance2_d()
 
     def compute_phi_k_segment(self, xy, d_k, return_t_k = False):
         exp_lengths = self.lengths[:, None, :]
@@ -258,7 +258,7 @@ class EnforcingBoundary:
                 inside = np.concatenate([inside, curr_inside], 0)
         return tf.convert_to_tensor(inside, dtype=tf.float64)
 
-    def draw_function_one_edge(self, N, x, y, xy, pol_id, edge_id, method_type):
+    def draw_function_one_edge(self, N, x, y, xy, pol_id, edge_id, method_type, file_path: str):
 
         phi_k_line = self.compute_phi_k_line(xy)
         if method_type == 0:
@@ -294,13 +294,13 @@ class EnforcingBoundary:
         cbar.ax.tick_params(labelsize=17)
         plt.axis("equal")
         plt.axis("off")
-        root_dir = os.path.dirname(os.path.abspath(__file__))
-        plt.savefig(root_dir + "/../ExportParaview/phi0_edge_" + str(edge_id) + "_mt_" + str(method_type) +
+
+        plt.savefig(file_path + "/phi0_edge_" + str(edge_id) + "_mt_" + str(method_type) +
                     "_pol_id_" + str(pol_id) + "_nv_" + str(self.n_verts) + ".png",
                     bbox_inches='tight')
         plt.show()
 
-    def draw_trimming_function_one_edge(self, N, x, y, xy, pol_id, edge_id):
+    def draw_trimming_function_one_edge(self, N, x, y, xy, pol_id, edge_id, file_path: str):
 
         phi_k_line = self.compute_phi_k_line(xy)
         _, t_k = self.compute_phi_k_segment(xy, phi_k_line, return_t_k=True)
@@ -328,13 +328,13 @@ class EnforcingBoundary:
         cbar.ax.tick_params(labelsize=17)
         plt.axis("equal")
         plt.axis("off")
-        root_dir = os.path.dirname(os.path.abspath(__file__))
-        plt.savefig(root_dir + "/../ExportParaview/trim_edge_" + str(edge_id) +
+
+        plt.savefig(file_path + "/trim_edge_" + str(edge_id) +
                     "_pol_id_" + str(pol_id) + "_nv_" + str(self.n_verts) + ".png",
                     bbox_inches='tight')
         plt.show()
 
-    def draw_function(self, N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=1, bubble_type=1):
+    def draw_function(self, N, x, y, xy, pol_id, dof_id, draw_lifting, file_path: str, method_type=1, bubble_type=1):
 
 
         phi, g = self.phi_and_g(xy, method_type=method_type, bubble_type=bubble_type)
@@ -365,8 +365,7 @@ class EnforcingBoundary:
         cbar.ax.tick_params(labelsize=17)
         plt.axis("equal")
 
-        root_dir = os.path.dirname(os.path.abspath(__file__))
-        plt.savefig(root_dir + "/../ExportParaview/phi0_mt_" + str(method_type) + "_bt_"
+        plt.savefig(file_path + "/phi0_mt_" + str(method_type) + "_bt_"
                     + str(bubble_type) + "_pol_id_" + str(pol_id) + "_nv_" + str(self.n_verts) + ".png", bbox_inches='tight')
         plt.show()
 

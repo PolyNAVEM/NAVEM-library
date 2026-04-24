@@ -1,8 +1,9 @@
 import unittest
-from NeuralNetwork.enforcing_boundary_functions_efficient import EnforcingBoundary
+from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary
 import tensorflow as tf
 import numpy as np
-from geometry.geometry_properties import GeometryUtilities
+from pypolydim import gedim
+import os
 
 try:
     import matplotlib.pyplot as plt
@@ -18,7 +19,9 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
 
     def test_pentagon_line(self):
 
-        geometry_utilities = GeometryUtilities()
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
         vertices = np.array([[[ 0.90, 0.65, -0.35, -0.90,  0.10],
                               [-0.80, 0.86,  0.60,  0.10, -0.60]],
 
@@ -58,16 +61,22 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
+        export_file_path = './Export/test_pentagon_line'
+        if not os.path.exists(export_file_path):
+            os.makedirs(export_file_path)
+
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type = 2)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, export_file_path, method_type=method_type, bubble_type = 2)
             #eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
             #eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
 
     def test_pentagon_segment(self):
 
-        geometry_utilities = GeometryUtilities()
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
         vertices = np.array([[[0.90, 0.65, -0.35, -0.90, 0.10],
                               [-0.80, 0.86, 0.60, 0.10, -0.60]],
 
@@ -107,17 +116,23 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
+        export_file_path = './Export/test_pentagon_segment'
+        if not os.path.exists(export_file_path):
+            os.makedirs(export_file_path)
+
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1, file_path = export_file_path)
             # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
             # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
 
 
     def test_hexagon_line(self):
 
-        geometry_utilities = GeometryUtilities()
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
         vertices = np.array([[[ 0.5, 0.5, 0.5, -0.90,  0.5, 0.5],
                               [ 0.0, 0.4, 0.8,  0.0, -0.8, -0.4]]
                               ])
@@ -145,17 +160,23 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
+        export_file_path = './Export/test_hexagon_line'
+        if not os.path.exists(export_file_path):
+            os.makedirs(export_file_path)
+
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=2)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=2, file_path = export_file_path)
             # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
             # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
 
 
     def test_hexagon_segment(self):
 
-        geometry_utilities = GeometryUtilities()
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
         vertices = np.array([[[ 0.5, 0.5, 0.5, -0.90,  0.5, 0.5],
                               [ 0.0, 0.4, 0.8,  0.0, -0.8, -0.4]]
                               ])
@@ -183,17 +204,23 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
+        export_file_path = './Export/test_hexagon_segment'
+        if not os.path.exists(export_file_path):
+            os.makedirs(export_file_path)
+
         for pol_id in range(vertices.shape[0]):
             dof_id = 5
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1, file_path = export_file_path)
             # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
             # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
 
 
     def test_quad_line(self):
 
-        geometry_utilities = GeometryUtilities()
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
         vertices = np.array([[[-0.5, 0.5, 0.5, -0.5],
                               [0.0, 0.0, 1.0, 1.0]],
 
@@ -224,16 +251,22 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
+        export_file_path = './Export/test_quad_line'
+        if not os.path.exists(export_file_path):
+            os.makedirs(export_file_path)
+
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=2)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=2, file_path = export_file_path)
             # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
             # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
 
     def test_quad_segment(self):
 
-        geometry_utilities = GeometryUtilities()
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
         vertices = np.array([[[-0.5, 0.5, 0.5, -0.5],
                               [0.0, 0.0, 1.0, 1.0]],
 
@@ -264,13 +297,17 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
+        export_file_path = './Export/test_quad_segment'
+        if not os.path.exists(export_file_path):
+            os.makedirs(export_file_path)
+
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1, file_path = export_file_path)
             # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
             # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type)
-            eb.draw_trimming_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
+            eb.draw_trimming_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, file_path = export_file_path)
 
 
 

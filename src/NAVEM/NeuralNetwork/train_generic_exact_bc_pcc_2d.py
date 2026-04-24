@@ -1,7 +1,7 @@
 from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
-import numpy as np
+from src.NAVEM.Utilities import NAVEMPolygon
 from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from src.NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from src.NAVEM.NeuralNetwork.p_navem_super_network import PNAVEMSupernetwork
@@ -138,7 +138,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]
 
         for v_id in range(num_functions_per_polygon):
-            rotated_vertices, resc_mapped_points, jac_inv, jac, inv_rescaling_factor = map_fix_vertex_inv(
+            rotated_vertices, resc_mapped_points, jac_inv, jac, inv_rescaling_factor = NAVEMPolygon.map_fix_vertex_inv(
                 polygon.mapped_vertices,
                 inertia_mapped_internal_nodes,
                 v_id)
