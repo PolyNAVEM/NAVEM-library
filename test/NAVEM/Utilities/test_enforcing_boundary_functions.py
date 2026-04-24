@@ -4,11 +4,11 @@ import tensorflow as tf
 import numpy as np
 from pypolydim import gedim
 import os
+import matplotlib.pyplot as plt
+from matplotlib import use
+import importlib
 
 try:
-    import matplotlib.pyplot as plt
-    from matplotlib import use
-    import importlib
     use("Qt5Agg")
     importlib.reload(plt)
 except ImportError:
