@@ -58,7 +58,7 @@ class TestLaplaceSolver(unittest.TestCase):
             print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
                   .format(err_max_l2, err_max_h1))
 
-            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_boundary_distributions(solver.domain_vertices(), solver.flat_poles, solver.boundary_points)
 
             plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
                                                            10 * num_rat_points *
@@ -140,7 +140,7 @@ class TestLaplaceSolver(unittest.TestCase):
             print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
                   .format(err_max_l2, err_max_h1))
 
-            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_boundary_distributions(solver.domain_vertices(), solver.flat_poles, solver.boundary_points)
 
             plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
                                                            10 * num_rat_points *
@@ -202,7 +202,7 @@ class TestLaplaceSolver(unittest.TestCase):
             print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
                   .format(err_max_l2, err_max_h1))
 
-            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_boundary_distributions(solver.domain_vertices(), solver.flat_poles, solver.boundary_points)
 
             plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
                                                            10 * num_rat_points *
@@ -265,7 +265,7 @@ class TestLaplaceSolver(unittest.TestCase):
             print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
                   .format(err_max_l2, err_max_h1))
 
-            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_boundary_distributions(solver.domain_vertices(), solver.flat_poles, solver.boundary_points)
 
             plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
                                                            10 * num_rat_points *
@@ -276,6 +276,6 @@ class TestLaplaceSolver(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    plot_function = False
+    plot_function = True
     unittest.main()
 

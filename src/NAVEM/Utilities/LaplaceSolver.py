@@ -8,7 +8,7 @@ from src.NAVEM.Utilities.FunctionUtilities import Function
 import matplotlib.pyplot as plt
 from matplotlib import use
 from typing import Tuple, Callable
-from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsDistributionType
+from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
 
 use("Qt5Agg")
 importlib.reload(plt)
@@ -180,7 +180,7 @@ class LaplaceSolver(Function):
 
             else:
                 num_points = int(num_total_poles / len(self.list_poles_vertices))
-                reference_points = reference_points_distribution(0.0, 0.5, num_points, PointsDistributionType.exponential)[1:-1]
+                reference_points = reference_points_distribution(0.0, 0.5, num_points, PointsSegmentDistributionType.exponential)[1:-1]
                 for j in range(len(reference_points)):
 
                     bbd = self.problem.domain_vertices[:, v] + reference_points[j] * previous_tangent_edge

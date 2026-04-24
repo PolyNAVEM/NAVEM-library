@@ -3,7 +3,7 @@ import tensorflow as tf
 from typing import List, TypedDict
 from tensorflow.keras.layers import Dense
 from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsDistributionType, map_pts_from_1d_to_2d
+from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType, map_pts_from_1d_to_2d
 
 class Flags(TypedDict):
     input_dim: int
@@ -84,7 +84,7 @@ class BoundaryLoss:
         self.num_vertices = num_vertices
 
         # evaluation points
-        self.reference_eval_points = reference_points_distribution(0.0, 1.0, self.n_pts, PointsDistributionType.uniform)
+        self.reference_eval_points = reference_points_distribution(0.0, 1.0, self.n_pts, PointsSegmentDistributionType.uniform)
 
         lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
         quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)

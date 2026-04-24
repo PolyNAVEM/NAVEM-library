@@ -27,7 +27,7 @@ def evaluate_accuracy_on_domain_boundary(geometry_utilities: gedim.GeometryUtili
                                          boundary_dirichlet_conditions: Callable[[int, NDArray[np.float64]], NDArray[np.float64]],
                                          boundary_tangent_derivatives: Callable[[int, NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]] = None) -> Tuple[float, float]:
 
-    distribution = PointsDistributionType.uniform
+    distribution = PointsSegmentDistributionType.uniform
     polygon_vertices = function.domain_vertices()
     num_vertices = polygon_vertices.shape[1]
 
@@ -73,40 +73,12 @@ def evaluate_accuracy_on_domain_boundary(geometry_utilities: gedim.GeometryUtili
     return err_max_l2, err_max_h1
 
 
-def plot_points_distributions(function: Function, flat_poles: NDArray[np.float64], boundary_points: NDArray[np.float64]):
-    ##################################################################
-    fig = plt.figure(figsize=(12, 12))
-    ax = fig.add_subplot()
-
-    polygon_vertices = function.domain_vertices()
-    num_vertices = polygon_vertices.shape[1]
-
-    coord = np.zeros([3, num_vertices + 1])
-    coord[:, 0:num_vertices] = polygon_vertices
-    coord[:, num_vertices] = polygon_vertices[:, 0]
-    ax.plot(coord[0, :], coord[1, :], label='vertices')
-    #################################################################
-
-    ##################################################################
-    ax.scatter(flat_poles[0, :], flat_poles[1, :], label='poles')
-    ##################################################################
-
-    ##################################################################
-    ax.scatter(boundary_points[0, :], boundary_points[1, :], label='boundary_points')
-    ##################################################################
-
-    ##################################################################
-    plt.axis('equal')
-    plt.legend()
-    plt.show()
-    ##################################################################
-
 
 def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.GeometryUtilities, n_err_pts, function,
                                                      boundary_dirichlet_conditions: Callable[[int, NDArray[np.float64]], NDArray[np.float64]],
                                                      boundary_tangent_derivatives: Callable[[int, NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]] = None) -> None:
 
-    distribution = PointsDistributionType.uniform
+    distribution = PointsSegmentDistributionType.uniform
 
     polygon_vertices = function.domain_vertices()
     num_vertices = polygon_vertices.shape[1]
