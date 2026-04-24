@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import use
 import importlib
 from enum import Enum
+from typing import Tuple
 
 use("Qt5Agg")
 importlib.reload(plt)
@@ -52,7 +53,7 @@ def map_pts_from_1d_to_2d(abscissa: NDArray[np.float64], edge_start: NDArray[np.
     return mapped_points_2d
 
 def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: int,
-                                distribution_type: PointsDistributionType) -> NDArray[np.float64]:
+                                distribution_type: PointsDistributionType) -> Tuple[NDArray[np.float64], int]:
 
     num_vertices = vertices.shape[1]
     n_pts_on_edge = int(np.ceil(npts / num_vertices))
@@ -67,10 +68,10 @@ def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: int,
         pts[:, v*n_pts_on_edge:(v+1)*n_pts_on_edge] = vertices[:, v:v+1] + ref_xy_standard * (vertices[:, v+1:v+2] - vertices[:, v:v+1])
     pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
 
-    return pts
+    return pts, n_pts_on_edge
 
 def dataset_on_polygonal_border_not_including_vertices(vertices: NDArray[np.float64], npts: int,
-                                                       distribution_type: PointsDistributionType) -> NDArray[np.float64]:
+                                                       distribution_type: PointsDistributionType) -> Tuple[NDArray[np.float64], int]:
     num_vertices = vertices.shape[1]
     n_pts_on_edge = int(np.ceil(npts / num_vertices))
 
@@ -85,4 +86,4 @@ def dataset_on_polygonal_border_not_including_vertices(vertices: NDArray[np.floa
                     vertices[:, v + 1:v + 2] - vertices[:, v:v + 1])
     pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
 
-    return pts
+    return pts, n_pts_on_edge

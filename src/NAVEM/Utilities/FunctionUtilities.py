@@ -25,40 +25,50 @@ class Function(ABC):
 def evaluate_accuracy_on_domain_boundary(geometry_utilities: gedim.GeometryUtilities, n_err_pts: int,
                                          function: Function,
                                          boundary_dirichlet_conditions: Callable[[int, NDArray[np.float64]], NDArray[np.float64]],
-                                         v_id: int = 0) -> Tuple[float, float]:
+                                         boundary_tangent_derivatives: Callable[[int, NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]] = None) -> Tuple[float, float]:
 
     distribution = PointsDistributionType.uniform
     polygon_vertices = function.domain_vertices()
     num_vertices = polygon_vertices.shape[1]
 
-    err_points_on_edges = dataset_on_polygonal_border(polygon_vertices,
-                                                      n_err_pts,
-                                                      distribution)
+    err_points_on_edges, n_pts_on_edge = dataset_on_polygonal_border(polygon_vertices,
+                                                                     n_err_pts,
+                                                                     distribution)
 
-    err_labels = boundary_dirichlet_conditions(v_id, err_points_on_edges)
+    err_labels = np.zeros(n_pts_on_edge * num_vertices)
+    for v in range(num_vertices):
+        err_labels[v * n_pts_on_edge: (v+1)*n_pts_on_edge] \
+            = boundary_dirichlet_conditions(v, err_points_on_edges[:, v * n_pts_on_edge: (v+1)*n_pts_on_edge])
 
     predicted_labels = np.squeeze(function.vander(err_points_on_edges), axis=1)
     err_max_l2 = float(np.linalg.norm(predicted_labels - err_labels, ord=np.inf))
 
-    points_on_edges_nv, _, num_points_on_edge_nv, der_labels \
-        = (dataset_on_polygonal_border_not_including_vertices(polygon_vertices,
-                                                              n_err_pts, distribution, v_id))
+    err_max_h1 = np.nan
+    if boundary_tangent_derivatives:
+        points_on_edges_nv, num_points_on_edge_nv \
+            = (dataset_on_polygonal_border_not_including_vertices(polygon_vertices,
+                                                                  n_err_pts, distribution))
 
-    d_predicted_labels = function.vander_derivatives(points_on_edges_nv)
-    dx_predicted_labels = d_predicted_labels[0, :, :]
-    dy_predicted_labels = d_predicted_labels[1, :, :]
+        der_labels = np.zeros(num_points_on_edge_nv * num_vertices)
+        for v in range(num_vertices):
+            der_labels[v * num_points_on_edge_nv: (v + 1)*num_points_on_edge_nv] \
+                = boundary_tangent_derivatives(v, polygon_vertices, err_points_on_edges[:, v * num_points_on_edge_nv: (v+1)*num_points_on_edge_nv])
 
-    d_tangent_predicted_labels_interpolation = np.zeros([points_on_edges_nv.shape[1], 1])
-    for v in range(num_vertices):
-        tangent = geometry_utilities.segment_tangent(polygon_vertices[:, v],
-                                                     polygon_vertices[:, (v + 1) % num_vertices])
-        tangent = tangent / np.linalg.norm(tangent)
+        d_predicted_labels = function.vander_derivatives(points_on_edges_nv)
+        dx_predicted_labels = d_predicted_labels[0, :, :]
+        dy_predicted_labels = d_predicted_labels[1, :, :]
 
-        d_tangent_predicted_labels_interpolation[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] \
-            = (dx_predicted_labels[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] * tangent[0] +
-               dy_predicted_labels[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] * tangent[1])
+        d_tangent_predicted_labels_interpolation = np.zeros([points_on_edges_nv.shape[1], 1])
+        for v in range(num_vertices):
+            tangent = geometry_utilities.segment_tangent(polygon_vertices[:, v],
+                                                         polygon_vertices[:, (v + 1) % num_vertices])
+            tangent = tangent / np.linalg.norm(tangent)
 
-    err_max_h1 = float(np.linalg.norm(np.squeeze(d_tangent_predicted_labels_interpolation) - der_labels, ord=np.inf))
+            d_tangent_predicted_labels_interpolation[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] \
+                = (dx_predicted_labels[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] * tangent[0] +
+                   dy_predicted_labels[v * num_points_on_edge_nv:(v + 1) * num_points_on_edge_nv, :] * tangent[1])
+
+        err_max_h1 = float(np.linalg.norm(np.squeeze(d_tangent_predicted_labels_interpolation) - der_labels, ord=np.inf))
 
     return err_max_l2, err_max_h1
 
@@ -92,17 +102,22 @@ def plot_points_distributions(function: Function, flat_poles: NDArray[np.float64
     ##################################################################
 
 
-def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.GeometryUtilities, n_err_pts, function, v_id=0):
+def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.GeometryUtilities, n_err_pts, function,
+                                                     boundary_dirichlet_conditions: Callable[[int, NDArray[np.float64]], NDArray[np.float64]],
+                                                     boundary_tangent_derivatives: Callable[[int, NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]] = None) -> None:
 
     distribution = PointsDistributionType.uniform
 
     polygon_vertices = function.domain_vertices()
     num_vertices = polygon_vertices.shape[1]
 
-    points_on_edges, true_labels, _ = (dataset_on_polygonal_border(polygon_vertices,
-                                                                   n_err_pts, distribution, v_id))
+    points_on_edges, n_pts_on_edge = dataset_on_polygonal_border(polygon_vertices, n_err_pts, distribution)
 
     predicted_labels = np.squeeze(function.vander(points_on_edges), axis=1)
+
+    true_labels = np.zeros(n_pts_on_edge * num_vertices)
+    for v in range(num_vertices):
+        true_labels[v * n_pts_on_edge: (v+1)*n_pts_on_edge] = boundary_dirichlet_conditions(v, points_on_edges[:, v * n_pts_on_edge: (v+1) * n_pts_on_edge])
 
     ##################################################################
     fig = plt.figure(figsize=plt.figaspect(0.5))
@@ -121,13 +136,13 @@ def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.Geo
                true_labels,
                label='true labels')
 
-    ax.scatter(points_on_edges[0, :],
-               points_on_edges[1, :],
-               predicted_labels,
-               label='predicted labels')
+    # ax.scatter(points_on_edges[0, :],
+    #            points_on_edges[1, :],
+    #            predicted_labels,
+    #            label='predicted labels')
     ##################################################################
 
-    points_on_edges_nv, _, num_points_on_edge_nv, _ \
+    points_on_edges_nv, num_points_on_edge_nv \
         = (dataset_on_polygonal_border_not_including_vertices(polygon_vertices,
                                                               n_err_pts, distribution))
 
@@ -150,6 +165,18 @@ def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.Geo
                points_on_edges_nv[1, :],
                np.squeeze(d_tangent_predicted_labels_interpolation),
                label='tangent derivatives')
+
+    if boundary_tangent_derivatives is not None:
+        der_labels = np.zeros(num_points_on_edge_nv * num_vertices)
+        for v in range(num_vertices):
+            der_labels[v * num_points_on_edge_nv: (v + 1)*num_points_on_edge_nv] \
+                = boundary_tangent_derivatives(v, polygon_vertices,
+                                               points_on_edges_nv[:, v * num_points_on_edge_nv: (v+1)*num_points_on_edge_nv])
+
+        ax.scatter(points_on_edges_nv[0, :],
+                   points_on_edges_nv[1, :],
+                   der_labels,
+                   label='true tangent derivatives')
 
     ##################################################################
 

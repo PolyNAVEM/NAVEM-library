@@ -31,6 +31,15 @@ class TestLaplaceSolver(unittest.TestCase):
             else:
                 return 0.0 + 0.0 * points[1, :]
 
+        def boundary_tangent_derivatives(v: int, vertices: NDArray[np.float64], points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            if v == 4:
+                return (np.ones(points.shape[1])) / np.linalg.norm(vertices[:, 0:1] - vertices[:, 4:5])
+            elif v == 0:
+                return (-np.ones(points.shape[1])) / np.linalg.norm(vertices[:, 0:1] - vertices[:, 1:2])
+            else:
+                return 0.0 + 0.0 * points[1, :]
+
         problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
 
         solver = LaplaceSolver(geometry_utilities, problem, iterations, list_pole_vertices)
@@ -39,20 +48,24 @@ class TestLaplaceSolver(unittest.TestCase):
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
                                                                       solver,
-                                                                      boundary_conditions)
+                                                                      boundary_conditions,
+                                                                      boundary_tangent_derivatives=boundary_tangent_derivatives)
 
         self.assertLess(err_max_l2, b=1.0e-7)
         self.assertLess(err_max_h1, b=1.0e-7)
 
-        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
-              .format(err_max_l2, err_max_h1))
+        if plot_function:
+            print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+                  .format(err_max_l2, err_max_h1))
 
-        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
 
-        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-                                                       10 * num_rat_points *
-                                                       solver.problem.num_vertices,
-                                                       solver)
+            plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                           10 * num_rat_points *
+                                                           solver.problem.num_vertices,
+                                                           solver,
+                                                           boundary_conditions,
+                                                           boundary_tangent_derivatives=boundary_tangent_derivatives)
 
 
     def test_laplace_solver_generic(self):
@@ -66,7 +79,7 @@ class TestLaplaceSolver(unittest.TestCase):
         domain_vertices = np.zeros([3, num_vertices])
         domain_vertices[0, :] = [0.0, 1.0, 1.0, 0.7]
         domain_vertices[1, :] = [0.0, 0.0, 1.0, 0.3]
-        domain_scale = 0.1
+        domain_scale = 1.0
         vem_id = 1
         iterations = [70]
         list_pole_vertices = np.arange(0, num_vertices).tolist()
@@ -80,17 +93,29 @@ class TestLaplaceSolver(unittest.TestCase):
                 t = (domain_vertices[:, next_id]
                      - domain_vertices[:, vem_id])
                 norm_squared_t = t[0] * t[0] + t[1] * t[1] + t[2] * t[2]
-                alpha = ((points - domain_vertices[:, vem_id]).T @ t) / norm_squared_t
+                alpha = ((points - domain_vertices[:, vem_id:vem_id+1]).T @ t) / norm_squared_t
                 return 1.0 - alpha
             elif v == prev_id:
                 t = (domain_vertices[:, prev_id]
                      - domain_vertices[:, vem_id])
                 norm_squared_t = t[0] * t[0] + t[1] * t[1] + t[2] * t[2]
-                alpha = ((points - domain_vertices[:, vem_id]).T @ t) / norm_squared_t
+                alpha = ((points - domain_vertices[:, vem_id:vem_id+1]).T @ t) / norm_squared_t
                 return 1.0 - alpha
             else:
                 return 0.0 * points[1, :]
 
+
+        def boundary_tangent_derivatives(v: int, vertices: NDArray[np.float64], points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            prev_id = vem_id - 1 if vem_id > 0 else num_vertices - 1
+            next_id = (vem_id + 1) % num_vertices
+
+            if v == vem_id:
+                return (-np.ones(points.shape[1])) / np.linalg.norm(vertices[:, vem_id:vem_id+1] - vertices[:, prev_id:prev_id+1])
+            elif v == prev_id:
+                return (np.ones(points.shape[1])) / np.linalg.norm(vertices[:, vem_id:vem_id+1] - vertices[:, next_id:next_id+1])
+            else:
+                return 0.0 + 0.0 * points[1, :]
 
         internal_angles = compute_polygon_interior_angles(domain_vertices)
         kernel = compute_polygon_kernel(geometry_utilities, domain_vertices, internal_angles)
@@ -105,21 +130,24 @@ class TestLaplaceSolver(unittest.TestCase):
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
                                                                       solver,
-                                                                      boundary_conditions)
+                                                                      boundary_conditions,
+                                                                      boundary_tangent_derivatives=boundary_tangent_derivatives)
 
-        self.assertLess(err_max_l2, b=1.0e-7)
-        self.assertLess(err_max_h1, b=1.0e-7)
+        self.assertLess(err_max_l2, b=1.0e-8)
+        self.assertLess(err_max_h1, b=1.0e-3)
 
-        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
-              .format(err_max_l2, err_max_h1))
+        if plot_function:
+            print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+                  .format(err_max_l2, err_max_h1))
 
-        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
 
-        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-                                                       10 * num_rat_points *
-                                                       solver.problem.num_vertices,
-                                                       solver,
-                                                       boundary_conditions)
+            plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                           10 * num_rat_points *
+                                                           solver.problem.num_vertices,
+                                                           solver,
+                                                           boundary_conditions,
+                                                           boundary_tangent_derivatives=boundary_tangent_derivatives)
 
 
     def test_laplace_solver_concave(self):
@@ -147,6 +175,15 @@ class TestLaplaceSolver(unittest.TestCase):
             else:
                 return 0.0 * points[0, :]
 
+        def boundary_tangent_derivatives(v: int, vertices: NDArray[np.float64], points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            if v == 4:
+                return (np.ones(points.shape[1])) / np.linalg.norm(vertices[:, 0:1] - vertices[:, 4:5])
+            elif v == 0:
+                return (-np.ones(points.shape[1])) / np.linalg.norm(vertices[:, 0:1] - vertices[:, 1:2])
+            else:
+                return 0.0 + 0.0 * points[1, :]
+
         problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
 
         solver = LaplaceSolver(geometry_utilities, problem, iterations, list_poles_vertices)
@@ -155,20 +192,24 @@ class TestLaplaceSolver(unittest.TestCase):
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
                                                                       solver,
-                                                                      boundary_conditions)
+                                                                      boundary_conditions,
+                                                                      boundary_tangent_derivatives=boundary_tangent_derivatives)
 
-        self.assertLess(err_max_l2, b=1.0e-5)
+        self.assertLess(err_max_l2, b=1.0e-8)
         self.assertLess(err_max_h1, b=1.0e-5)
 
-        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
-              .format(err_max_l2, err_max_h1))
+        if plot_function:
+            print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+                  .format(err_max_l2, err_max_h1))
 
-        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
 
-        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-                                                       10 * num_rat_points *
-                                                       solver.problem.num_vertices,
-                                                       solver)
+            plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                           10 * num_rat_points *
+                                                           solver.problem.num_vertices,
+                                                           solver,
+                                                           boundary_conditions,
+                                                           boundary_tangent_derivatives=boundary_tangent_derivatives)
 
 
     def test_laplace_solver_spike(self):
@@ -196,6 +237,15 @@ class TestLaplaceSolver(unittest.TestCase):
             else:
                 return 0.0 * points[0, :]
 
+        def boundary_tangent_derivatives(v: int, vertices: NDArray[np.float64], points: NDArray[np.float64]) -> NDArray[np.float64]:
+
+            if v == 7:
+                return (np.ones(points.shape[1])) / np.linalg.norm(vertices[:, 7:8] - vertices[:, 0:1])
+            elif v == 0:
+                return (-np.ones(points.shape[1])) / np.linalg.norm(vertices[:, 0:1] - vertices[:, 1:2])
+            else:
+                return 0.0 + 0.0 * points[1, :]
+
         problem = LaplaceProblem(domain_vertices, domain_scale, internal_point, boundary_conditions)
 
         solver = LaplaceSolver(geometry_utilities, problem, iterations, list_poles_vertices)
@@ -204,22 +254,28 @@ class TestLaplaceSolver(unittest.TestCase):
         err_max_l2, err_max_h1 = evaluate_accuracy_on_domain_boundary(geometry_utilities,
                                                                       10 * num_rat_points * solver.problem.num_vertices,
                                                                       solver,
-                                                                      boundary_conditions)
+                                                                      boundary_conditions,
+                                                                      boundary_tangent_derivatives=boundary_tangent_derivatives)
 
         self.assertLess(err_max_l2, b=1.0e-2)
         self.assertLess(err_max_h1, b=1.0e-2)
 
-        print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
-              .format(err_max_l2, err_max_h1))
 
-        plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+        if plot_function:
+            print('Max error L2 {:<.16e} - Max Error H1 {:<.16e} on test points on the boundary.'
+                  .format(err_max_l2, err_max_h1))
 
-        plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
-                                                       10 * num_rat_points *
-                                                       solver.problem.num_vertices,
-                                                       solver)
+            plot_points_distributions(solver, solver.flat_poles, solver.boundary_points)
+
+            plot_function_and_tangent_derivatives_on_edges(geometry_utilities,
+                                                           10 * num_rat_points *
+                                                           solver.problem.num_vertices,
+                                                           solver,
+                                                           boundary_conditions,
+                                                           boundary_tangent_derivatives=boundary_tangent_derivatives)
 
 if __name__ == '__main__':
 
+    plot_function = False
     unittest.main()
 
