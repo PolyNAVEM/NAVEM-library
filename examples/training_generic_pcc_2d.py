@@ -12,7 +12,7 @@ def main():
 
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type',dest='method_type', default=1, type=int, help="Method type")
+    parser.add_argument('-method', '--method-type',dest='method_type', default=3, type=int, help="Method type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingVoro_4', type=str, help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
@@ -55,8 +55,8 @@ def main():
     # B-NAVEM and P-NAVEM
     parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=7, type=int,
                         help='Order of the quadrature rule to generate the training points')
-    parser.add_argument('-pt', '--distribution-points-type', dest='distribution_points_type', default="gauss_polygon",
-                        help='Type of points: uniform, gauss_triangle or gauss_polygon')
+    parser.add_argument('-pt', '--distribution-points-type', dest='distribution_points_type', type=int, default=3,
+                        help='Type of points: uniform (2), gauss (1) or accumulated (3)')
     parser.add_argument('-neo', '--p-navem-exact-constant', dest='p_navem_exact_constant', default=1, type=int,
                         help='Flag to specify if function 1 is contained in the space by construction')
     parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False, type=bool,

@@ -317,3 +317,38 @@ def concentrating_grid_over_polygon(reference_points: NDArray[np.float64],
         nodes = np.unique(nodes, axis=1)
 
     return nodes
+
+
+def gauss_points_over_polygon(reference_points: NDArray[np.float64],
+                              polygon_triangulation: List[NDArray[np.float64]]):
+
+    num_quadrature = reference_points.shape[1]
+    num_triangles = len(polygon_triangulation)
+
+    nodes = np.zeros([3, num_quadrature * num_triangles], dtype=float)
+
+    map_triangle = gedim.MapTriangle()
+    for idx_t in range(num_triangles):
+        triangle_vertices = polygon_triangulation[idx_t]
+        map_data: gedim.MapTriangle.MapTriangleData = map_triangle.compute(triangle_vertices)
+
+        nodes[:, (idx_t * num_quadrature): ((idx_t + 1) * num_quadrature)] = map_triangle.f(map_data, reference_points)
+
+    return nodes
+
+def grid_over_polygon(points_distribution_type: PointsTriangleDistributionType,
+                      reference_points: NDArray[np.float64],
+                      polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
+                      uniform_boundary: bool = False, accumulating_border: BorderType = BorderType.no_borders) -> NDArray[np.float64]:
+
+    match points_distribution_type:
+        case PointsTriangleDistributionType.gauss:
+            return gauss_points_over_polygon(reference_points, polygon_triangulation_by_interior_points)
+        case PointsTriangleDistributionType.uniform:
+            return uniform_grid_over_polygon(reference_points,
+                                             polygon_triangulation_by_interior_points,
+                                             uniform_boundary)
+        case PointsTriangleDistributionType.accumulated:
+            return concentrating_grid_over_polygon(reference_points, polygon_triangulation_by_interior_points, accumulating_border)
+        case _:
+            raise ValueError("invalid points triangle distribution type")

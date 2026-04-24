@@ -1,7 +1,7 @@
 from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
-from src.NAVEM.Utilities import NAVEMPolygon
+from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from src.NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from src.NAVEM.NeuralNetwork.p_navem_super_network import PNAVEMSupernetwork
@@ -96,9 +96,13 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             raise ValueError("not valid method")
 
     distribution_points_type = PointsTriangleDistributionType(distribution_points_type)
+    uniform_boundary = False
+    uniform_scale = True
+    accumulating_power = 0.75
+    accumulating_border = BorderType.no_borders
     reference_nodes = grid_over_triangle(PointsTriangleDistributionType(distribution_points_type), quadrature_order,
-                                         uniform_boundary = False, uniform_rescale = True,
-                                         accumulating_power = 1.0, accumulating_border = BorderType.no_borders,
+                                         uniform_boundary = uniform_boundary, uniform_rescale = uniform_scale,
+                                         accumulating_power = accumulating_power, accumulating_border = accumulating_border,
                                          polygon=num_vertices > 3)
 
     num_points_per_polygon = reference_nodes.shape[1] * num_vertices
@@ -119,20 +123,14 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         internal_point = mesh_geometric_data.mesh_geometric_data.cell2_ds_centroids[c]
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
 
-        inertia_mapped_internal_point, _ = polygon.map_inertia_inv(internal_point)
+        inertia_mapped_internal_point, _ = polygon.map_inertia_inv(np.expand_dims(internal_point, axis=1))
         inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(polygon.mapped_vertices, inertia_mapped_internal_point)
+        inertia_mapped_list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(polygon.mapped_vertices, inertia_mapped_internal_point, inertia_mapped_list_triangles)
 
-        if pts_type == "gauss_triangle":
-            inertia_mapped_internal_nodes, inertia_mapped_internal_weights = internal_quadrature(quadrature,
-                                                                                                 inertia_mapped_list_triangles)
-        elif pts_type == "uniform":
-            inertia_mapped_internal_nodes = nodes_generator.uniform_grid_over_polygon(quadrature_order,
-                                                                                      inertia_mapped_list_triangles,
-                                                                                      boundary=border_pts, rescale=True)
-        else:
-            inertia_mapped_internal_nodes = nodes_generator.concentrating_grid_over_polygon(quadrature_order,
-                                                                                            inertia_mapped_list_triangles,
-                                                                                            power=0.75, border_type=1)
+        inertia_mapped_internal_nodes = grid_over_polygon(distribution_points_type,
+                                                          reference_nodes,
+                                                          inertia_mapped_list_triangles_points,
+                                                          uniform_boundary, accumulating_border)
 
         xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T
         vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]
@@ -178,7 +176,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         case _:
             raise ValueError("not valid navem type")
 
-    nn.setupModel_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives, geometry_utilities)
+    nn.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives, geometry_utilities)
 
     learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
     exponential_learning_rate = tf.keras.callbacks.LearningRateScheduler(learning_rate_scheduler)
