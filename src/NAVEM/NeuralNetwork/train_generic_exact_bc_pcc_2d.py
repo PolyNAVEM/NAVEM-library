@@ -136,7 +136,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]
 
         for v_id in range(num_functions_per_polygon):
-            rotated_vertices, resc_mapped_points, jac_inv, jac, inv_rescaling_factor = NAVEMPolygon.map_fix_vertex_inv(
+            rotated_vertices, rotated_mapped_points, jac_inv, jac, inv_rescaling_factor = NAVEMPolygon.map_fix_vertex_inv(
                 polygon.mapped_vertices,
                 inertia_mapped_internal_nodes,
                 v_id)
@@ -144,7 +144,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
             flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
             rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
-            c_inputs = np.concatenate([resc_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
+            c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
 
             inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon: (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
             jac_per_pol[c, :, :, v_id] = jac[:2, :2]

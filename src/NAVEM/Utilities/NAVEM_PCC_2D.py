@@ -121,8 +121,6 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
         internal_nodes = value.input.points
 
-        n_local_pts = internal_nodes.shape[1]
-
         for v_id in range(num_vertices):
 
             # Create input
@@ -190,6 +188,98 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
     return output_values
 
+def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
+                                                        mesh_geometric_data: MeshGeometricData2D,
+                                                        neural_network: navem_network.NAVEMNetwork,
+                                                        list_elements: Dict[int, Input]) -> Dict[int, Output]:
+
+    num_vertices = neural_network.flags["num_vertices"]
+    network_input_dimension = 2 * num_vertices
+
+    n_elements = len(list_elements)
+    global_jac_inv = np.zeros([n_elements * num_vertices, 2, 2])
+
+    n_local_pts = 0
+    for (c, value) in list_elements:
+        n_local_pts = value.input.points.shape[1]
+        break
+
+    offset_func = 0
+    offset_points = 0
+
+    c_pol = 0
+
+    xy_per_pol = np.zeros(shape=(n_elements, n_local_pts, 2))
+    vertices_per_pol = np.zeros(shape=(n_elements, 2, num_vertices))
+    jac_per_pol = np.zeros(shape=(n_elements, 2, 2, num_vertices))
+    inputs = np.zeros(shape=(n_elements * n_local_pts * num_vertices, network_input_dimension))
+
+    for (c, value) in list_elements:
+
+        polygon = mesh_geometric_data.cell2_ds_polygon[c]
+
+        internal_nodes = value.input.points
+
+        inertia_mapped_internal_nodes, jac_inv_inertia = polygon.map_inertia_inv(internal_nodes)
+        xy_per_pol[c_pol, :, :] = inertia_mapped_internal_nodes[:2, :].T
+        vertices_per_pol[c_pol, :, :] = polygon.mapped_vertices[:2, :]
+
+        for v_id in range(num_vertices):
+            # Create input
+            rotated_vertices, rotated_mapped_points, jac_inv, jac, inv_rescaling_factor = polygon.map_fix_vertex_inv(
+                polygon.mapped_vertices,
+                inertia_mapped_internal_nodes,
+                v_id)
+
+            mapped_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
+            global_jac_inv[offset_func, :, :] = jac_inv[:2, :2] @ jac_inv_inertia[:2, :2]
+
+            flat_rotated_vertices = mapped_vertices[:2, 1:].flatten()
+            rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [n_local_pts, 1])
+            c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
+
+            inputs[offset_func * n_local_pts: (offset_func + 1) * n_local_pts, :] = c_inputs
+            jac_per_pol[c_pol, :, :, v_id] = jac[:2, :2]
+            offset_func += 1
+
+        c_pol += 1
+        offset_points += 1
+
+    inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
+
+    neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, 1,
+                                           geometry_utilities)
+    net_output = neural_network.get_u_and_du(inputs).numpy()
+
+    u = net_output[:, 0]
+    du_ref_dx = net_output[:, 1]
+    du_ref_dy = net_output[:, 2]
+
+    offset_point = 0
+    offset_func = 0
+    output_values: Dict[int, Output] = {}
+    for c in range(n_elements):
+
+        output_values[c] = Output()
+        output_values[c].basis_derivatives_values = np.zeros([2, n_local_pts, n_elements * num_vertices])
+        output_values[c].basis_values = np.zeros([n_local_pts, n_elements * num_vertices])
+
+        for _ in range(num_vertices):
+            matrix_jac_inv_transpose = global_jac_inv[offset_func, 0:2, 0:2].T
+            output_values[c].basis_derivatives_values[0, :, :] \
+                = (matrix_jac_inv_transpose[0, 0] * du_ref_dx[offset_point: offset_point + n_local_pts]
+                   + matrix_jac_inv_transpose[0, 1] * du_ref_dy[offset_point: offset_point + n_local_pts])
+            output_values[c].basis_derivatives_values[1, :, :] \
+                = (matrix_jac_inv_transpose[1, 0] * du_ref_dx[offset_point: offset_point + n_local_pts]
+                   + matrix_jac_inv_transpose[1, 1] * du_ref_dy[offset_point: offset_point + n_local_pts])
+
+            output_values[c].basis_values\
+                = u[offset_point:offset_point + n_local_pts]
+
+            offset_func += 1
+            offset_point += n_local_pts
+
+    return output_values
 
 def reproduce_polynomials(polygon_vertices: NDArray[np.float64], basis_function_values: NDArray[np.float64], basis_function_derivatives_values: NDArray[np.float64]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
 
