@@ -12,8 +12,8 @@ import cProfile
 def main():
 
     parser =argparse.ArgumentParser()
-    parser.add_argument('-order','--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method','--method-type',dest='method_type', default=1, type=int, help="Method type")
+    parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
+    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int, help="Method type")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int, help="Test type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=0, type=int, help="Mesh type")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")

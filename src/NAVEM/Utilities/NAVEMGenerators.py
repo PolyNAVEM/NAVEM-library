@@ -1,9 +1,5 @@
-import numpy as np
-from pypolydim import gedim
-from typing import List, Tuple
 from src.NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials, change_basis_matrix
 from src.NAVEM.Utilities.LaplaceSolver import hanging_function
-from numpy.typing import NDArray
 from src.NAVEM.Utilities.FunctionUtilities import *
 
 
@@ -79,7 +75,7 @@ class NAVEMGenerators:
                 translation_1, translation_2, b_matrix, b_matrix_inv = compute_map_f(self.geometry_utilities,
                                                                                      v_id, polygon_vertices,
                                                                                      self.hanging_function.domain_vertices(),
-                                                                                     internal_angles,
+                                                                                     np.squeeze(internal_angles).tolist(),
                                                                                      vertex_distance)
 
                 original_points, _ = map_f_inv(translation_1, translation_2, b_matrix, b_matrix_inv, points)

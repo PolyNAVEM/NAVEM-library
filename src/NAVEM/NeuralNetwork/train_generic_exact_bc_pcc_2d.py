@@ -13,10 +13,10 @@ from src.NAVEM.Utilities.points_generator import *
 def write_dictionary(flags: Flags) -> None:
 
     file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
+    file.write("method_type = '{}'\n".format(flags['method_type']))
+    file.write("method_order = {}\n".format(flags['method_order']))
     file.write("network_input_dimension = {}\n".format(flags['input_dim']))
     file.write("output_dim = {}\n".format(flags['output_dim']))
-    file.write("method_order = {}\n".format(flags['method_order']))
-    file.write("method_type = '{}'\n".format(flags['method_type']))
     file.write("num_vertices = {}\n".format(flags['num_vertices']))
     file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
     file.write("regularization_coefficient = {}\n".format(flags['regularization_coefficient']))
@@ -227,7 +227,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
 
     # Storing the final loss and the l2 and h1 errors
-    with open('{}_loss.csv'.format(flags['name_storage']), 'w', newline='') as file:
+    with open('{}/loss.csv'.format(flags['name_storage']), 'w', newline='') as file:
         writer = csv.writer(file, delimiter=';')
         writer.writerow(['NPolygons', 'Laplacian loss'])
 

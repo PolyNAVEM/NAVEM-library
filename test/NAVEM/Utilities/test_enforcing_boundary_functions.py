@@ -35,8 +35,7 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
                               [-0.50, 0.5, 0.45, 0.10, -0.70]],
 
                               [[0.5, 0.5, 0.5, -0.90,  -0.2],
-                              [-0.8, 0.0, 0.8,  0.0, -0.4]]
-                              ])
+                              [-0.8, 0.0, 0.8,  0.0, -0.4]]])
 
         N = 151
         x = np.linspace(-1, 1, N)

@@ -41,9 +41,20 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
                                list_triangles)
         cell2_ds_polygon.append(polygon)
 
-        # for v in range(vertex_points.shape[1]):
-        #     polygon.mapped_max_vertex_distance.append(
-        #         geometry_utilities.compute_polygon_max_distance(v, polygon.mapped_vertices))
+        for v1 in range(vertex_points.shape[1]):
+
+            max_distance = 0.0
+            first_vertex = polygon.mapped_vertices[:, v1]
+            for v2 in range(vertex_points.shape[1]):
+
+                if v1 != v2:
+                    second_vertex = polygon.mapped_vertices[:, v2]
+                    in_distance = np.linalg.norm(first_vertex - second_vertex)
+
+                    if max_distance < in_distance:
+                        max_distance = in_distance
+
+            polygon.mapped_max_vertex_distance.append(max_distance)
 
         mapped_polygon_internal_angles = compute_polygon_interior_angles(polygon.mapped_vertices)
         cell2_ds_mapped_polygon_internal_angles.append(mapped_polygon_internal_angles)

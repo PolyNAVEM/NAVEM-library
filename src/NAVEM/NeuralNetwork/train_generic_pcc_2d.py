@@ -2,68 +2,34 @@ from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from src.NAVEM.NeuralNetwork.training_utilities import *
-from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss
+from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss, \
+    write_flags_on_dictionary
 import numpy as np
 import tensorflow as tf
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
 import csv
 
-
-def write_dictionary(flags: Flags) -> None:
-
-    file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
-    file.write("network_input_dimension = {}\n".format(flags['input_dim']))
-    file.write("output_dim = {}\n".format(flags['output_dim']))
-    file.write("method_order = {}\n".format(flags['method_order']))
-    file.write("num_vertices = {}\n".format(flags['num_vertices']))
-    file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
-    file.write("regularization_coefficient = {}\n".format(flags['regularization_coefficient']))
-    file.write("mesh_import_path = '{}'\n".format(flags['mesh_import_path']))
-    file.write("num_points_on_each_edge = {}\n".format(flags['num_points_on_each_edge']))
-
-    file.write("num_hidden_layers = {}\n".format(flags['num_hidden_layers']))
-    file.write("num_neurons_per_layer = {}\n".format(flags['num_neurons_per_layer']))
-    file.write("num_epoches_opt_order1 = {}\n".format(flags['num_epoches_opt_order1']))
-    file.write("num_epoches_opt_order2 = {}\n".format(flags['num_epoches_opt_order2']))
-    file.write("learning_rate_max = {}\n".format(flags['learning_rate_max']))
-    file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
-
-    file.write("harmonic_degree = {}\n".format(flags['harmonic_degree']))
-    file.write("normalization_diameter = {}\n".format(flags['normalization_diameter']))
-
-    if flags['use_hanging_function']:
-        file.write("use_hanging_function = True\n")
-    else:
-        file.write("use_hanging_function = False\n")
-
-    if flags['use_sqrt_in_train']:
-        file.write("use_sqrt_in_train = True\n")
-    else:
-        file.write("use_sqrt_in_train = False\n")
-
-    file.close()
-
-
-def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMType,
-                                           num_vertices: int,
-                                           geometry_utilities: gedim.GeometryUtilities,
-                                           mesh: gedim.MeshMatricesDAO,
-                                           mesh_geometric_data: MeshGeometricData2D,
-                                           mesh_import_path: str,
-                                           num_hidden_layers: int,
-                                           num_neurons_per_layer: int,
-                                           num_epoches_opt_order1: int,
-                                           num_epoches_opt_order2: int,
-                                           learning_rate_max: float,
-                                           learning_rate_min: float,
-                                           num_points_on_each_edge: int,
-                                           regularization_coefficient: float,
-                                           export_training_data_file_path: str,
-                                           export_training_info: bool = False,
-                                           use_sqrt_in_train: bool = False,
-                                           harmonic_degree: int = 20,
-                                           normalization_diameter: float = 3.0,
-                                           use_hanging_function: bool = True):
+def train_navem_pcc_2d_on_generic_polygon(method_order: int,
+                                          method_type: NAVEMType,
+                                          num_vertices: int,
+                                          geometry_utilities: gedim.GeometryUtilities,
+                                          mesh: gedim.MeshMatricesDAO,
+                                          mesh_geometric_data: MeshGeometricData2D,
+                                          mesh_import_path: str,
+                                          num_hidden_layers: int,
+                                          num_neurons_per_layer: int,
+                                          num_epoches_opt_order1: int,
+                                          num_epoches_opt_order2: int,
+                                          learning_rate_max: float,
+                                          learning_rate_min: float,
+                                          num_points_on_each_edge: int,
+                                          regularization_coefficient: float,
+                                          export_training_data_file_path: str,
+                                          export_training_info: bool = False,
+                                          use_sqrt_in_train: bool = False,
+                                          harmonic_degree: int = 20,
+                                          normalization_diameter: float = 3.0,
+                                          use_hanging_function: bool = True):
 
     assert method_order == 1
     assert method_type == NAVEMType.NAVEM
@@ -80,6 +46,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
+                             method_type.value,
                              num_vertices,
                              navem_generators.num_generators,
                              mesh_import_path,
@@ -99,7 +66,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
                              num_points_on_each_edge,
                              export_training_data_file_path)
 
-    write_dictionary(flags)
+    write_flags_on_dictionary(flags)
 
     nn = NAVEMNetwork(flags)
 
@@ -126,11 +93,10 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
 
             rotated_vertices, _, _, scaling = polygon.map_f_inv(polygon.vertices, v_id)
             rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
+            internal_angles = np.roll(mapped_angles, axis=1, shift=-v_id)
             vertex_distance = scaling * np.roll(polygon.mapped_max_vertex_distance, shift=-v_id)
 
-            c_points, c_labels, c_tangents, c_labels_derivatives = boundary_loss.add_polygon(rotated_vertices, add_coords=True)
-
-            internal_angles = np.roll(mapped_angles, axis=1, shift=-v_id)
+            c_points, c_labels, c_tangents, c_labels_derivatives = boundary_loss.add_polygon(rotated_vertices, add_coordinates=True)
 
             labels = np.concatenate([labels, c_labels])
             labels_derivatives = np.concatenate([labels_derivatives, c_labels_derivatives])
@@ -167,14 +133,15 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
     exponential_learning_rate = tf.keras.callbacks.LearningRateScheduler(learning_rate_scheduler)
     cb_list = [exponential_learning_rate]
-    if export_training_info:
-        list_of_losses = []
-        list_of_times = []
-        storeLoss = StoreLoss(list_of_losses, n_steps=1)
-        storeTime = StoreTime(list_of_times, n_steps=1)
-        cb_list = [exponential_learning_rate, storeLoss, storeTime]
 
-    nn.nn_basis_function.train_vander.assign( tf.convert_to_tensor(super_vandermonde, dtype=tf.float64) )
+    list_of_losses = []
+    list_of_times = []
+    if export_training_info:
+        store_loss = StoreLoss(list_of_losses, n_steps=1)
+        store_time = StoreTime(list_of_times, n_steps=1)
+        cb_list = [exponential_learning_rate, store_loss, store_time]
+
+    nn.nn_basis_function.train_vander.assign(tf.convert_to_tensor(super_vandermonde, dtype=tf.float64))
 
     training_input = tf.convert_to_tensor(input_network, dtype=tf.float64)
     labels = tf.reshape(labels, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge))
@@ -189,8 +156,8 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     tf.print("\n---------- Copy of the basis functions derivatives ----------\n")
     nn.nn_basis_derivatives.copy_weights(nn.nn_basis_function)
 
-    nn.nn_basis_derivatives.train_vander_dx.assign( tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64) )
-    nn.nn_basis_derivatives.train_vander_dy.assign( tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64) )
+    nn.nn_basis_derivatives.train_vander_dx.assign(tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64))
+    nn.nn_basis_derivatives.train_vander_dy.assign(tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64))
     nn.nn_basis_derivatives.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
     nn.nn_basis_derivatives.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
     nn.nn_basis_derivatives.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
@@ -200,12 +167,13 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
     learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
     exponential_learning_rate = tf.keras.callbacks.LearningRateScheduler(learning_rate_scheduler)
     cb_list = [exponential_learning_rate]
+
+    list_of_losses_deriv = []
+    list_of_times_deriv = []
     if export_training_info:
-        list_of_losses_deriv = []
-        list_of_times_deriv = []
-        storeLoss = StoreLoss(list_of_losses_deriv, n_steps=1)
-        storeTime = StoreTime(list_of_times_deriv, n_steps=1)
-        cb_list = [exponential_learning_rate, storeLoss, storeTime]
+        store_loss = StoreLoss(list_of_losses_deriv, n_steps=1)
+        store_time = StoreTime(list_of_times_deriv, n_steps=1)
+        cb_list = [exponential_learning_rate, store_loss, store_time]
 
     pol_deriv_results = train_adam_bfgs(nn.nn_basis_derivatives, considered_loss_dx, training_input, labels,
                                         num_epoches_opt_order1, num_epoches_opt_order2, cb_list,
@@ -234,15 +202,15 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int, method_type: NAVEMT
         np.savetxt(export_training_data_file_path + '/' + method_type.name + 'train_info.csv', data, delimiter=';')
 
     # Storing the final loss and the l2 and h1 errors
-    with open('{}_loss.csv'.format(flags['name_storage']), 'w', newline='') as file:
+    with open('{}/loss.csv'.format(flags['name_storage']), 'w', newline='') as file:
         writer = csv.writer(file, delimiter=';')
         writer.writerow(['NPolygons', 'L2 loss', 'H1 loss'])
 
-        pol_coeffs = nn.nn_basis_function.call(training_input)
-        considered_loss(labels, pol_coeffs)
+        basis_coefficients = nn.nn_basis_function.call(training_input)
+        considered_loss(labels, basis_coefficients)
 
-        pol_coeffs_deriv = nn.nn_basis_derivatives.call(training_input)
-        considered_loss_dx(labels, pol_coeffs_deriv)
+        derivatives_coefficients = nn.nn_basis_derivatives.call(training_input)
+        considered_loss_dx(labels, derivatives_coefficients)
 
         writer.writerow([num_training_polygons,
                          np.sqrt(nn.nn_basis_function.curr_distance_l2.numpy()),

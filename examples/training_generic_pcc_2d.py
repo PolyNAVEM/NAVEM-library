@@ -12,9 +12,9 @@ def main():
 
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type',dest='method_type', default=3, type=int, help="Method type")
+    parser.add_argument('-method', '--method-type',dest='method_type', default=1, type=int, help="Method type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
-    parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingVoro_4', type=str, help="Mesh Import Path")
+    parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingReferenceSquare', type=str, help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygon(s)')
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
@@ -49,7 +49,7 @@ def main():
                         type=float, help='Edge of the normalization square')
     parser.add_argument('-hd', '--harmonic-degree', dest='harmonic_degree', default=10, type=int,
                         help='Degree of the considered harmonic polynomials')
-    parser.add_argument('-hf', '--use-hanging-function', dest='use_hanging_function', default=0, type=int,
+    parser.add_argument('-hf', '--use-hanging-function', dest='use_hanging_function', default=1, type=int,
                         help='Flag to specify to add the hanging function in the linear combination')
 
     # B-NAVEM and P-NAVEM
