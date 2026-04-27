@@ -4,31 +4,6 @@ import tensorflow_probability as tfp
 import time
 
 
-# class ExpCyclicLr(tf.keras.callbacks.Callback):
-#     def __init__(self, n_epochs, lower, upper):
-#         super(ExpCyclicLr, self).__init__()
-#         self.n_epochs = tf.convert_to_tensor(n_epochs, dtype=tf.float64)
-#         self.lower_lr = tf.convert_to_tensor(lower, dtype=tf.float64)
-#         self.upper_lr = tf.convert_to_tensor(upper, dtype=tf.float64)
-#
-#     def on_epoch_end(self, epoch, logs=None):  # exponential decay
-#         lr = self.upper_lr * np.exp(np.log(self.lower_lr / self.upper_lr) * epoch / self.n_epochs)
-#         self.model.optimizer.learning_rate.assign(lr)
-#         #
-#         # if epoch % 100 == 0:
-#         #     current = logs.get("loss")
-#         #     tf.print(current, lr, self.lower_lr, self.upper_lr)
-#             # tf.print(("Performed {:<d} / {:<d} epochs. Current distance L2 and H1: {:<.16e} \t {:<.16e}").
-#             #          format(epoch, self.n_epochs,
-#             #                 self.model.curr_distance_l2.read_value(), self.model.curr_distance_h1.read_value()))
-#         #     # tf.print(("{:<.16e} \t {:<.16e}").
-#         #     #          format(self.model.curr_distance_l2.read_value(), self.model.curr_distance_h1.read_value()))
-#
-#     # def on_train_end(self, logs=None):
-#     #     current = logs.get("loss")
-#     #     tf.print("Final loss: {:<.16e}".format(current))
-
-
 class PrintInfoCb(tf.keras.callbacks.Callback):
     def __init__(self, n_epochs, info_printer):
         super(PrintInfoCb, self).__init__()
@@ -38,8 +13,6 @@ class PrintInfoCb(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         if epoch % 100 == 0:
             self.info_printer(self.model, epoch, self.n_epochs)
-            # tf.print(("Performed {:<d} / {:<d} epochs. Current loss: {:<.16e} \t {:<.16e}").
-            #          format(epoch, self.n_epochs, self.model.curr_laplacian.read_value()))
 
     def on_train_end(self, logs=None):
         current = logs.get("loss")
@@ -86,7 +59,7 @@ def train_with_first_order(model, loss_f, x, y, bsize, n_epochs, shuffle, cb_lis
     del optimizer
 
 
-def print_info_learn_bc(model, iteration, total_iterations=None):
+def print_info_navem(model, iteration, total_iterations=None):
     if total_iterations is None:
         tf.print("Iter: ", iteration, ". Current distance L2 and H1: {:<.16e} \t {:<.16e}".
                  format(model.curr_distance_l2.read_value(), model.curr_distance_h1.read_value()))
@@ -96,7 +69,7 @@ def print_info_learn_bc(model, iteration, total_iterations=None):
                         model.curr_distance_l2.read_value(), model.curr_distance_h1.read_value()))
 
 
-def print_info_learn_pols(model, iteration, total_iterations=None):
+def print_info_pnavem(model, iteration, total_iterations=None):
     if model.loss_x_dx.read_value() == 0:
         if total_iterations is None:
             tf.print("Iter: ", iteration, (". Current error for 1, x and y: {:<.5e} \t {:<.5e} \t {:<.5e}".
@@ -145,25 +118,7 @@ def print_info_learn_pols(model, iteration, total_iterations=None):
                                 ))
 
 
-def print_info_learn_pol_grads(model, iteration, total_iterations=None):
-    if total_iterations is None:
-        tf.print("Iter: ", iteration, ((". Current error for the grads of 1, x, y: {:<.6e} \t {:<.6e} \t {:<.6e} "
-                                        "\t {:<.6e} \t {:<.6e} \t {:<.6e} \t {:<.6e}").
-                                       format(model.loss_one_dx.read_value(), model.loss_x_dx.read_value(),
-                                              model.loss_y_dx.read_value(), model.loss_one_dy.read_value(),
-                                              model.loss_x_dy.read_value(), model.loss_y_dy.read_value(),
-                                              model.loss_copy.read_value())))
-    else:
-        tf.print(
-            ("Performed {:<d} / {:<d} epochs. Current error for the grads of 1, x, y: {:<.6e} \t {:<.6e} \t {:<.6e}"
-             "\t {:<.6e} \t {:<.6e} \t {:<.6e} \t {:<.6e}").
-            format(iteration, total_iterations,
-                   model.loss_one_dx.read_value(), model.loss_x_dx.read_value(), model.loss_y_dx.read_value(),
-                   model.loss_one_dy.read_value(), model.loss_x_dy.read_value(), model.loss_y_dy.read_value(),
-                   model.loss_copy.read_value()))
-
-
-def print_info_learn_laplacian(model, iteration, total_iterations=None):
+def print_info_learn_bnavem(model, iteration, total_iterations=None):
     if total_iterations is None:
         tf.print("Iter: ", iteration, (". Current Laplacian: {:<.16e}".
                                        format(model.curr_laplacian.read_value())))
@@ -287,14 +242,12 @@ def assign_best(model):
 
 def train_adam_bfgs(model, loss, inputs, labels, epochs_adam, epochs_bfgs, cb_list, use_bfgs=True):
 
-    if model.name == "bc_network" or model.name == "bc_network_hanging":
-        info_printer = print_info_learn_laplacian
-    elif model.name == "polynomial_network" or model.name == "hanging_network":
-        info_printer = print_info_learn_bc
-    elif model.name == "napem_network" or model.name == "napem_network_hanging":
-        info_printer = print_info_learn_pols
-    elif model.name == "napem_network_gradient" or model.name == "napem_network_gradient_hanging":
-        info_printer = print_info_learn_pol_grads
+    if model.name == "navem_neural_network":
+        info_printer = print_info_navem
+    elif model.name == "bnavem_neural_network":
+        info_printer = print_info_bnavem
+    elif model.name == "pnavem_neural_network":
+        info_printer = print_info_pnavem
     else:
         info_printer = None
 

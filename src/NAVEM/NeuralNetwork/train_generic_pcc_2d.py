@@ -2,7 +2,7 @@ from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from src.NAVEM.NeuralNetwork.training_utilities import *
-from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetwork, BoundaryLoss, \
+from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetworksContainer, BoundaryLoss, \
     write_flags_on_dictionary
 import numpy as np
 import tensorflow as tf
@@ -68,7 +68,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     write_flags_on_dictionary(flags)
 
-    nn = NAVEMNetwork(flags)
+    nn = NAVEMNetworksContainer(flags)
 
     # Initialize edge loss
     boundary_loss = BoundaryLoss(geometry_utilities, num_points_on_each_edge, method_order, num_vertices)

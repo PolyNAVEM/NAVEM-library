@@ -4,7 +4,9 @@ import tensorflow as tf
 from typing import List, TypedDict, Tuple, Dict
 from tensorflow.keras.layers import Dense
 from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType, map_pts_from_1d_to_2d
+from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType, \
+    map_pts_from_1d_to_2d
+
 
 class Flags(TypedDict):
     input_dim: int
@@ -30,6 +32,7 @@ class Flags(TypedDict):
     num_points_on_each_edge: int
     name_storage: str
 
+
 def set_flags(network_input_dimension: int,
               method_order: int,
               method_type: int,
@@ -51,7 +54,6 @@ def set_flags(network_input_dimension: int,
               regularization_coefficient: float,
               num_points_on_each_edge: int,
               export_training_data_file_path: str) -> Flags:
-
     flags: Flags = {'input_dim': network_input_dimension,
                     'output_dim': 1,
                     'method_order': method_order,
@@ -77,8 +79,8 @@ def set_flags(network_input_dimension: int,
 
     return flags
 
-def write_flags_on_dictionary(flags: Flags) -> None:
 
+def write_flags_on_dictionary(flags: Flags) -> None:
     file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
     file.write("method_type = {}\n".format(flags['method_type']))
     file.write("method_order = {}\n".format(flags['method_order']))
@@ -108,7 +110,6 @@ def write_flags_on_dictionary(flags: Flags) -> None:
 
 
 def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
-
     flags: Flags = {
         "input_dim": int(raw["network_input_dimension"]),
         "output_dim": int(raw["output_dim"]),
@@ -136,6 +137,7 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
 
     return flags
 
+
 class BoundaryLoss:
 
     def __init__(self, geometry_utilities: gedim.GeometryUtilities, n_pts: int, method_order: int, num_vertices: int):
@@ -146,13 +148,15 @@ class BoundaryLoss:
         self.num_vertices = num_vertices
 
         # evaluation points
-        self.reference_eval_points = reference_points_distribution(0.0, 1.0, self.n_pts, PointsSegmentDistributionType.uniform)
+        self.reference_eval_points = reference_points_distribution(0.0, 1.0, self.n_pts,
+                                                                   PointsSegmentDistributionType.uniform)
 
         lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
         quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)
         self.references_do_fs_on_edge = quadrature_data.points[0, :]
 
-        self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(self.references_do_fs_on_edge)
+        self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(
+            self.references_do_fs_on_edge)
         lagrange_values = polydim.interpolation.lagrange.lagrange_1_d_values(self.references_do_fs_on_edge,
                                                                              self.lagrange_coefficients,
                                                                              self.reference_eval_points)
@@ -160,7 +164,6 @@ class BoundaryLoss:
             polydim.interpolation.lagrange.lagrange_1_d_derivative_values(self.references_do_fs_on_edge,
                                                                           self.lagrange_coefficients,
                                                                           self.reference_eval_points))
-
 
         self.basis_evaluations = np.zeros([n_pts * self.num_vertices, 1])
         self.derivatives_evaluations = np.zeros([n_pts * self.num_vertices, 1])
@@ -184,24 +187,25 @@ class BoundaryLoss:
         for e2 in range(self.num_vertices):  # generic edge of the polygon
             for local_p in range(self.method_order - 1):  # number of internal polynomials
                 if e == e2:
-                    self.basis_evaluations[e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = \
-                    lagrange_values[:, local_p + 1]
-                    self.derivatives_evaluations[e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = \
-                    lagrange_derivatives_values[:, local_p + 1]
+                    self.basis_evaluations[e2 * n_pts:(e2 + 1) * n_pts,
+                    self.num_vertices + e * (self.method_order - 1) + local_p] = \
+                        lagrange_values[:, local_p + 1]
+                    self.derivatives_evaluations[e2 * n_pts:(e2 + 1) * n_pts,
+                    self.num_vertices + e * (self.method_order - 1) + local_p] = \
+                        lagrange_derivatives_values[:, local_p + 1]
                 else:
                     self.basis_evaluations[
-                        e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
+                    e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
                     self.derivatives_evaluations[
-                        e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
-
+                    e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
 
     def add_0_pols_from_internal_do_fs(self, n_internal_do_fs: int, nodes: List[float]):
         rep_nodes = np.tile(nodes, (n_internal_do_fs, 1))
         zero_pols = np.zeros(self.num_vertices * self.n_pts * n_internal_do_fs)
         return rep_nodes, zero_pols
 
-
-    def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> Tuple[
+        NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
         nodes = np.zeros((2, self.num_vertices * self.n_pts))
         normals = np.zeros((2, self.num_vertices * self.n_pts))
@@ -223,7 +227,6 @@ class BoundaryLoss:
         # values of derivatives for boundary dofs
         all_derivatives = np.squeeze(self.derivatives_evaluations.T.reshape(-1, 1)) / edge_lengths
 
-
         if add_coordinates:
             xy_vertices = np.expand_dims(vertices[:2, 1:].flatten(), 0)
             rep_xy_vertices = np.repeat(xy_vertices, nodes.shape[0], axis=0)
@@ -231,10 +234,11 @@ class BoundaryLoss:
 
         return nodes, all_pols, normals.T, all_derivatives
 
-class PolynomialNetwork(tf.keras.Model):
 
-    def __init__(self, input_dim: int, n_outputs: int, n_neurons: int, n_hidden_layers: int, reg_coefficient: float, use_sqrt: bool):
-        super(PolynomialNetwork, self).__init__(name='polynomial_network')
+class NAVEMNeuralNetwork(tf.keras.Model):
+    def __init__(self, input_dim: int, n_outputs: int, n_neurons: int, n_hidden_layers: int, reg_coefficient: float,
+                 use_sqrt: bool):
+        super(NAVEMNeuralNetwork, self).__init__(name='navem_neural_network')
         self.input_dim = input_dim
         self.n_neurons = n_neurons
         self.n_hidden_layers = n_hidden_layers
@@ -242,27 +246,32 @@ class PolynomialNetwork(tf.keras.Model):
         self.reg_coefficient = reg_coefficient
         self.use_sqrt = use_sqrt
 
-        self.layers_list = [Dense(self.n_neurons, input_dim=self.input_dim, activation='tanh', kernel_initializer='glorot_normal')]
+        self.layers_list = [
+            Dense(self.n_neurons, activation='tanh', kernel_initializer='glorot_normal')]
         for _ in range(self.n_hidden_layers):
-            self.layers_list.append(Dense(self.n_neurons, input_dim=self.n_neurons, activation='tanh', kernel_initializer='glorot_normal'))
-        self.layers_list.append(Dense(self.n_outputs, input_dim=self.n_neurons, kernel_initializer='glorot_normal'))
+            self.layers_list.append(
+                Dense(self.n_neurons, activation='tanh', kernel_initializer='glorot_normal'))
+        self.layers_list.append(Dense(self.n_outputs, kernel_initializer='glorot_normal'))
 
         self.best_loss = tf.Variable(tf.convert_to_tensor(np.inf, dtype=tf.float64), trainable=False, dtype=tf.float64)
-        self.best_w = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False, validate_shape=False, shape=(None,), dtype=tf.float64)
-        self.bfgs_regularization_grads = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False, validate_shape=False, shape=(None,),
+        self.best_w = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False, validate_shape=False,
+                                  shape=(None,), dtype=tf.float64)
+        self.bfgs_regularization_grads = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False,
+                                                     validate_shape=False, shape=(None,),
                                                      dtype=tf.float64)
 
         self.tangent_x = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                      validate_shape=False,
-                                     shape=(None,None), dtype=tf.float64)
+                                     shape=(None, None), dtype=tf.float64)
         self.tangent_y = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                      validate_shape=False,
-                                     shape=(None,None), dtype=tf.float64)
+                                     shape=(None, None), dtype=tf.float64)
         self.deriv_labels = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                         validate_shape=False,
-                                        shape=(None,None), dtype=tf.float64)
-        self.vertex_filter = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False, validate_shape=False,
-                                  shape=(None,None), dtype=tf.float64)
+                                        shape=(None, None), dtype=tf.float64)
+        self.vertex_filter = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                         validate_shape=False,
+                                         shape=(None, None), dtype=tf.float64)
 
         self.curr_distance_l2 = tf.Variable(tf.convert_to_tensor(0., dtype=tf.float64), trainable=False,
                                             validate_shape=False, dtype=tf.float64)
@@ -275,25 +284,28 @@ class PolynomialNetwork(tf.keras.Model):
         self.train_vander_dy = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
                                            validate_shape=False, shape=(None, None, None), dtype=tf.float64)
 
-    # @tf.function
-    def apply_vandermonde(self, x, vander):
+    def build(self, input_shape):
+        self.layers_list[0].build(input_shape)
+        for layer in self.layers_list[1:]:
+            layer.build((None, self.n_neurons))
+        super().build(input_shape)
+
+    @staticmethod
+    def apply_vandermonde(x, vander):
         return tf.einsum('pi,pji->pj', x, vander)
 
-    # @tf.function
     def call(self, x):
         x = self.layers_list[0](x)
         for layer in self.layers_list[1:-1]:
             x = layer(x) + x
         return self.layers_list[-1](x)
 
-    # @tf.function
     def copy_value_and_grad(self, y_true, y_pred):
         value_cost = self.copy_value(y_true, y_pred)
         deriv_cost = self.copy_grad(y_true, y_pred)
 
         return value_cost + tf.square(deriv_cost)
 
-    # @tf.function
     def copy_value(self, y_true, y_pred):
         u = self.apply_vandermonde(y_pred, self.train_vander)
         value_cost = tf.reduce_mean(tf.square(u - tf.squeeze(y_true)))
@@ -304,12 +316,11 @@ class PolynomialNetwork(tf.keras.Model):
         else:
             return value_cost
 
-    # @tf.function
     def copy_grad(self, y_true, y_pred):
         ux = self.apply_vandermonde(y_pred, self.train_vander_dx)
         uy = self.apply_vandermonde(y_pred, self.train_vander_dy)
         tangent_derivative = ux * self.tangent_x + uy * self.tangent_y
-        deriv_cost = tf.reduce_mean(tf.square(tangent_derivative - self.deriv_labels)*self.vertex_filter)
+        deriv_cost = tf.reduce_mean(tf.square(tangent_derivative - self.deriv_labels) * self.vertex_filter)
         self.curr_distance_h1.assign(deriv_cost)
 
         if self.use_sqrt:
@@ -318,85 +329,60 @@ class PolynomialNetwork(tf.keras.Model):
             return deriv_cost
 
     def copy_weights(self, nn):
-        fake_input = tf.convert_to_tensor(np.zeros((1, self.input_dim)))
-        self.call(fake_input)
+        if not self.built:
+            self.build(input_shape=(None, self.input_dim))
         for i in range(len(self.layers_list)):
             self.layers_list[i].set_weights(nn.layers_list[i].get_weights())
 
-class NAVEMNetwork(tf.keras.Model):
 
+class NAVEMNetworksContainer:
     def __init__(self, flags: Flags):
-        super(NAVEMNetwork, self).__init__(name='polynomial_plus_harmonic_network')
-        self.best_loss = tf.Variable(tf.convert_to_tensor(np.inf, dtype=tf.float64), trainable=False, dtype=tf.float64)
-        self.best_w = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False,
-                                  validate_shape=False, shape=(None,), dtype=tf.float64)
-        self.bfgs_regularization_grads = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64),
-                                                     trainable=False, validate_shape=False, shape=(None,),
-                                                     dtype=tf.float64)
-
         self.flags: Flags = flags
 
-        self.nn_basis_function = PolynomialNetwork(self.flags['input_dim'] - 2,
-                                                   self.flags['num_generators'],
-                                                   self.flags['num_neurons_per_layer'],
-                                                   self.flags['num_hidden_layers'],
-                                                   self.flags['regularization_coefficient'],
-                                                   self.flags['use_sqrt_in_train'])
+        self.nn_basis_function = NAVEMNeuralNetwork(self.flags['input_dim'] - 2,
+                                                    self.flags['num_generators'],
+                                                    self.flags['num_neurons_per_layer'],
+                                                    self.flags['num_hidden_layers'],
+                                                    self.flags['regularization_coefficient'],
+                                                    self.flags['use_sqrt_in_train'])
 
-        self.nn_basis_derivatives = PolynomialNetwork(self.flags['input_dim'] - 2,
-                                                      self.flags['num_generators'],
-                                                      self.flags['num_neurons_per_layer'],
-                                                      self.flags['num_hidden_layers'],
-                                                      self.flags['regularization_coefficient'],
-                                                      self.flags['use_sqrt_in_train'])
+        self.nn_basis_derivatives = NAVEMNeuralNetwork(self.flags['input_dim'] - 2,
+                                                       self.flags['num_generators'],
+                                                       self.flags['num_neurons_per_layer'],
+                                                       self.flags['num_hidden_layers'],
+                                                       self.flags['regularization_coefficient'],
+                                                       self.flags['use_sqrt_in_train'])
 
-    # @tf.function
-    def call(self, x):
-        u_pol = self.nn_basis_function.call(x[:, 2:])  # call without x and y
-        return u_pol
+    def save_model(self):
+        zero_1d = tf.convert_to_tensor([0.], dtype=tf.float64)
+        zero_2d = tf.convert_to_tensor([[0.]], dtype=tf.float64)
+        zero_3d = tf.convert_to_tensor([[[0.]]], dtype=tf.float64)
 
+        self.nn_basis_function.best_w.assign(zero_1d)
+        self.nn_basis_function.bfgs_regularization_grads.assign(zero_1d)
+        self.nn_basis_function.tangent_x.assign(zero_2d)
+        self.nn_basis_function.tangent_y.assign(zero_2d)
+        self.nn_basis_function.deriv_labels.assign(zero_2d)
+        self.nn_basis_function.vertex_filter.assign(zero_2d + 1)
+        self.nn_basis_function.train_vander.assign(zero_3d)
+        self.nn_basis_function.train_vander_dx.assign(zero_3d)
+        self.nn_basis_function.train_vander_dy.assign(zero_3d)
 
-    # @tf.function
-    def predict_coefficients(self, x):
-        for layer in self.layers_list:
-            x = layer(x)
-        return x
-    
-    def define_vandermonde(self, vandermonde):
-        self.vandermonde.assign(vandermonde)
+        self.nn_basis_derivatives.best_w.assign(zero_1d)
+        self.nn_basis_derivatives.bfgs_regularization_grads.assign(zero_1d)
+        self.nn_basis_derivatives.tangent_x.assign(zero_2d)
+        self.nn_basis_derivatives.tangent_y.assign(zero_2d)
+        self.nn_basis_derivatives.deriv_labels.assign(zero_2d)
+        self.nn_basis_derivatives.vertex_filter.assign(zero_2d + 1)
+        self.nn_basis_derivatives.train_vander.assign(zero_3d)
+        self.nn_basis_derivatives.train_vander_dx.assign(zero_3d)
+        self.nn_basis_derivatives.train_vander_dy.assign(zero_3d)
 
-    def save_model(self, cheap_save=True):
+        self.nn_basis_function.save_weights(self.flags['name_storage'] + "/nn_function_weights.weights.h5")
+        self.nn_basis_derivatives.save_weights(self.flags['name_storage'] + "/nn_derivatives_weights.weights.h5")
 
-        if cheap_save:
-
-            zero_1d = tf.convert_to_tensor([0.], dtype=tf.float64)
-            zero_2d = tf.convert_to_tensor([[0.]], dtype=tf.float64)
-            zero_3d = tf.convert_to_tensor([[[0.]]], dtype=tf.float64)
-            
-            self.best_w.assign(zero_1d)
-            self.bfgs_regularization_grads.assign(zero_1d)
-            
-            self.nn_basis_function.best_w.assign(zero_1d)
-            self.nn_basis_function.bfgs_regularization_grads.assign(zero_1d)
-            self.nn_basis_function.tangent_x.assign(zero_2d)
-            self.nn_basis_function.tangent_y.assign(zero_2d)
-            self.nn_basis_function.deriv_labels.assign(zero_2d)
-            self.nn_basis_function.vertex_filter.assign(zero_2d+1)
-            self.nn_basis_function.train_vander.assign(zero_3d)
-            self.nn_basis_function.train_vander_dx.assign(zero_3d)
-            self.nn_basis_function.train_vander_dy.assign(zero_3d)
-            
-
-            self.nn_basis_derivatives.best_w.assign(zero_1d)
-            self.nn_basis_derivatives.bfgs_regularization_grads.assign(zero_1d)
-            self.nn_basis_derivatives.tangent_x.assign(zero_2d)
-            self.nn_basis_derivatives.tangent_y.assign(zero_2d)
-            self.nn_basis_derivatives.deriv_labels.assign(zero_2d)
-            self.nn_basis_derivatives.vertex_filter.assign(zero_2d+1)
-            self.nn_basis_derivatives.train_vander.assign(zero_3d)
-            self.nn_basis_derivatives.train_vander_dx.assign(zero_3d)
-            self.nn_basis_derivatives.train_vander_dy.assign(zero_3d)
-
-        self.build(input_shape=self.nn_basis_function.input_dim)
-        self.save_weights(self.flags['name_storage'] + "/nn_weights.weights.h5")
-
+    def load_weights(self, name_storage):
+        self.nn_basis_function.build(input_shape=(None, self.nn_basis_function.input_dim))
+        self.nn_basis_derivatives.build(input_shape=(None, self.nn_basis_function.input_dim))
+        self.nn_basis_function.load_weights(name_storage + "/nn_function_weights.weights.h5")
+        self.nn_basis_derivatives.load_weights(name_storage + "/nn_derivatives_weights.weights.h5")

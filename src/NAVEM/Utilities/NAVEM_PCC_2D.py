@@ -65,8 +65,8 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
             match method_type:
                 case NAVEMType.NAVEM:
                     flags = navem_network.load_flags_from_dictionary(name_storage, raw)
-                    categories[num_vertices].neural_network = navem_network.NAVEMNetwork(flags)
-                    categories[num_vertices].neural_network.load_weights(name_storage + "/nn_weights.weights.h5").expect_partial()
+                    categories[num_vertices].neural_network = navem_network.NAVEMNetworksContainer(flags)
+                    categories[num_vertices].neural_network.load_weights(name_storage)
                 case _:
                     raise ValueError("Unknown method type")
 
@@ -86,7 +86,7 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 
 def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                mesh_geometric_data: MeshGeometricData2D,
-                                               neural_network: navem_network.NAVEMNetwork,
+                                               neural_network: navem_network.NAVEMNetworksContainer,
                                                list_elements: Dict[int, Input]) -> Dict[int, Output]:
 
 
@@ -190,7 +190,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
-                                                        neural_network: navem_network.NAVEMNetwork,
+                                                        neural_network: navem_network.NAVEMNetworksContainer,
                                                         list_elements: Dict[int, Input]) -> Dict[int, Output]:
 
     num_vertices = neural_network.flags["num_vertices"]
