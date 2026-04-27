@@ -350,11 +350,9 @@ class NAVEMNetwork(tf.keras.Model):
                                                       self.flags['regularization_coefficient'],
                                                       self.flags['use_sqrt_in_train'])
 
-    
     # @tf.function
     def call(self, x):
-
-        u_pol = self.nn_basis_function.call(x[:, 2:]) # call without x and y
+        u_pol = self.nn_basis_function.call(x[:, 2:])  # call without x and y
         return u_pol
 
 
@@ -399,9 +397,6 @@ class NAVEMNetwork(tf.keras.Model):
             self.nn_basis_derivatives.train_vander_dx.assign(zero_3d)
             self.nn_basis_derivatives.train_vander_dy.assign(zero_3d)
 
-        print("outer:", self.built)
-        print("basis:", self.nn_basis_function.built)
-        print("deriv:", self.nn_basis_derivatives.built)
-
+        self.build(input_shape=self.nn_basis_function.input_dim)
         self.save_weights(self.flags['name_storage'] + "/nn_weights.weights.h5")
 
