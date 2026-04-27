@@ -7,6 +7,7 @@ from Elliptic_PCC_2D.assembler import Assembler
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
 from pypolydim.assembler_utilities import assembler_utilities
 import cProfile
+from src.NAVEM.Utilities.NAVEM_PCC_2D import *
 
 
 def main():
@@ -21,6 +22,7 @@ def main():
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/dictionary.txt', type=str, help="Dictionary file")
     args = parser.parse_args()
 
     export_file_path = args.export_path
@@ -74,6 +76,8 @@ def main():
     assembler_utilities_obj = assembler_utilities()
     count_do_fs_data = assembler_utilities_obj.count_do_fs([do_fs_data])
     do_fs_data_indices = dof_manager.compute_cells_do_fs_indices(do_fs_data, 2)
+
+    navem_categories = categorize_elements_by_vertex_number(mesh, args.dictionary_file)
 
     print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ", do_fs_data.number_strongs, " STRONGs" + '\x1b[0m')
     print("Assemble...")

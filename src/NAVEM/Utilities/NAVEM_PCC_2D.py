@@ -60,7 +60,7 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 
                     raw[key] = value
 
-            method_type = NAVEMType(raw["method_type"])
+            method_type = NAVEMType(int(raw["method_type"]))
 
             match method_type:
                 case NAVEMType.NAVEM:
