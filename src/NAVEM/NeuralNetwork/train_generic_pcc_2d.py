@@ -1,6 +1,6 @@
 from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
-from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
+from src.NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
 from src.NAVEM.NeuralNetwork.training_utilities import *
 from src.NAVEM.NeuralNetwork.navem_network import Flags, set_flags, NAVEMNetworksContainer, BoundaryLoss, \
     write_flags_on_dictionary

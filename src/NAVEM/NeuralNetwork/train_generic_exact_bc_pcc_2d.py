@@ -1,6 +1,6 @@
 import tf_keras.src.utils.tf_inspect
 from pypolydim import gedim
-from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
+from src.NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
 from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *

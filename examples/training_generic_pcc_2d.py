@@ -8,9 +8,10 @@ from src.NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 import tensorflow as tf
 
+
 def main():
 
-    parser =argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
     parser.add_argument('-method', '--method-type',dest='method_type', default=2, type=int, help="Method type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
