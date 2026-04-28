@@ -9,55 +9,52 @@ class BNAVEMNetwork(tf.keras.Model):
 
     def __init__(self, flags: Flags):
 
-        super(BNAVEMNetwork, self).__init__(name='bc_network')
-
-        self.best_loss = tf.Variable(tf.convert_to_tensor(np.inf, dtype=tf.float64), trainable=False, dtype=tf.float64)
-        self.best_w = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False, validate_shape=False, shape=(None,), dtype=tf.float64)
-        self.bfgs_regularization_grads = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False, validate_shape=False, shape=(None,),
-                                                     dtype=tf.float64)
-
-        self.curr_laplacian = tf.Variable(tf.convert_to_tensor(0., dtype=tf.float64), trainable=False,
-                                            validate_shape=False, dtype=tf.float64)
-        self.training_quad_w = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                    validate_shape=False, shape=(None, 1), dtype=tf.float64)
-
-        self.var_phi = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                    validate_shape=False, shape=(None, 1), dtype=tf.float64)
-        self.var_phi_x = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 1), dtype=tf.float64)
-        self.var_phi_y = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 1), dtype=tf.float64)
-        self.var_phi_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                       validate_shape=False, shape=(None, 1), dtype=tf.float64)
-
-        self.var_g = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                       validate_shape=False, shape=(None, None), dtype=tf.float64)
-        self.var_g_x = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 1), dtype=tf.float64)
-        self.var_g_y = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 1), dtype=tf.float64)
-        self.var_g_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                          validate_shape=False, shape=(None, 1), dtype=tf.float64)
-
-        self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
+        super(BNAVEMNetwork, self).__init__(name='bnavem_neural_network')
 
         self.flags = flags
 
+        self.reg_coefficient = self.flags['regularization_coefficient']
+
         self.layers_list = [Dense(self.flags['num_neurons_per_layer'],
-                                  input_dim=self.flags['input_dim'],
                                   activation='tanh',
                                   kernel_initializer='glorot_normal')]
-
         for _ in range(self.flags['num_hidden_layers']):
             self.layers_list.append(Dense(self.flags['num_neurons_per_layer'],
-                                          input_dim=self.flags['num_neurons_per_layer'],
                                           activation='tanh',
                                           kernel_initializer='glorot_normal'))
+        self.layers_list.append(Dense(self.flags['output_dim'], kernel_initializer='glorot_normal'))
 
-        self.layers_list.append(Dense(self.flags['output_dim'],
-                                      input_dim=self.flags['num_neurons_per_layer'],
-                                      kernel_initializer='glorot_normal'))
+        self.best_loss = tf.Variable(tf.convert_to_tensor(np.inf, dtype=tf.float64), trainable=False, dtype=tf.float64)
+        self.best_w = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False, validate_shape=False,
+                                  shape=(None,), dtype=tf.float64)
+        self.bfgs_regularization_grads = tf.Variable(tf.convert_to_tensor([0.], dtype=tf.float64), trainable=False,
+                                                     validate_shape=False, shape=(None,),
+                                                     dtype=tf.float64)
 
+        self.curr_laplacian = tf.Variable(tf.convert_to_tensor(0., dtype=tf.float64), trainable=False,
+                                          validate_shape=False, dtype=tf.float64)
+        self.training_quad_w = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, 1), dtype=tf.float64)
+
+        self.var_phi = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                   validate_shape=False, shape=(None, 1), dtype=tf.float64)
+        self.var_phi_x = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                     validate_shape=False, shape=(None, 1), dtype=tf.float64)
+        self.var_phi_y = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                     validate_shape=False, shape=(None, 1), dtype=tf.float64)
+        self.var_phi_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                         validate_shape=False, shape=(None, 1), dtype=tf.float64)
+
+        self.var_g = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                 validate_shape=False, shape=(None, None), dtype=tf.float64)
+        self.var_g_x = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                   validate_shape=False, shape=(None, 1), dtype=tf.float64)
+        self.var_g_y = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                   validate_shape=False, shape=(None, 1), dtype=tf.float64)
+        self.var_g_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                       validate_shape=False, shape=(None, 1), dtype=tf.float64)
+
+        self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
     # @tf.function
     def internal_call(self, inputs):
@@ -66,19 +63,22 @@ class BNAVEMNetwork(tf.keras.Model):
             u = layer(u) + u
         return self.layers_list[-1](u)
 
-    @tf.function
+    # @tf.function
     def call(self, inputs):
-        u0 = self.internal_call(inputs)
-        grad = tf.gradients(u0, inputs)[0]
-        u_xx_xy = tf.gradients(grad[:, 0:1], inputs)[0]
-        u_xy_yy = tf.gradients(grad[:, 1:2], inputs)[0]
+        with tf.GradientTape(persistent=False) as tape2:
+            tape2.watch(inputs)
+            with tf.GradientTape() as tape1:
+                tape1.watch(inputs)
+                u0 = self.internal_call(inputs)
+            grad = tape1.gradient(u0, inputs, output_gradients=tf.ones_like(u0))
+        second_derivatives = tape2.batch_jacobian(grad, inputs)
+        laplacian_u0 = second_derivatives[:, 0, 0:1] + second_derivatives[:, 1, 1:2]
 
-        # VERSION WITH DIRECT LAPLACIAN COMPUTATION
-        laplacian = ((u_xx_xy[:, 0:1] + u_xy_yy[:, 1:2]) * self.var_phi +
-                    self.tf_two * (grad[:, 0:1] * self.var_phi_x + grad[:, 1:2] * self.var_phi_y) +
-                    u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
+        # Laplacian computation
+        laplacian = (laplacian_u0 * self.var_phi +
+                     self.tf_two * (grad[:, 0:1] * self.var_phi_x + grad[:, 1:2] * self.var_phi_y) +
+                     u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
         return laplacian
-
 
     def get_u_and_du(self, inputs):
         with tf.GradientTape() as t2:
@@ -109,7 +109,7 @@ class BNAVEMNetwork(tf.keras.Model):
         return tf.concat([u0, self.var_phi, self.var_g], 1)
 
     def setup_model_global_input(self, xy_per_pol, vertices, jac_per_pol, setup_n_derivatives, geometry_utilities):
-        eb = EnforcingBoundary(geometry_utilities)
+        eb = EnforcingBoundary(geometry_utilities, method_order=self.flags["method_order"])
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
         xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
@@ -120,7 +120,8 @@ class BNAVEMNetwork(tf.keras.Model):
             phi, g, phi_grad, g_grad = eb.phi_and_g_and_grads(xy_per_pol)
             phi_grad, g_grad = eb.map_phi_and_g_grads(phi_grad, g_grad)
         elif setup_n_derivatives == 2:
-            phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = eb.phi_and_g_and_grads_and_second_derivatives(xy_per_pol)
+            phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = eb.phi_and_g_and_grads_and_second_derivatives(
+                xy_per_pol)
         else:
             raise ValueError("setup_n_derivatives must be 0, 1 or 2.")
 
@@ -159,7 +160,7 @@ class BNAVEMNetwork(tf.keras.Model):
                 self.var_phi_xx_yy.assign(phi_sec_ders[:, 0:1] + phi_sec_ders[:, 2:3])
                 self.var_g_xx_yy.assign(g_sec_ders[:, 0:1] + g_sec_ders[:, 2:3])
 
-    @tf.function
+    # @tf.function
     def pinn_laplace_loss(self, y_true, y_pred):
         integral_argument = tf.square(y_pred)
         # integrals = tf.reduce_sum(self.training_quad_w * integral_argument) * self.one_over_n_funcs
@@ -168,6 +169,8 @@ class BNAVEMNetwork(tf.keras.Model):
         return integrals
 
     def save_model(self):
+        name_storage = self.flags['name_storage']
+
         self.flags = None
 
         zero_1d = tf.convert_to_tensor([0.], dtype=tf.float64)
@@ -186,5 +189,4 @@ class BNAVEMNetwork(tf.keras.Model):
         self.var_phi_y.assign(zero_2d)
         self.var_phi_xx_yy.assign(zero_2d)
 
-        tf.print("saving weights on file ", self.flags['name_storage'])
-        self.save_weights(self.flags['name_storage'] + ".ckpt")
+        self.save_weights(name_storage + "/bnavem.weights.h5")

@@ -46,6 +46,7 @@ class StoreTime(tf.keras.callbacks.Callback):
 def get_lr_scheduler(n_epochs, lower, upper):
     def scheduler(epoch, lr):
         return upper * np.exp(np.log(lower / upper) * epoch / n_epochs)
+
     return scheduler
 
 
@@ -61,8 +62,18 @@ def train_with_first_order(model, loss_f, x, y, bsize, n_epochs, shuffle, cb_lis
 
 def print_info_navem(model, iteration, total_iterations=None):
     if total_iterations is None:
-        tf.print("Iter: ", iteration, ". Current distance L2 and H1: {:<.16e} \t {:<.16e}".
-                 format(model.curr_distance_l2.read_value(), model.curr_distance_h1.read_value()))
+        l2 = tf.strings.regex_replace(tf.strings.as_string(model.curr_distance_l2,
+                                                           scientific=True,
+                                                           precision=16), '\"', '')
+        h1 = tf.strings.regex_replace(tf.strings.as_string(model.curr_distance_h1,
+                                                           scientific=True,
+                                                           precision=16), '\"', '')
+        tf.print(tf.strings.join(["Iter: ",
+                                  tf.strings.as_string(iteration),
+                                  ". Current distance L2 and H1: ",
+                                  l2,
+                                  "\t",
+                                  h1]))
     else:
         tf.print("Performed {:<d} / {:<d} epochs. Current distance L2 and H1: {:<.16e} \t {:<.16e}".
                  format(iteration, total_iterations,
@@ -118,10 +129,15 @@ def print_info_pnavem(model, iteration, total_iterations=None):
                                 ))
 
 
-def print_info_learn_bnavem(model, iteration, total_iterations=None):
+def print_info_bnavem(model, iteration, total_iterations=None):
     if total_iterations is None:
-        tf.print("Iter: ", iteration, (". Current Laplacian: {:<.16e}".
-                                       format(model.curr_laplacian.read_value())))
+        laplacian = tf.strings.regex_replace(tf.strings.as_string(model.curr_laplacian,
+                                                                  scientific=True,
+                                                                  precision=16), '\"', '')
+        tf.print(tf.strings.join(["Iter: ",
+                                  tf.strings.as_string(iteration),
+                                  ". Current Laplacian: ",
+                                  laplacian]))
     else:
         tf.print("Performed {:<d} / {:<d} epochs. Current Laplacian: {:<.16e}".
                  format(iteration, total_iterations, model.curr_laplacian.read_value()))
@@ -146,7 +162,7 @@ def function_factory(model, loss, train_x, train_y, info_printer):
 
     part = tf.constant(part)
 
-    # @tf.function(experimental_relax_shapes=True)
+    @tf.function(experimental_relax_shapes=True)
     def assign_new_model_parameters(params_1d):
         """A function updating the model's parameters with a 1D tf.Tensor.
         Args:
@@ -158,7 +174,7 @@ def function_factory(model, loss, train_x, train_y, info_printer):
             model.trainable_variables[i].assign(tf.reshape(param, shape))
 
     # now create a function that will be returned by this factory
-    # @tf.function(experimental_relax_shapes=True)
+    @tf.function(experimental_relax_shapes=True)
     def f(params_1d):
         # use GradientTape so that we can calculate the gradient of loss w.r.t. parameters
         with tf.GradientTape() as tape:
@@ -171,7 +187,7 @@ def function_factory(model, loss, train_x, train_y, info_printer):
         grads = tape.gradient(loss_value, model.trainable_variables)
         grads = tf.dynamic_stitch(idx, grads)
 
-        if f.iter % 100 == 0:
+        if f.iter.read_value() % 100 == 0:
             if loss_value < model.best_loss:
                 model.best_w.assign(params_1d)
                 model.best_loss.assign(loss_value)
@@ -180,20 +196,13 @@ def function_factory(model, loss, train_x, train_y, info_printer):
 
         # print out iteration & loss
         f.iter.assign_add(1)
-        if f.iter % 100 == 0:
-            # tf.print("Iter: ", f.iter ,((". Current distance L2 and H1: {:<.16e} \t {:<.16e}").
-            #        format(model.curr_distance_l2.read_value(), model.curr_distance_h1.read_value())))
+        if f.iter.read_value() % 100 == 0:
             info_printer(model, f.iter)
-            # tf.print("{:<.16e} \t {:<.16e}".
-            #        format(model.curr_distance_l2.read_value(), model.curr_distance_h1.read_value()))
 
-        # store loss value and time so we can retrieve later
-        # tf.py_function(f.losses.append, inp=[loss_value], Tout=[])
-        # tf.py_function(f.times.append, inp=[time.perf_counter()-f.t0], Tout=[])
         return loss_value, grads
 
-    # store these information as members so we can use them outside the scope
-    f.iter = tf.Variable(0)
+    # store these information as members, so we can use them outside the scope
+    f.iter = tf.Variable(0, dtype=tf.int32)
     f.idx = idx
     f.part = part
     f.shapes = shapes
@@ -202,7 +211,6 @@ def function_factory(model, loss, train_x, train_y, info_printer):
     f.errors = []
     f.errors_params = []
     f.t0 = time.perf_counter()
-    # f.t0 = tf.timestamp()
     f.times = []
 
     return f
@@ -216,7 +224,7 @@ def train_w_bfgs(model, loss, train_data, train_labels, n_epochs, bfgs=True, inv
 
     max_iters = tf.convert_to_tensor(n_epochs, dtype=tf.int32)
     max_ls_iters = 50
-    parl_iters = 1  # n_epochs
+    parl_iters = 1
 
     init_params = tf.dynamic_stitch(func.idx, model.trainable_variables)
     if bfgs:
@@ -241,7 +249,6 @@ def assign_best(model):
 
 
 def train_adam_bfgs(model, loss, inputs, labels, epochs_adam, epochs_bfgs, cb_list, use_bfgs=True):
-
     if model.name == "navem_neural_network":
         info_printer = print_info_navem
     elif model.name == "bnavem_neural_network":

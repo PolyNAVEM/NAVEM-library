@@ -1,3 +1,4 @@
+import tf_keras.src.utils.tf_inspect
 from pypolydim import gedim
 from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
@@ -107,7 +108,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     num_points_per_polygon = reference_nodes.shape[1] * num_vertices
 
-    num_functions_per_polygon = num_vertices - p_navem_exact_constant
+    num_functions_per_polygon = num_vertices #- p_navem_exact_constant  # TO BE FIXED
 
     inputs = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))
 
@@ -246,4 +247,4 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                 raise ValueError("not valid navem type")
 
     # Final storage
-    nn.saveModel()
+    nn.save_model()
