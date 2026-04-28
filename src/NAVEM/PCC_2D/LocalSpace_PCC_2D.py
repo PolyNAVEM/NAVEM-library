@@ -132,6 +132,9 @@ class LocalSpaceData:
                 quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
                 for num_vertices, dictionary in reference_element_data.navem_categories.items():
 
+                    if len(dictionary.list_elements) == 0:
+                        continue
+
                     list_points: Dict[int, NDArray[np.float64]] = {}
                     for c in dictionary.list_elements:
                         self.navem_input_output[c] = NAVEM_PCC_2D.InputOutput()
@@ -143,11 +146,22 @@ class LocalSpaceData:
 
                         list_points[c] = self.navem_input_output[c].internal_quadrature.points
 
-                    outputs: Dict[int, NAVEM_PCC_2D.Output] \
-                        = NAVEM_PCC_2D.navem_predict_basis_values_and_derivatives(geometry_utilities,
-                                                                                  mesh_geometric_data,
-                                                                                  dictionary.neural_network,
-                                                                                  list_points)
+                    outputs: Dict[int, NAVEM_PCC_2D.Output] = {}
+                    match reference_element_data.method_type:
+                        case MethodTypes.NAVEM:
+                            outputs \
+                                = NAVEM_PCC_2D.navem_predict_basis_values_and_derivatives(geometry_utilities,
+                                                                                          mesh_geometric_data,
+                                                                                          dictionary.neural_network,
+                                                                                          list_points)
+                        case MethodTypes.B_NAVEM | MethodTypes.P_NAVEM:
+                            outputs \
+                                = NAVEM_PCC_2D.exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
+                                                                                                   mesh_geometric_data,
+                                                                                                   dictionary.neural_network,
+                                                                                                   list_points)
+                        case _:
+                            raise ValueError("Not valid method type")
 
                     for c in dictionary.list_elements:
                         self.navem_input_output[c].basis_values, self.navem_input_output[c].basis_derivatives_values \

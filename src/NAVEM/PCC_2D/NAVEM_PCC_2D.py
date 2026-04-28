@@ -3,7 +3,8 @@ from pypolydim import gedim
 from typing import List, Dict, Tuple
 import numpy as np
 from numpy.typing import NDArray
-from src.NAVEM.NeuralNetwork import navem_network
+from src.NAVEM.NeuralNetwork import navem_network, b_navem_network
+from src.NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
 from src.NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
@@ -71,6 +72,10 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
                     flags = navem_network.load_flags_from_dictionary(name_storage, raw)
                     categories[num_vertices].neural_network = navem_network.NAVEMNetworksContainer(flags)
                     categories[num_vertices].neural_network.load_weights(name_storage)
+                case NAVEMType.B_NAVEM:
+                    flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
+                    categories[num_vertices].neural_network = b_navem_network.BNAVEMNetwork(flags)
+                    categories[num_vertices].neural_network.load_model(name_storage)
                 case _:
                     raise ValueError("Unknown method type")
 

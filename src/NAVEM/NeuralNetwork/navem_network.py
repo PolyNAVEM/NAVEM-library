@@ -84,7 +84,7 @@ def write_flags_on_dictionary(flags: Flags) -> None:
     file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
     file.write("method_type = {}\n".format(flags['method_type']))
     file.write("method_order = {}\n".format(flags['method_order']))
-    file.write("network_input_dimension = {}\n".format(flags['input_dim']))
+    file.write("input_dim = {}\n".format(flags['input_dim']))
     file.write("output_dim = {}\n".format(flags['output_dim']))
     file.write("num_vertices = {}\n".format(flags['num_vertices']))
     file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
@@ -111,7 +111,7 @@ def write_flags_on_dictionary(flags: Flags) -> None:
 
 def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
     flags: Flags = {
-        "input_dim": int(raw["network_input_dimension"]),
+        "input_dim": int(raw["input_dim"]),
         "output_dim": int(raw["output_dim"]),
         "method_order": int(raw["method_order"]),
         "method_type": int(raw["method_type"]),
@@ -381,7 +381,7 @@ class NAVEMNetworksContainer:
         self.nn_basis_function.save_weights(self.flags['name_storage'] + "/nn_function_weights.weights.h5")
         self.nn_basis_derivatives.save_weights(self.flags['name_storage'] + "/nn_derivatives_weights.weights.h5")
 
-    def load_weights(self, name_storage):
+    def load_weights(self, name_storage: str):
         self.nn_basis_function.build(input_shape=(None, self.nn_basis_function.input_dim))
         self.nn_basis_derivatives.build(input_shape=(None, self.nn_basis_function.input_dim))
         self.nn_basis_function.load_weights(name_storage + "/nn_function_weights.weights.h5")

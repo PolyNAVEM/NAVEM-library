@@ -105,36 +105,25 @@ if os.path.exists(dirpath_pcc_2d) and os.path.isdir(dirpath_pcc_2d):
 tol = 1.0e-12
 test_type = 1
 method_orders = [1]
-method_types = [1, 4, 5]
-mesh_types = [0]
+method_types = [1, 2, 4, 5]
+dictionary_files = ['./TrainedModels/NAVEM/dictionary.txt', './TrainedModels/B-NAVEM/dictionary.txt', '', '']
+mesh_types = [0, 5]
 for mesh_type in mesh_types:
+    mt = 0
     for method_type in method_types:
+        dictionary_file = dictionary_files[mt]
         for order in method_orders:
             export_path = dirpath_pcc_2d + "/Export_" +  str(method_type) + "_" +  str(order) + "_" + str(mesh_type)
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.1 --export-path={2}".format(order, method_type, export_path, mesh_type))
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.05 --export-path={2}".format(order, method_type, export_path, mesh_type))
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.01 --export-path={2}".format(order, method_type, export_path, mesh_type))
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.005 --export-path={2}".format(order, method_type, export_path, mesh_type))
+            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.1 --export-path={2} --dictionary-file={4}".format(order, method_type, export_path, mesh_type, dictionary_file))
+            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.05 --export-path={2} --dictionary-file={4}".format(order, method_type, export_path, mesh_type, dictionary_file))
+            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.01 --export-path={2} --dictionary-file={4}".format(order, method_type, export_path, mesh_type, dictionary_file))
+            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.005 --export-path={2} --dictionary-file={4}".format(order, method_type, export_path, mesh_type, dictionary_file))
 
             errors = import_errors_pcc(export_path, method_type, order, test_type)
             test_errors_pcc(errors, order, tol)
 
-tol = 1.0e-12
-test_type = 1
-method_orders = [1]
-method_types = [1, 4, 5]
-mesh_types = [5]
-for mesh_type in mesh_types:
-    for method_type in method_types:
-        for order in method_orders:
-            export_path = dirpath_pcc_2d + "/Export_" +  str(method_type) + "_" +  str(order) + "_" + str(mesh_type)
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.1 --export-path={2}".format(order, method_type, export_path, mesh_type))
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.05 --export-path={2}".format(order, method_type, export_path, mesh_type))
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.01 --export-path={2}".format(order, method_type, export_path, mesh_type))
-            os.system("python ./examples/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 --mesh-type={3} --mesh-max-relative-area=0.005 --export-path={2}".format(order, method_type, export_path, mesh_type))
+        mt += 1
 
-            errors = import_errors_pcc(export_path, method_type, order, test_type)
-            test_errors_pcc(errors, order, tol)
 
 # tol = 1.0e-12
 # test_type = 1

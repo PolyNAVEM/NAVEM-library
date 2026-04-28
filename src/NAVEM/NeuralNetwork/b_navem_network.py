@@ -189,4 +189,9 @@ class BNAVEMNetwork(tf.keras.Model):
         self.var_phi_y.assign(zero_2d)
         self.var_phi_xx_yy.assign(zero_2d)
 
-        self.save_weights(name_storage + "/bnavem.weights.h5")
+        self.save_weights(name_storage + "/nn_weights.weights.h5")
+
+
+    def load_model(self, name_storage: str):
+        self.build(input_shape=(None, self.flags["input_dim"]))
+        self.load_weights(name_storage + "/nn_weights.weights.h5")

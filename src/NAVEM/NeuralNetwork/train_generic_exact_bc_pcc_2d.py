@@ -10,35 +10,6 @@ from src.NAVEM.NeuralNetwork.training_utilities import *
 import csv
 from src.NAVEM.Utilities.points_generator import *
 
-
-def write_dictionary(flags: Flags) -> None:
-
-    file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
-    file.write("method_type = '{}'\n".format(flags['method_type']))
-    file.write("method_order = {}\n".format(flags['method_order']))
-    file.write("network_input_dimension = {}\n".format(flags['input_dim']))
-    file.write("output_dim = {}\n".format(flags['output_dim']))
-    file.write("num_vertices = {}\n".format(flags['num_vertices']))
-    file.write("num_training_polygons = {}\n".format(flags['num_training_polygons']))
-    file.write("regularization_coefficient = {}\n".format(flags['regularization_coefficient']))
-    file.write("mesh_import_path = '{}'\n".format(flags['mesh_import_path']))
-    file.write("quadrature_order = '{}'\n".format(flags['quadrature_order']))
-    file.write("distribution_points_type = {}\n".format(flags['distribution_points_type']))
-
-    file.write("num_hidden_layers = {}\n".format(flags['num_hidden_layers']))
-    file.write("num_neurons_per_layer = {}\n".format(flags['num_neurons_per_layer']))
-    file.write("num_epoches_opt_order1 = {}\n".format(flags['num_epoches_opt_order1']))
-    file.write("num_epoches_opt_order2 = {}\n".format(flags['num_epoches_opt_order2']))
-    file.write("learning_rate_max = {}\n".format(flags['learning_rate_max']))
-    file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
-
-    if flags['p_navem_exact_constant']:
-        file.write("p_navem_exact_constant = True\n")
-    else:
-        file.write("p_navem_exact_constant = False\n")
-
-    file.close()
-
 def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    method_type: NAVEMType,
                                                    num_vertices: int,
@@ -86,7 +57,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                              quadrature_order,
                              distribution_points_type)
 
-    write_dictionary(flags)
+    write_flags_on_dictionary(flags)
     nn = None
     match method_type:
         case NAVEMType.P_NAVEM:
