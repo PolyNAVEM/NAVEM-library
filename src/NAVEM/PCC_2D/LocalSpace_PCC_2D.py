@@ -61,7 +61,7 @@ class ReferenceElementData:
                 cells_boundary_info_0_ds = []
                 for c in range(num_cell0_ds):
                     cells_num_do_fs_0_ds.append(
-                        self.standard_reference_element_data.fem_reference_element_data.num_dofs0_d)
+                        self.standard_reference_element_data.vem_reference_element_data.num_dofs0_d)
                     cells_boundary_info_0_ds.append(
                         boundary_info[mesh.cell0_d_marker(c)])
 
@@ -72,7 +72,7 @@ class ReferenceElementData:
                 cells_boundary_info_1_ds = []
                 for c in range(num_cell1_ds):
                     cells_num_do_fs_1_ds.append(
-                        self.standard_reference_element_data.fem_reference_element_data.num_dofs1_d)
+                        self.standard_reference_element_data.vem_reference_element_data.num_dofs1_d)
                     cells_boundary_info_1_ds.append(
                         boundary_info[mesh.cell1_d_marker(c)])
 

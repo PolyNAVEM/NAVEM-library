@@ -43,8 +43,7 @@ def main():
         os.makedirs(export_mesh_path)
 
     mesh_type = polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D(args.mesh_type)
-    method_type = polydim.pde_tools.local_space_pcc_2_d.MethodTypes(args.method_type)
-    method_type_a = LocalSpace_PCC_2D.MethodTypes(args.method_type)
+    method_type = LocalSpace_PCC_2D.MethodTypes(args.method_type)
     method_order = args.method_order
 
     print("Set problem...")
@@ -72,7 +71,7 @@ def main():
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     print("Create Discrete Local Space...")
-    reference_element_data = LocalSpace_PCC_2D.ReferenceElementData(method_type_a, method_order)
+    reference_element_data = LocalSpace_PCC_2D.ReferenceElementData(method_type, method_order)
 
     mesh_connectivity_data = polydim.pde_tools.mesh.MeshMatricesDAO_mesh_connectivity_data(mesh)
 

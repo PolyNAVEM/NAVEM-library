@@ -113,7 +113,7 @@ def compute_strong_term(cell2_d_index: int,
 
 def compute_weak_term(cell2_d_index: int,
                       mesh: gedim.MeshMatricesDAO,
-                      mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
+                      mesh_geometric_data: MeshGeometricData2D,
                       mesh_do_fs_info: polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo,
                       do_fs_data: polydim.pde_tools.do_fs.DOFsManager.DOFsData,
                       reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
@@ -136,16 +136,18 @@ def compute_weak_term(cell2_d_index: int,
         points_curvilinear_coordinates = weak_reference_segment.points[0, :]
 
         # map edge internal quadrature points
-        edge_start = mesh_geometric_data.cell2_ds_vertices[cell2_d_index][:, ed] if mesh_geometric_data.cell2_ds_edge_directions[cell2_d_index][ed] else mesh_geometric_data.cell2_ds_vertices[cell2_d_index][:, (ed + 1) % num_vertices]
-        edge_tangent = mesh_geometric_data.cell2_ds_edge_tangents[cell2_d_index][:, ed]
-        direction = 1.0 if mesh_geometric_data.cell2_ds_edge_directions[cell2_d_index][ed] else -1.0
+        edge_start = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[cell2_d_index][:, ed] \
+            if mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_directions[cell2_d_index][ed] \
+            else mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[cell2_d_index][:, (ed + 1) % num_vertices]
+        edge_tangent = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[cell2_d_index][:, ed]
+        direction = 1.0 if mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_directions[cell2_d_index][ed] else -1.0
         num_edge_weak_quadrature_points = weak_reference_segment.points.shape[1]
 
         weak_quadrature_points = np.zeros([3, num_edge_weak_quadrature_points])
         for q in range(num_edge_weak_quadrature_points):
             weak_quadrature_points[:, q] = edge_start + direction * weak_reference_segment.points[0, q] * edge_tangent
 
-        edge_length = mesh_geometric_data.cell2_ds_edge_lengths[cell2_d_index][ed]
+        edge_length = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[cell2_d_index][ed]
         weak_quadrature_weights = weak_reference_segment.weights * edge_length
 
         neumann_values = test.weak_boundary_condition(boundary_info.marker, weak_quadrature_points)
@@ -370,8 +372,8 @@ def post_process_solution(geometry_utilities_confi: gedim.GeometryUtilitiesConfi
         result.cell2_ds_error_h1[c] = np.sum(cell2_d_internal_quadrature.weights * local_error_h1)
         result.cell2_ds_norm_h1[c] = np.sum(cell2_d_internal_quadrature.weights * local_norm_h1)
 
-        if mesh_geometric_data.cell2_ds_diameters[c] > result.mesh_size:
-            result.mesh_size = mesh_geometric_data.cell2_ds_diameters[c]
+        if mesh_geometric_data.mesh_geometric_data.cell2_ds_diameters[c] > result.mesh_size:
+            result.mesh_size = mesh_geometric_data.mesh_geometric_data.cell2_ds_diameters[c]
 
 
     result.error_l2 = np.sqrt(np.sum(result.cell2_ds_error_l2))
