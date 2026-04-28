@@ -118,29 +118,7 @@ def main():
                                                   args.harmonic_degree,
                                                   args.normalization_diameter,
                                                   args.use_hanging_function)
-        case method_type.B_NAVEM:
-            train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
-                                                           method_type,
-                                                           args.num_vertices,
-                                                           geometry_utilities,
-                                                           mesh,
-                                                           mesh_geometric_data,
-                                                           args.import_path,
-                                                           args.num_hidden_layers,
-                                                           args.num_neurons_per_layer,
-                                                           args.num_epoches_opt_order1,
-                                                           args.num_epoches_opt_order2,
-                                                           args.learning_rate_max,
-                                                           args.learning_rate_min,
-                                                           args.quadrature_order,
-                                                           args.distribution_points_type,
-                                                           args.p_navem_exact_constant,
-                                                           args.regularization_coefficient,
-                                                           args.export_training_data_file_path,
-                                                           args.export_training_info,
-                                                           args.copy_basis_in_train,
-                                                           args.use_sqrt_in_train)
-        case method_type.P_NAVEM:
+        case method_type.B_NAVEM | method_type.P_NAVEM:
             train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
                                                            method_type,
                                                            args.num_vertices,

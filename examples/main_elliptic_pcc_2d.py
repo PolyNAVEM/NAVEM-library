@@ -24,7 +24,7 @@ def main():
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/NAVEM/dictionary.txt', type=str, help="Dictionary file")
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')
