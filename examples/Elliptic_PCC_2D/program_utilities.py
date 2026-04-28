@@ -1,7 +1,5 @@
-from examples.Elliptic_PCC_2D.test_definition import ITest, EllipticPolynomialProblem
-from pypolydim import gedim, polydim
-from pypolydim.assembler_utilities import assembler_utilities
-from examples.Elliptic_PCC_2D.assembler import Assembler
+from examples.Elliptic_PCC_2D.test_definition import EllipticPolynomialProblem
+from examples.Elliptic_PCC_2D.assembler import *
 import os
 
 def create_test(test_id: int) -> ITest:
@@ -47,7 +45,7 @@ def create_mesh(geometry_utilities: gedim.GeometryUtilities, mesh_utilities: ged
 def export_errors(file_path: str, test_id: int, mesh_type: int, method_id: int, method_order: int,
                   mesh:  gedim.MeshMatricesDAO,
                   count_do_fs_data: assembler_utilities.CountDOFsData,
-                  post_process_data: Assembler.PostProcessData,
+                  post_process_data: PostProcessData,
                   file_separator = ';') -> None:
 
     print("{:<5} {:<5} {:<7} {:<5} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}"

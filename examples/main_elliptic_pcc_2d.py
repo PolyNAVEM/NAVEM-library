@@ -1,22 +1,24 @@
 import argparse
 import os.path
 
-from pypolydim import polydim, gedim
+from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 from Elliptic_PCC_2D.program_utilities import create_test, create_mesh, export_errors
-from Elliptic_PCC_2D.assembler import Assembler
+from Elliptic_PCC_2D.assembler import *
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
 from pypolydim.assembler_utilities import assembler_utilities
 import cProfile
-from src.NAVEM.Utilities.NAVEM_PCC_2D import *
+from src.NAVEM.PCC_2D.NAVEM_PCC_2D import *
+from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
 
 
 def main():
 
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int, help="Method type")
+    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
+                        help="Method type: 1 - NAVEM; 2 - B-NAVEM; 3 - P-NAVEM; 4 - FEM; 5 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int, help="Test type")
-    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=0, type=int, help="Mesh type")
+    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int, help="Mesh type")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
@@ -24,6 +26,9 @@ def main():
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
     parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/dictionary.txt', type=str, help="Dictionary file")
     args = parser.parse_args()
+
+    tf.keras.backend.set_floatx('float64')
+    tf.keras.backend.set_epsilon(args.tolerance1_d)
 
     export_file_path = args.export_path
     if not os.path.exists(export_file_path):
@@ -39,6 +44,7 @@ def main():
 
     mesh_type = polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D(args.mesh_type)
     method_type = polydim.pde_tools.local_space_pcc_2_d.MethodTypes(args.method_type)
+    method_type_a = LocalSpace_PCC_2D.MethodTypes(args.method_type)
     method_order = args.method_order
 
     print("Set problem...")
@@ -63,47 +69,47 @@ def main():
     vtk_utilities.export_mesh(export_mesh_path, mesh)
 
     print("Compute Geometric Properties...")
-    mesh_geometric_data = polydim.pde_tools.mesh.pde_mesh_utilities.compute_mesh_2_d_geometry_data(geometry_utilities, mesh_utilities, mesh)
+    mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     print("Create Discrete Local Space...")
-    reference_element_data = polydim.pde_tools.local_space_pcc_2_d.create_reference_element(method_type, method_order)
+    reference_element_data = LocalSpace_PCC_2D.ReferenceElementData(method_type_a, method_order)
 
     mesh_connectivity_data = polydim.pde_tools.mesh.MeshMatricesDAO_mesh_connectivity_data(mesh)
 
     dof_manager = polydim.pde_tools.do_fs.DOFsManager()
-    mesh_do_fs_info = polydim.pde_tools.local_space_pcc_2_d.set_mesh_do_fs_info(reference_element_data, mesh, boundary_info)
+    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, boundary_info, args.dictionary_file)
     do_fs_data = dof_manager.create_do_fs_2_d(mesh_do_fs_info, mesh_connectivity_data)
     assembler_utilities_obj = assembler_utilities()
     count_do_fs_data = assembler_utilities_obj.count_do_fs([do_fs_data])
     do_fs_data_indices = dof_manager.compute_cells_do_fs_indices(do_fs_data, 2)
 
-    navem_categories = categorize_elements_by_vertex_number(mesh, args.dictionary_file)
-
     print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ", do_fs_data.number_strongs, " STRONGs" + '\x1b[0m')
     print("Assemble...")
-    assembler = Assembler()
-    assembler_data = assembler.assemble(geometry_utilities_config,
-                                        mesh,
-                                        mesh_geometric_data,
-                                        mesh_do_fs_info,
-                                        do_fs_data,
-                                        do_fs_data_indices,
-                                        reference_element_data,
-                                        test)
+    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
+    assembler_data = assemble(geometry_utilities_config,
+                              mesh,
+                              mesh_geometric_data,
+                              mesh_do_fs_info,
+                              do_fs_data,
+                              do_fs_data_indices,
+                              reference_element_data,
+                              local_space_data,
+                              test)
 
     print("Solve...")
-    assembler.solve(do_fs_data, assembler_data)
+    solve(do_fs_data, assembler_data)
 
     print("Compute Errors...")
-    post_process_data = assembler.post_process_solution(geometry_utilities_config,
-                                                        mesh,
-                                                        mesh_geometric_data,
-                                                        do_fs_data,
-                                                        do_fs_data_indices,
-                                                        count_do_fs_data,
-                                                        reference_element_data,
-                                                        assembler_data,
-                                                        test)
+    post_process_data = post_process_solution(geometry_utilities_config,
+                                              mesh,
+                                              mesh_geometric_data,
+                                              do_fs_data,
+                                              do_fs_data_indices,
+                                              count_do_fs_data,
+                                              reference_element_data,
+                                              local_space_data,
+                                              assembler_data,
+                                              test)
 
     print("Export Solution...")
 

@@ -14,16 +14,20 @@ class NAVEMType(Enum):
     B_NAVEM = 2
     P_NAVEM = 3
 
-class Input:
-
-    def __init__(self):
-        self.points: NDArray[np.float64] = np.zeros((3,0))
-
 class Output:
 
     def __init__(self):
         self.basis_values: NDArray[np.float64] = np.zeros((0,0))
-        self.basis_derivatives_values: NDArray[np.float64] = np.zeros((2, 0, 0))
+        self.basis_derivatives_values: List[NDArray[np.float64]] = [np.zeros((0,0)) for _ in range(2)]
+
+class InputOutput:
+
+    internal_quadrature: gedim.quadrature.QuadratureData
+    basis_values: NDArray[np.float64]
+    basis_derivatives_values: List[NDArray[np.float64]]
+
+    def __init__(self):
+        pass
 
 class NNDictionary:
 
@@ -84,11 +88,11 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 
     return categories
 
+
 def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                mesh_geometric_data: MeshGeometricData2D,
                                                neural_network: navem_network.NAVEMNetworksContainer,
-                                               list_elements: Dict[int, Input]) -> Dict[int, Output]:
-
+                                               list_points: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
 
     navem_generators = NAVEMGenerators.NAVEMGenerators(geometry_utilities,
                                                        neural_network.flags["num_vertices"],
@@ -102,24 +106,23 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     inputs = np.array([], dtype=np.float64).reshape(0, network_input_dimension - 2)
     num_generators = neural_network.flags["num_generators"]
 
-    n_elements = len(list_elements)
+    n_elements = len(list_points)
     global_jac_inv = np.zeros([n_elements * num_vertices, 2, 2])
 
     n_local_pts = 0
-    for (c, value) in list_elements:
-        n_local_pts = value.input.points.shape[1]
+    for c, points in list_points.items():
+        n_local_pts = points.shape[1]
         break
 
     super_vander = np.zeros((n_elements * num_vertices, n_local_pts, num_generators))
     super_vander_dx = np.zeros((n_elements * num_vertices, n_local_pts, num_generators))
     super_vander_dy = np.zeros((n_elements * num_vertices, n_local_pts, num_generators))
 
-    for (c, value) in list_elements:
+    for c, internal_nodes in list_points.items():
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
         mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1)
 
-        internal_nodes = value.input.points
 
         for v_id in range(num_vertices):
 
@@ -155,9 +158,9 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     basis_values = neural_network.nn_basis_function.apply_vandermonde(basis_coefficients, super_vander)
     basis_values = tf.reshape(basis_values, [-1]).numpy()
 
-    derivatives_coefficients = neural_network.nn_pol_deriv.call(inputs)
-    dx_values = neural_network.nn_pol_deriv.apply_vandermonde(derivatives_coefficients, super_vander_dx)
-    dy_values = neural_network.nn_pol_deriv.apply_vandermonde(derivatives_coefficients, super_vander_dy)
+    derivatives_coefficients = neural_network.nn_basis_derivatives.call(inputs)
+    dx_values = neural_network.nn_basis_derivatives.apply_vandermonde(derivatives_coefficients, super_vander_dx)
+    dy_values = neural_network.nn_basis_derivatives.apply_vandermonde(derivatives_coefficients, super_vander_dy)
     dx_values = tf.reshape(dx_values, [-1]).numpy()
     dy_values = tf.reshape(dy_values, [-1]).numpy()
 
@@ -168,19 +171,20 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     for c in range(n_elements):
 
         output_values[c] = Output()
-        output_values[c].basis_derivatives_values = np.zeros([2, n_local_pts, n_elements * num_vertices])
-        output_values[c].basis_values = np.zeros([n_local_pts, n_elements * num_vertices])
+        output_values[c].basis_derivatives_values[0] = np.zeros([n_local_pts, num_vertices])
+        output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])
+        output_values[c].basis_values = np.zeros([n_local_pts, num_vertices])
 
-        for _ in range(num_vertices):
+        for i in range(num_vertices):
             matrix_jac_inv_transpose = global_jac_inv[offset_func, 0:2, 0:2].T
-            output_values[c].basis_derivatives_values[0, :, :] \
+            output_values[c].basis_derivatives_values[0][:, i] \
                 = (matrix_jac_inv_transpose[0, 0] * dx_values[offset_point: offset_point + n_local_pts]
                    + matrix_jac_inv_transpose[0, 1] * dy_values[offset_point: offset_point + n_local_pts])
-            output_values[c].basis_derivatives_values[0, :, :]  \
+            output_values[c].basis_derivatives_values[1][:, i]  \
                 = (matrix_jac_inv_transpose[1, 0] * dx_values[offset_point: offset_point + n_local_pts]
                    + matrix_jac_inv_transpose[1, 1] * dy_values[offset_point: offset_point + n_local_pts])
 
-            output_values[c].basis_values \
+            output_values[c].basis_values[:, i] \
                 = basis_values[offset_point:offset_point + n_local_pts]
 
             offset_func += 1
@@ -191,7 +195,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
                                                         neural_network: navem_network.NAVEMNetworksContainer,
-                                                        list_elements: Dict[int, Input]) -> Dict[int, Output]:
+                                                        list_elements: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
 
     num_vertices = neural_network.flags["num_vertices"]
     network_input_dimension = 2 * num_vertices
@@ -200,8 +204,8 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
     global_jac_inv = np.zeros([n_elements * num_vertices, 2, 2])
 
     n_local_pts = 0
-    for (c, value) in list_elements:
-        n_local_pts = value.input.points.shape[1]
+    for c, points in list_elements.items():
+        n_local_pts = points.shape[1]
         break
 
     offset_func = 0
@@ -214,11 +218,9 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
     jac_per_pol = np.zeros(shape=(n_elements, 2, 2, num_vertices))
     inputs = np.zeros(shape=(n_elements * n_local_pts * num_vertices, network_input_dimension))
 
-    for (c, value) in list_elements:
+    for c, internal_nodes in list_elements.items():
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
-
-        internal_nodes = value.input.points
 
         inertia_mapped_internal_nodes, jac_inv_inertia = polygon.map_inertia_inv(internal_nodes)
         xy_per_pol[c_pol, :, :] = inertia_mapped_internal_nodes[:2, :].T
@@ -261,19 +263,20 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
     for c in range(n_elements):
 
         output_values[c] = Output()
-        output_values[c].basis_derivatives_values = np.zeros([2, n_local_pts, n_elements * num_vertices])
-        output_values[c].basis_values = np.zeros([n_local_pts, n_elements * num_vertices])
+        output_values[c].basis_derivatives_values[0] = np.zeros([n_local_pts, num_vertices])
+        output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])
+        output_values[c].basis_values = np.zeros([n_local_pts, num_vertices])
 
-        for _ in range(num_vertices):
+        for i in range(num_vertices):
             matrix_jac_inv_transpose = global_jac_inv[offset_func, 0:2, 0:2].T
-            output_values[c].basis_derivatives_values[0, :, :] \
+            output_values[c].basis_derivatives_values[0][:, i] \
                 = (matrix_jac_inv_transpose[0, 0] * du_ref_dx[offset_point: offset_point + n_local_pts]
                    + matrix_jac_inv_transpose[0, 1] * du_ref_dy[offset_point: offset_point + n_local_pts])
-            output_values[c].basis_derivatives_values[1, :, :] \
+            output_values[c].basis_derivatives_values[1][:, i] \
                 = (matrix_jac_inv_transpose[1, 0] * du_ref_dx[offset_point: offset_point + n_local_pts]
                    + matrix_jac_inv_transpose[1, 1] * du_ref_dy[offset_point: offset_point + n_local_pts])
 
-            output_values[c].basis_values\
+            output_values[c].basis_values[:, i]\
                 = u[offset_point:offset_point + n_local_pts]
 
             offset_func += 1
@@ -281,13 +284,12 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     return output_values
 
-def reproduce_polynomials(polygon_vertices: NDArray[np.float64], basis_function_values: NDArray[np.float64], basis_function_derivatives_values: NDArray[np.float64]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
-
+def reproduce_polynomials(polygon_vertices: NDArray[np.float64], basis_function_values: NDArray[np.float64], basis_function_derivatives_values: List[NDArray[np.float64]]) -> Tuple[NDArray[np.float64], List[NDArray[np.float64]]]:
 
     basis_function_values[:, -1] = 1.0 - np.sum(basis_function_values[:, 0:-1], axis=1)
-    basis_function_derivatives_values[0, :, -1] = - np.sum(basis_function_derivatives_values[0, :, 0:-1],
+    basis_function_derivatives_values[0][:, -1] = - np.sum(basis_function_derivatives_values[0][:, 0:-1],
                                                            axis=1)
-    basis_function_derivatives_values[1, :, -1] = - np.sum(basis_function_derivatives_values[1, :, 0:-1],
+    basis_function_derivatives_values[1][:, -1] = - np.sum(basis_function_derivatives_values[1][:, 0:-1],
                                                            axis=1)
 
     return basis_function_values, basis_function_derivatives_values

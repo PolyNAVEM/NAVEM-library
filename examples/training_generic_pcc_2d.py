@@ -4,7 +4,7 @@ import argparse
 from pypolydim import gedim, polydim
 from src.NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
 from src.NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
-from src.NAVEM.Utilities.NAVEM_PCC_2D import NAVEMType
+from src.NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
 from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 import tensorflow as tf
 
