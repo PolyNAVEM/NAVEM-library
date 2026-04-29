@@ -288,7 +288,6 @@ class NAVEMNeuralNetwork(tf.keras.Model):
         self.layers_list[0].build(input_shape)
         for layer in self.layers_list[1:]:
             layer.build((None, self.n_neurons))
-        super().build(input_shape)
 
     @staticmethod
     def apply_vandermonde(x, vander):

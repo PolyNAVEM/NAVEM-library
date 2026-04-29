@@ -57,6 +57,11 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
+    def build(self, input_shape):
+        self.layers_list[0].build(input_shape)
+        for layer in self.layers_list[1:]:
+            layer.build((None, self.flags["num_neurons_per_layer"]))
+
     # @tf.function
     def internal_call(self, inputs):
         u = self.layers_list[0](inputs)

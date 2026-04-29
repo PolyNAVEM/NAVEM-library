@@ -16,7 +16,7 @@ def main():
 
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=3, type=int,
+    parser.add_argument('-method', '--method-type', dest='method_type', default=2, type=int,
                         help="Method type: 1 - NAVEM; 2 - B-NAVEM; 3 - P-NAVEM; 4 - FEM; 5 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int, help="Test type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int, help="Mesh type")

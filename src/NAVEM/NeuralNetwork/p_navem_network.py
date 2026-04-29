@@ -76,6 +76,11 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.x_lin_coeffs = None
         self.y_lin_coeffs = None
 
+    def build(self, input_shape):
+        self.layers_list[0].build(input_shape)
+        for layer in self.layers_list[1:]:
+            layer.build((None, self.flags["num_neurons_per_layer"]))
+
     # @tf.function
     def internal_call(self, inputs):
         u = self.layers_list[0](inputs)

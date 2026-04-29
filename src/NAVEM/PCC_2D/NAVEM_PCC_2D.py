@@ -207,6 +207,8 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
                                                         list_elements: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
 
     num_vertices = neural_network.flags["num_vertices"]
+    # we assume the last function is computed with a postprocessing step to ensure the constants belong to the space
+    num_functions = num_vertices - 1
     network_input_dimension = 2 * num_vertices
 
     n_elements = len(list_elements)
@@ -224,8 +226,8 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     xy_per_pol = np.zeros(shape=(n_elements, n_local_pts, 2))
     vertices_per_pol = np.zeros(shape=(n_elements, 2, num_vertices))
-    jac_per_pol = np.zeros(shape=(n_elements, 2, 2, num_vertices))
-    inputs = np.zeros(shape=(n_elements * n_local_pts * num_vertices, network_input_dimension))
+    jac_per_pol = np.zeros(shape=(n_elements, 2, 2, num_functions))
+    inputs = np.zeros(shape=(n_elements * n_local_pts * num_functions, network_input_dimension))
 
     for c, internal_nodes in list_elements.items():
 
@@ -235,7 +237,8 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
         xy_per_pol[c_pol, :, :] = inertia_mapped_internal_nodes[:2, :].T
         vertices_per_pol[c_pol, :, :] = polygon.mapped_vertices[:2, :]
 
-        for v_id in range(num_vertices):
+
+        for v_id in range(num_functions):
             # Create input
             rotated_vertices, rotated_mapped_points, jac_inv, jac, inv_rescaling_factor = polygon.map_fix_vertex_inv(
                 polygon.mapped_vertices,
@@ -275,7 +278,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
         output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])
         output_values[c].basis_values = np.zeros([n_local_pts, num_vertices])
 
-        for i in range(num_vertices):
+        for i in range(num_functions):
             matrix_jac_inv_transpose = global_jac_inv[offset_func, 0:2, 0:2].T
             output_values[c].basis_derivatives_values[0][:, i] \
                 = (matrix_jac_inv_transpose[0, 0] * du_ref_dx[offset_point: offset_point + n_local_pts]
