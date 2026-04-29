@@ -3,7 +3,7 @@ from pypolydim import gedim
 from typing import List, Dict, Tuple
 import numpy as np
 from numpy.typing import NDArray
-from src.NAVEM.NeuralNetwork import navem_network, b_navem_network
+from src.NAVEM.NeuralNetwork import navem_network, b_navem_network, p_navem_network
 from src.NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
 from src.NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
@@ -75,6 +75,10 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
                 case NAVEMType.B_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
                     categories[num_vertices].neural_network = b_navem_network.BNAVEMNetwork(flags)
+                    categories[num_vertices].neural_network.load_model(name_storage)
+                case NAVEMType.P_NAVEM:
+                    flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
+                    categories[num_vertices].neural_network = p_navem_network.PNAVEMNetwork(flags)
                     categories[num_vertices].neural_network.load_model(name_storage)
                 case _:
                     raise ValueError("Unknown method type")
@@ -199,7 +203,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
-                                                        neural_network: navem_network.NAVEMNetworksContainer,
+                                                        neural_network,
                                                         list_elements: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
 
     num_vertices = neural_network.flags["num_vertices"]
@@ -254,8 +258,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
 
-    neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, 1,
-                                           geometry_utilities)
+    neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, 1, geometry_utilities)
     net_output = neural_network.get_u_and_du(inputs).numpy()
 
     u = net_output[:, 0]
@@ -289,7 +292,10 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     return output_values
 
-def reproduce_polynomials(polygon_vertices: NDArray[np.float64], basis_function_values: NDArray[np.float64], basis_function_derivatives_values: List[NDArray[np.float64]]) -> Tuple[NDArray[np.float64], List[NDArray[np.float64]]]:
+def reproduce_polynomials(polygon_vertices: NDArray[np.float64],
+                          basis_function_values: NDArray[np.float64],
+                          basis_function_derivatives_values: List[NDArray[np.float64]]) \
+        -> Tuple[NDArray[np.float64], List[NDArray[np.float64]]]:
 
     basis_function_values[:, -1] = 1.0 - np.sum(basis_function_values[:, 0:-1], axis=1)
     basis_function_derivatives_values[0][:, -1] = - np.sum(basis_function_derivatives_values[0][:, 0:-1],
@@ -340,9 +346,9 @@ def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
                     case NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
                         outputs \
                             = exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
-                                                                                               mesh_geometric_data,
-                                                                                               dictionary.neural_network,
-                                                                                               list_points)
+                                                                                  mesh_geometric_data,
+                                                                                  dictionary.neural_network,
+                                                                                  list_points)
                     case _:
                         raise ValueError("Not valid method type")
 

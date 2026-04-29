@@ -1,4 +1,4 @@
-method_type = 2
+method_type = 3
 method_order = 1
 input_dim = 8
 output_dim = 1
@@ -6,7 +6,7 @@ num_vertices = 4
 num_training_polygons = 1
 regularization_coefficient = 1e-08
 mesh_import_path = ./TrainingDataset/TrainingReferenceSquare
-quadrature_order = 7
+quadrature_order = 10
 distribution_points_type = 3
 num_hidden_layers = 3
 num_neurons_per_layer = 30

@@ -25,7 +25,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    learning_rate_min: float,
                                                    quadrature_order: int,
                                                    distribution_points_type: int,
-                                                   p_navem_exact_constant: bool,
                                                    regularization_coefficient: float,
                                                    export_training_data_file_path: str,
                                                    export_training_info: bool = False,
@@ -53,7 +52,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                              regularization_coefficient,
                              export_training_data_file_path,
                              copy_basis_in_train,
-                             p_navem_exact_constant,
                              quadrature_order,
                              distribution_points_type)
 
@@ -132,7 +130,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             setup_n_derivatives = 2
             considered_loss = nn.pinn_laplace_loss
         case NAVEMType.P_NAVEM:
-            nn.store_terms_for_loss(xy_per_pol, vertices_per_pol, jac_inv_per_pol, p_navem_exact_constant)
+            nn.store_terms_for_loss(xy_per_pol, vertices_per_pol, jac_inv_per_pol)
             setup_n_derivatives = 1
 
             if copy_basis_in_train:

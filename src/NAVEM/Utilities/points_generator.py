@@ -261,7 +261,7 @@ def grid_over_triangle(points_distribution_type: PointsTriangleDistributionType,
             quadrature = gedim.quadrature.Quadrature_Gauss2D_Triangle.fill_points_and_weights(quadrature_order)
             return quadrature.points
         case PointsTriangleDistributionType.uniform:
-            n_points_per_pol = int((quadrature_order + 1) * (quadrature_order + 0) * 0.5)
+            n_points_per_pol = int((quadrature_order + 1) * quadrature_order * 0.5)
             return uniform_grid_over_triangle(n_points_per_pol, boundary=uniform_boundary,
                                               rescale=uniform_rescale, polygon=polygon)
         case PointsTriangleDistributionType.accumulated:

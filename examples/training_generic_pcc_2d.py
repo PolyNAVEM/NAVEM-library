@@ -56,12 +56,10 @@ def main():
                         help='Flag to specify to add the hanging function in the linear combination')
 
     # B-NAVEM and P-NAVEM
-    parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=7, type=int,
+    parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=10, type=int,
                         help='Order of the quadrature rule to generate the training points')
     parser.add_argument('-pt', '--distribution-points-type', dest='distribution_points_type', type=int, default=3,
                         help='Type of points: uniform (2), gauss (1) or accumulated (3)')
-    parser.add_argument('-neo', '--p-navem-exact-constant', dest='p_navem_exact_constant', default=1, type=int,
-                        help='Flag to specify if function 1 is contained in the space by construction')
     parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False, type=bool,
                         help='Flag to specify if distance from basis functions should be added to the loss')
 
@@ -136,7 +134,6 @@ def main():
                                                            args.learning_rate_min,
                                                            args.quadrature_order,
                                                            args.distribution_points_type,
-                                                           args.p_navem_exact_constant,
                                                            args.regularization_coefficient,
                                                            args.export_training_data_file_path,
                                                            args.export_training_info,

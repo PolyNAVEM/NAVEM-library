@@ -18,7 +18,6 @@ class Flags(TypedDict):
     regularization_coefficient: float
     name_storage: str
     copy_basis_in_train: bool
-    p_navem_exact_constant: bool
     quadrature_order: int
     distribution_points_type: int
 
@@ -39,7 +38,6 @@ def set_flags(network_input_dimension: int,
               regularization_coefficient: float,
               export_training_data_file_path: str,
               copy_basis_in_train: bool,
-              p_navem_exact_constant: bool,
               quadrature_order: int,
               distribution_points_type: int) -> Flags:
 
@@ -60,7 +58,6 @@ def set_flags(network_input_dimension: int,
                     'regularization_coefficient': regularization_coefficient,
                     'name_storage': export_training_data_file_path,
                     'copy_basis_in_train': copy_basis_in_train,
-                    'p_navem_exact_constant': p_navem_exact_constant,
                     'quadrature_order': quadrature_order,
                     'distribution_points_type': distribution_points_type}
 
@@ -86,7 +83,6 @@ def write_flags_on_dictionary(flags: Flags) -> None:
     file.write("num_epoches_opt_order2 = {}\n".format(flags['num_epoches_opt_order2']))
     file.write("learning_rate_max = {}\n".format(flags['learning_rate_max']))
     file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
-    file.write("p_navem_exact_constant = {}\n".format(flags['p_navem_exact_constant']))
     file.write("use_sqrt_in_train = {}\n".format(flags['use_sqrt_in_train']))
     file.write("copy_basis_in_train = {}\n".format(flags['copy_basis_in_train']))
 
@@ -111,7 +107,6 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
                     'regularization_coefficient': float(raw["regularization_coefficient"]),
                     'name_storage': name_storage,
                     'copy_basis_in_train': bool(raw["copy_basis_in_train"]),
-                    'p_navem_exact_constant': bool(raw["p_navem_exact_constant"]),
                     'quadrature_order': int(raw["quadrature_order"]),
                     'distribution_points_type': int(raw["distribution_points_type"])}
 

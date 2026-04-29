@@ -154,9 +154,9 @@ class TestNodeDistribution(unittest.TestCase):
 
     def test_polygon_4(self):
 
-        m = 3
-        border_type = BorderType.only_accumulating_border
-        power = 1
+        m = 7
+        border_type = BorderType.no_borders
+        power = 0.75
 
         polygon = np.array(
             [[-0.65, -0.75, -0.05, 0.6, 0.85, 0.1], [0.45, -0.35, -1.0, -0.7, 0.45, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])

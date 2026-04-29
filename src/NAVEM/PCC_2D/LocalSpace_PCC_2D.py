@@ -1,6 +1,6 @@
 from enum import Enum
 from pypolydim import gedim
-from typing import Dict, List, overload
+from typing import Dict, List
 from pypolydim import polydim
 from src.NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray

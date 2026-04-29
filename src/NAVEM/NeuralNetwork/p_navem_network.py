@@ -122,7 +122,7 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         u0 = self.internal_call(inputs)
         return tf.concat([u0, self.var_phi, self.var_g], 1)
 
-    def store_terms_for_loss(self, xy_per_pol, vertices_per_pol, jac_inv_per_pol, napem_exact_one):
+    def store_terms_for_loss(self, xy_per_pol, vertices_per_pol, jac_inv_per_pol):
         x_verts = tf.expand_dims(vertices_per_pol[:, 0, :], 2)[:, :, :, None, None]
         y_verts = tf.expand_dims(vertices_per_pol[:, 1, :], 2)[:, :, :, None, None]
 
@@ -257,4 +257,8 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.x_lin_coeffs = None
         self.y_lin_coeffs = None
 
-        self.save_weights(name_storage + "/pnavem.weights.h5")
+        self.save_weights(name_storage + "/nn_weights.weights.h5")
+
+    def load_model(self, name_storage: str):
+        self.build(input_shape=(None, self.flags["input_dim"]))
+        self.load_weights(name_storage + "/nn_weights.weights.h5")

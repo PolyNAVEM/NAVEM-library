@@ -9,13 +9,14 @@ from pypolydim.assembler_utilities import assembler_utilities
 import cProfile
 import tensorflow as tf
 from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
+from src.NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss
 
 
 def main():
 
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
+    parser.add_argument('-method', '--method-type', dest='method_type', default=3, type=int,
                         help="Method type: 1 - NAVEM; 2 - B-NAVEM; 3 - P-NAVEM; 4 - FEM; 5 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int, help="Test type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int, help="Mesh type")
@@ -24,7 +25,8 @@ def main():
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/NAVEM/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/P-NAVEM/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss', default=True, type=bool, help="Evaluate polynomial loss")
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')
@@ -110,10 +112,18 @@ def main():
                                               assembler_data,
                                               test)
 
-    print("Export Solution...")
-
     export_errors(export_file_path, args.test_id, args.mesh_type, args.method_type, args.method_order, mesh, count_do_fs_data, post_process_data)
 
+
+    if args.evaluate_polynomial_loss:
+        print("Compute loss...")
+        test_l2_loss, test_h1_loss, test_l2_loss_cells, test_h1_loss_cells \
+            = compute_polynomial_loss(geometry_utilities,
+                                      mesh_geometric_data,
+                                      reference_element_data,
+                                      method_type)
+
+    print("Export Solution...")
     vtk_utilities.export_solution_2(export_file_path + '/Solution_' + str(args.test_id) + '_' + str(args.method_type)
                                     + '_' + str(method_order), mesh, post_process_data.cell0_ds_numeric,
                                     cell0_d_exact_solution=post_process_data.cell0_ds_exact,
