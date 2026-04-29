@@ -3,9 +3,10 @@ import tensorflow as tf
 from tensorflow.keras.layers import Dense
 from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary
 from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags
+from src.NAVEM.NeuralNetwork.abstract_bp_navem import AbstractBPNAVEM
 
 
-class PNAVEMNetwork(tf.keras.Model):
+class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
     def __init__(self, flags: Flags):
 
