@@ -83,9 +83,18 @@ def print_info_navem(model, iteration, total_iterations=None):
 def print_info_pnavem(model, iteration, total_iterations=None):
     if model.loss_x_dx.read_value() == 0:
         if total_iterations is None:
-            tf.print("Iter: ", iteration, (". Current error for 1, x and y: {:<.5e} \t {:<.5e} \t {:<.5e}".
-                                           format(model.loss_one.read_value(), model.loss_x.read_value(),
-                                                  model.loss_y.read_value())))
+            loss_one = tf.strings.regex_replace(tf.strings.as_string(model.loss_one,
+                                                                     scientific=True,
+                                                                     precision=16), '\"', '')
+            loss_x = tf.strings.regex_replace(tf.strings.as_string(model.loss_x,
+                                                                   scientific=True,
+                                                                   precision=16), '\"', '')
+            loss_y = tf.strings.regex_replace(tf.strings.as_string(model.loss_y,
+                                                                   scientific=True,
+                                                                   precision=16), '\"', '')
+            tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
+                                      ". Current error for 1, x and y: ",
+                                      loss_one, "\t", loss_x, "\t", loss_y]))
         else:
             tf.print("Performed {:<d} / {:<d} epochs. Current error for 1, x and y: {:<.5e} \t {:<.5e} \t {:<.5e}".
                      format(iteration, total_iterations,
@@ -94,12 +103,28 @@ def print_info_pnavem(model, iteration, total_iterations=None):
 
         if model.loss_x.read_value() == 0:
             if total_iterations is None:
-                tf.print("Iter: ", iteration, ((". Current errors:"
-                                                " {:<.5e} \t {:<.5e} \t {:<.5e} \t  {:<.5e} \t {:<.5e} \t {:<.5e}").
-                                               format(model.loss_one_dx.read_value(), model.loss_x_dx.read_value(),
-                                                      model.loss_y_dx.read_value(), model.loss_one_dy.read_value(),
-                                                      model.loss_x_dy.read_value(), model.loss_y_dy.read_value()
-                                                      )))
+                loss_one_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dx,
+                                                                         scientific=True,
+                                                                         precision=16), '\"', '')
+                loss_x_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dx,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_y_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dx,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_one_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dy,
+                                                                         scientific=True,
+                                                                         precision=16), '\"', '')
+                loss_x_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dy,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_y_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dy,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
+                                          ". Current errors: ",
+                                          loss_one_dx, "\t", loss_x_dx, "\t", loss_y_dx, "\t",
+                                          loss_one_dy, "\t", loss_x_dy, "\t", loss_y_dy]))
             else:
                 tf.print(("Performed {:<d} / {:<d} epochs. Current errors: "
                           " {:<.5e} \t {:<.5e} \t {:<.5e} \t  {:<.5e} \t {:<.5e} \t {:<.5e}").
@@ -110,14 +135,38 @@ def print_info_pnavem(model, iteration, total_iterations=None):
                                 ))
         else:
             if total_iterations is None:
-                tf.print("Iter: ", iteration, ((". Current errors: {:<.5e} \t {:<.5e} \t {:<.5e} \t"
-                                                " {:<.5e} \t {:<.5e} \t {:<.5e} \t  {:<.5e} \t {:<.5e} \t {:<.5e}").
-                                               format(model.loss_one.read_value(), model.loss_x.read_value(),
-                                                      model.loss_y.read_value(),
-                                                      model.loss_one_dx.read_value(), model.loss_x_dx.read_value(),
-                                                      model.loss_y_dx.read_value(), model.loss_one_dy.read_value(),
-                                                      model.loss_x_dy.read_value(), model.loss_y_dy.read_value()
-                                                      )))
+                loss_one = tf.strings.regex_replace(tf.strings.as_string(model.loss_one,
+                                                                         scientific=True,
+                                                                         precision=16), '\"', '')
+                loss_x = tf.strings.regex_replace(tf.strings.as_string(model.loss_x,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_y = tf.strings.regex_replace(tf.strings.as_string(model.loss_y,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_one_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dx,
+                                                                         scientific=True,
+                                                                         precision=16), '\"', '')
+                loss_x_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dx,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_y_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dx,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_one_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dy,
+                                                                         scientific=True,
+                                                                         precision=16), '\"', '')
+                loss_x_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dy,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                loss_y_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dy,
+                                                                       scientific=True,
+                                                                       precision=16), '\"', '')
+                tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
+                                          ". Current errors: ",
+                                          loss_one, "\t", loss_x, "\t", loss_y, "\t",
+                                          loss_one_dx, "\t", loss_x_dx, "\t", loss_y_dx, "\t",
+                                          loss_one_dy, "\t", loss_x_dy, "\t", loss_y_dy]))
             else:
                 tf.print(("Performed {:<d} / {:<d} epochs. Current errors: {:<.5e} \t {:<.5e} \t {:<.5e} \t"
                           " {:<.5e} \t {:<.5e} \t {:<.5e} \t  {:<.5e} \t {:<.5e} \t {:<.5e}").

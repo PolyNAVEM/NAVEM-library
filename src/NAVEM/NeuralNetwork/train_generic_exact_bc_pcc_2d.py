@@ -5,7 +5,7 @@ from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
 from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from src.NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
-from src.NAVEM.NeuralNetwork.p_navem_super_network import PNAVEMSupernetwork
+from src.NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
 from src.NAVEM.NeuralNetwork.training_utilities import *
 import csv
 from src.NAVEM.Utilities.points_generator import *
@@ -61,7 +61,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     nn = None
     match method_type:
         case NAVEMType.P_NAVEM:
-            nn = PNAVEMSupernetwork(flags)
+            nn = PNAVEMNetwork(flags)
         case NAVEMType.B_NAVEM:
             nn = BNAVEMNetwork(flags)
         case _:
@@ -79,7 +79,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     num_points_per_polygon = reference_nodes.shape[1] * num_vertices
 
-    num_functions_per_polygon = num_vertices #- p_navem_exact_constant  # TO BE FIXED
+    num_functions_per_polygon = num_vertices - (method_type == NAVEMType.P_NAVEM)
 
     inputs = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))
 
@@ -132,19 +132,15 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             setup_n_derivatives = 2
             considered_loss = nn.pinn_laplace_loss
         case NAVEMType.P_NAVEM:
-            nn.nn_func.store_terms_for_loss(xy_per_pol, vertices_per_pol, jac_inv_per_pol, p_navem_exact_constant)
+            nn.store_terms_for_loss(xy_per_pol, vertices_per_pol, jac_inv_per_pol, p_navem_exact_constant)
             setup_n_derivatives = 1
 
-            if p_navem_exact_constant:
-                nn.nn_func.copy_pols = nn.nn_func.copy_pols_exact_one
-                nn.nn_func.copy_grads = nn.nn_func.copy_grads_exact_one
-
             if copy_basis_in_train:
-                nn.nn_func.call_for_training = nn.nn_func.get_u_and_du
-                considered_loss = nn.nn_func.internal_pol_and_grad_loss
+                nn.call_for_training = nn.get_u_and_du
+                considered_loss = nn.internal_pol_and_grad_loss
             else:
-                nn.nn_func.call_for_training = nn.nn_func.get_du
-                considered_loss = nn.nn_func.internal_grad_loss
+                nn.call_for_training = nn.get_du
+                considered_loss = nn.internal_grad_loss
         case _:
             raise ValueError("not valid navem type")
 
@@ -176,11 +172,10 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             results = train_adam_bfgs(nn, considered_loss, inputs, labels, num_epoches_opt_order1,
                                       num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
         case NAVEMType.P_NAVEM:
-            results = train_adam_bfgs(nn.nn_func, considered_loss, inputs, labels, num_epoches_opt_order1,
+            results = train_adam_bfgs(nn, considered_loss, inputs, labels, num_epoches_opt_order1,
                                       num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
         case _:
             raise ValueError("not valid navem type")
-
 
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
@@ -211,9 +206,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                 writer.writerow([num_training_polygons, np.sqrt(nn.curr_laplacian.numpy())])
             case NAVEMType.P_NAVEM:
                 writer.writerow([num_training_polygons,
-                                 nn.nn_func.loss_one.numpy(),
-                                 nn.nn_func.loss_x.numpy(),
-                                 nn.nn_func.loss_y.numpy()])
+                                 nn.loss_one.numpy(),
+                                 nn.loss_x.numpy(),
+                                 nn.loss_y.numpy()])
             case _:
                 raise ValueError("not valid navem type")
 
