@@ -298,3 +298,61 @@ def reproduce_polynomials(polygon_vertices: NDArray[np.float64], basis_function_
                                                            axis=1)
 
     return basis_function_values, basis_function_derivatives_values
+
+def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
+                              mesh_geometric_data: MeshGeometricData2D,
+                              method_type: NAVEMType,
+                              navem_categories: Dict[int, NNDictionary],
+                              evaluation_points: Dict[int, NDArray[np.float64]],
+                              evaluation_weights: Dict[int, NDArray[np.float64]] = None) -> Dict[int, InputOutput]:
+
+    match method_type:
+        case NAVEMType.NAVEM | NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
+            navem_input_output: Dict[int, InputOutput] = {}
+
+            for num_vertices, dictionary in navem_categories.items():
+
+                if len(dictionary.list_elements) == 0:
+                    continue
+
+                list_points: Dict[int, NDArray[np.float64]] = {}
+
+                for c in dictionary.list_elements:
+
+                    if c not in evaluation_points:
+                        continue
+
+                    navem_input_output[c] = InputOutput()
+                    navem_input_output[c].internal_quadrature = gedim.quadrature.QuadratureData()
+                    navem_input_output[c].internal_quadrature.points = evaluation_points[c]
+                    navem_input_output[c].internal_quadrature.weights = evaluation_weights[c] if evaluation_weights is not None else np.zeros([0])
+
+                    list_points[c] = navem_input_output[c].internal_quadrature.points
+
+                outputs: Dict[int, Output] = {}
+                match method_type:
+                    case NAVEMType.NAVEM:
+                        outputs \
+                            = navem_predict_basis_values_and_derivatives(geometry_utilities,
+                                                                         mesh_geometric_data,
+                                                                         dictionary.neural_network,
+                                                                         list_points)
+                    case NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
+                        outputs \
+                            = exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
+                                                                                               mesh_geometric_data,
+                                                                                               dictionary.neural_network,
+                                                                                               list_points)
+                    case _:
+                        raise ValueError("Not valid method type")
+
+                for c in dictionary.list_elements:
+                    navem_input_output[c].basis_values, navem_input_output[c].basis_derivatives_values \
+                        = reproduce_polynomials(
+                        mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c],
+                        outputs[c].basis_values,
+                        outputs[c].basis_derivatives_values)
+
+            return navem_input_output
+        case _:
+            raise ValueError("Not valid method type")

@@ -7,7 +7,7 @@ from Elliptic_PCC_2D.assembler import *
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
 from pypolydim.assembler_utilities import assembler_utilities
 import cProfile
-from src.NAVEM.PCC_2D.NAVEM_PCC_2D import *
+import tensorflow as tf
 from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
 
 
@@ -15,16 +15,16 @@ def main():
 
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=2, type=int,
+    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
                         help="Method type: 1 - NAVEM; 2 - B-NAVEM; 3 - P-NAVEM; 4 - FEM; 5 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int, help="Test type")
-    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=0, type=int, help="Mesh type")
+    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int, help="Mesh type")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/B-NAVEM/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/NAVEM/dictionary.txt', type=str, help="Dictionary file")
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')

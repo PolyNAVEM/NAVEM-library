@@ -107,7 +107,7 @@ test_type = 1
 method_orders = [1]
 method_types = [1, 2, 4, 5]
 dictionary_files = ['./TrainedModels/NAVEM/dictionary.txt', './TrainedModels/B-NAVEM/dictionary.txt', '', '']
-mesh_types = [0, 5]
+mesh_types = [5, 0]
 for mesh_type in mesh_types:
     mt = 0
     for method_type in method_types:

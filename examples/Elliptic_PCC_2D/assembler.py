@@ -199,7 +199,7 @@ def solve(do_fs_data: polydim.pde_tools.do_fs.DOFsManager.DOFsData,
     assembler_data.solution = sla.spsolve(assembler_data.global_matrix_a.tocsc(), assembler_data.right_hand_side)
 
 
-def assemble(geometry_utilities_confi: gedim.GeometryUtilitiesConfig,
+def assemble(geometry_utilities_config: gedim.GeometryUtilitiesConfig,
              mesh: gedim.MeshMatricesDAO,
              mesh_geometric_data: MeshGeometricData2D,
              mesh_do_fs_info: polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo,
@@ -216,8 +216,8 @@ def assemble(geometry_utilities_confi: gedim.GeometryUtilitiesConfig,
 
     for c in range(mesh.cell2_d_total_number()):
 
-        local_space_data.create_local_space(geometry_utilities_confi.tolerance1_d,
-                                            geometry_utilities_confi.tolerance2_d,
+        local_space_data.create_local_space(geometry_utilities_config.tolerance1_d,
+                                            geometry_utilities_config.tolerance2_d,
                                             mesh_geometric_data,
                                             c,
                                             reference_element_data)
@@ -276,7 +276,7 @@ def assemble(geometry_utilities_confi: gedim.GeometryUtilitiesConfig,
     return result
 
 
-def post_process_solution(geometry_utilities_confi: gedim.GeometryUtilitiesConfig,
+def post_process_solution(geometry_utilities_config: gedim.GeometryUtilitiesConfig,
                           mesh: gedim.MeshMatricesDAO,
                           mesh_geometric_data: MeshGeometricData2D,
                           do_fs_data: polydim.pde_tools.do_fs.DOFsManager.DOFsData,
@@ -330,8 +330,8 @@ def post_process_solution(geometry_utilities_confi: gedim.GeometryUtilitiesConfi
     assembler_utilities_obj = assembler_utilities()
     for c in range(mesh.cell2_d_total_number()):
 
-        local_space_data.create_local_space(geometry_utilities_confi.tolerance1_d,
-                                            geometry_utilities_confi.tolerance2_d,
+        local_space_data.create_local_space(geometry_utilities_config.tolerance1_d,
+                                            geometry_utilities_config.tolerance2_d,
                                             mesh_geometric_data,
                                             c,
                                             reference_element_data)

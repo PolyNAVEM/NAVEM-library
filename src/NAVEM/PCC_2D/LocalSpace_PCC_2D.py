@@ -1,6 +1,6 @@
 from enum import Enum
 from pypolydim import gedim
-from typing import Dict, List
+from typing import Dict, List, overload
 from pypolydim import polydim
 from src.NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray
@@ -127,47 +127,30 @@ class LocalSpaceData:
 
         match reference_element_data.method_type:
             case MethodTypes.NAVEM | MethodTypes.B_NAVEM | MethodTypes.P_NAVEM:
-                self.navem_input_output: Dict[int, NAVEM_PCC_2D.InputOutput] = {}
                 self.vem_geometry = polydim.vem.pcc.VEM_PCC_2D_Polygon_Geometry()
+
                 quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
-                for num_vertices, dictionary in reference_element_data.navem_categories.items():
 
-                    if len(dictionary.list_elements) == 0:
-                        continue
+                evaluation_points: Dict[int, NDArray[np.float64]] = {}
+                quadrature_weights: Dict[int, NDArray[np.float64]] = {}
+                for c in range(len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)):
 
-                    list_points: Dict[int, NDArray[np.float64]] = {}
-                    for c in dictionary.list_elements:
-                        self.navem_input_output[c] = NAVEM_PCC_2D.InputOutput()
+                    internal_quadrature \
+                        = quadrature.polygon_internal_quadrature(
+                        reference_element_data.standard_reference_element_data.vem_reference_element_data.quadrature.reference_triangle_quadrature,
+                        mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[c])
 
-                        self.navem_input_output[c].internal_quadrature \
-                            = quadrature.polygon_internal_quadrature(
-                            reference_element_data.standard_reference_element_data.vem_reference_element_data.quadrature.reference_triangle_quadrature,
-                            mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[c])
+                    evaluation_points[c] = internal_quadrature.points
+                    quadrature_weights[c] = internal_quadrature.weights
 
-                        list_points[c] = self.navem_input_output[c].internal_quadrature.points
+                self.navem_input_output \
+                    = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
+                                                             mesh_geometric_data,
+                                                             NAVEM_PCC_2D.NAVEMType(reference_element_data.method_type.value),
+                                                             reference_element_data.navem_categories,
+                                                             evaluation_points,
+                                                             quadrature_weights)
 
-                    outputs: Dict[int, NAVEM_PCC_2D.Output] = {}
-                    match reference_element_data.method_type:
-                        case MethodTypes.NAVEM:
-                            outputs \
-                                = NAVEM_PCC_2D.navem_predict_basis_values_and_derivatives(geometry_utilities,
-                                                                                          mesh_geometric_data,
-                                                                                          dictionary.neural_network,
-                                                                                          list_points)
-                        case MethodTypes.B_NAVEM | MethodTypes.P_NAVEM:
-                            outputs \
-                                = NAVEM_PCC_2D.exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
-                                                                                                   mesh_geometric_data,
-                                                                                                   dictionary.neural_network,
-                                                                                                   list_points)
-                        case _:
-                            raise ValueError("Not valid method type")
-
-                    for c in dictionary.list_elements:
-                        self.navem_input_output[c].basis_values, self.navem_input_output[c].basis_derivatives_values \
-                            = NAVEM_PCC_2D.reproduce_polynomials(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c],
-                                                                 outputs[c].basis_values,
-                                                                 outputs[c].basis_derivatives_values)
             case MethodTypes.VEM_PCC | MethodTypes.FEM_PCC:
                 pass
             case _:
@@ -220,41 +203,79 @@ class LocalSpaceData:
                 raise  ValueError("Not valid method type")
 
     def basis_functions_values(self, reference_element_data: ReferenceElementData,
-                               projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi0k) -> NDArray[np.float64]:
+                               projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi0k,
+                               evaluation_points: NDArray[np.float64] = None,
+                               evaluation_navem_input_output = None) -> NDArray[np.float64]:
 
         match reference_element_data.method_type:
             case MethodTypes.NAVEM | MethodTypes.B_NAVEM | MethodTypes.P_NAVEM:
                 if self.num_vertices == 3:
-                    return polydim.pde_tools.local_space_pcc_2_d.basis_functions_values(
-                        reference_element_data.fem_reference_element_data,
-                        self.standard_local_space_data,
-                        projection_type)
+                    if evaluation_points is None:
+                        return polydim.pde_tools.local_space_pcc_2_d.basis_functions_values(
+                            reference_element_data.fem_reference_element_data,
+                            self.standard_local_space_data,
+                            projection_type)
+                    else:
+                        return polydim.pde_tools.local_space_pcc_2_d.basis_functions_values(
+                            reference_element_data.fem_reference_element_data,
+                            self.standard_local_space_data,
+                            evaluation_points,
+                            projection_type)
                 else:
-                    return self.navem_input_output[self.cell_2_d_index].basis_values
+                    if evaluation_points is None:
+                        return self.navem_input_output[self.cell_2_d_index].basis_values
+                    else:
+                        return evaluation_navem_input_output[self.cell_2_d_index].basis_values
             case MethodTypes.VEM_PCC | MethodTypes.FEM_PCC:
-                return polydim.pde_tools.local_space_pcc_2_d.basis_functions_values(reference_element_data.standard_reference_element_data,
-                                                                                    self.standard_local_space_data,
-                                                                                    projection_type)
+                if evaluation_points is None:
+                    return polydim.pde_tools.local_space_pcc_2_d.basis_functions_values(reference_element_data.standard_reference_element_data,
+                                                                                        self.standard_local_space_data,
+                                                                                        projection_type)
+                else:
+                    return polydim.pde_tools.local_space_pcc_2_d.basis_functions_values(reference_element_data.standard_reference_element_data,
+                                                                                        self.standard_local_space_data,
+                                                                                        evaluation_points,
+                                                                                        projection_type)
             case _:
                 raise  ValueError("Not valid method type")
 
+
     def basis_functions_derivative_values(self, reference_element_data: ReferenceElementData,
-                                          projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi0km1_der) -> List[NDArray[np.float64]]:
+                                          projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi0km1_der,
+                                          evaluation_points: NDArray[np.float64] = None,
+                                          evaluation_navem_input_output = None) -> List[NDArray[np.float64]]:
 
         match reference_element_data.method_type:
             case MethodTypes.NAVEM | MethodTypes.B_NAVEM | MethodTypes.P_NAVEM:
                 if self.num_vertices == 3:
+                    if evaluation_points is None:
+                        return polydim.pde_tools.local_space_pcc_2_d.basis_functions_derivative_values(
+                            reference_element_data.fem_reference_element_data,
+                            self.standard_local_space_data,
+                            projection_type)
+                    else:
+                        return polydim.pde_tools.local_space_pcc_2_d.basis_functions_derivative_values(
+                            reference_element_data.fem_reference_element_data,
+                            self.standard_local_space_data,
+                            evaluation_points,
+                            projection_type)
+                else:
+                    if evaluation_points is None:
+                        return self.navem_input_output[self.cell_2_d_index].basis_derivatives_values
+                    else:
+                        return evaluation_navem_input_output[self.cell_2_d_index].basis_derivatives_values
+            case MethodTypes.VEM_PCC | MethodTypes.FEM_PCC:
+                if evaluation_points is None:
                     return polydim.pde_tools.local_space_pcc_2_d.basis_functions_derivative_values(
-                        reference_element_data.fem_reference_element_data,
+                        reference_element_data.standard_reference_element_data,
                         self.standard_local_space_data,
                         projection_type)
                 else:
-                    return self.navem_input_output[self.cell_2_d_index].basis_derivatives_values
-            case MethodTypes.VEM_PCC | MethodTypes.FEM_PCC:
-                return polydim.pde_tools.local_space_pcc_2_d.basis_functions_derivative_values(
-                    reference_element_data.standard_reference_element_data,
-                    self.standard_local_space_data,
-                    projection_type)
+                    return polydim.pde_tools.local_space_pcc_2_d.basis_functions_derivative_values(
+                        reference_element_data.standard_reference_element_data,
+                        self.standard_local_space_data,
+                        evaluation_points,
+                        projection_type)
             case _:
                 raise ValueError("Not valid method type")
 
@@ -267,6 +288,9 @@ class LocalSpaceData:
                     return polydim.pde_tools.local_space_pcc_2_d.internal_quadrature(reference_element_data.fem_reference_element_data,
                                                                                      self.standard_local_space_data)
                 else:
+
+                    assert len(self.navem_input_output[self.cell_2_d_index].internal_quadrature.weights) != 0
+
                     return self.navem_input_output[self.cell_2_d_index].internal_quadrature
             case MethodTypes.VEM_PCC | MethodTypes.FEM_PCC:
                 return polydim.pde_tools.local_space_pcc_2_d.internal_quadrature(reference_element_data.standard_reference_element_data,
