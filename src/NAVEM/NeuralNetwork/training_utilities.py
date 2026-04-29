@@ -1,8 +1,10 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+import src.NAVEM.NeuralNetwork.rescaled_bfgs as rescaled_bfgs
 import time
 
+tfp.optimizer.bfgs = rescaled_bfgs
 
 class PrintInfoCb(tf.keras.callbacks.Callback):
     def __init__(self, n_epochs, info_printer):
