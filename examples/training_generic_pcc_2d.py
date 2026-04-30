@@ -13,7 +13,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type',dest='method_type', default=3, type=int,
+    parser.add_argument('-method', '--method-type',dest='method_type', default=1, type=int,
                         help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingReferenceSquare', type=str, help="Mesh Import Path")

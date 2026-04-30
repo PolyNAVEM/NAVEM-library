@@ -4,8 +4,7 @@ import tensorflow as tf
 from typing import List, TypedDict, Tuple, Dict
 from tensorflow.keras.layers import Dense
 from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType, \
-    map_pts_from_1d_to_2d
+from src.NAVEM.Utilities.points_generator import map_pts_from_1d_to_2d
 
 
 class Flags(TypedDict):
@@ -140,16 +139,16 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
 
 class BoundaryLoss:
 
-    def __init__(self, geometry_utilities: gedim.GeometryUtilities, n_pts: int, method_order: int, num_vertices: int):
+    n_pts: int
+    num_vertices: int
+    reference_eval_points: NDArray[np.float64]
+    basis_evaluations: NDArray[np.float64]
+    derivatives_evaluations: NDArray[np.float64]
+
+    def __init__(self, geometry_utilities: gedim.GeometryUtilities, method_order: int):
 
         self.geometry_utilities = geometry_utilities
-        self.n_pts = n_pts
         self.method_order = method_order
-        self.num_vertices = num_vertices
-
-        # evaluation points
-        self.reference_eval_points = reference_points_distribution(0.0, 1.0, self.n_pts,
-                                                                   PointsSegmentDistributionType.uniform)
 
         lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
         quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)
@@ -157,58 +156,67 @@ class BoundaryLoss:
 
         self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(
             self.references_do_fs_on_edge)
+
+
+    def initialize_basis_evaluations_on_boundary(self, reference_evaluation_points: NDArray[np.float64], num_vertices: int, v_id: int = 0) \
+            -> None:
+
+        assert reference_evaluation_points.ndim == 1
+
+        self.n_pts = len(reference_evaluation_points)
+        self.reference_eval_points = reference_evaluation_points
+
+        self.num_vertices = num_vertices
+
         lagrange_values = polydim.interpolation.lagrange.lagrange_1_d_values(self.references_do_fs_on_edge,
                                                                              self.lagrange_coefficients,
-                                                                             self.reference_eval_points)
+                                                                             reference_evaluation_points)
         lagrange_derivatives_values = (
             polydim.interpolation.lagrange.lagrange_1_d_derivative_values(self.references_do_fs_on_edge,
                                                                           self.lagrange_coefficients,
-                                                                          self.reference_eval_points))
+                                                                          reference_evaluation_points))
 
-        self.basis_evaluations = np.zeros([n_pts * self.num_vertices, 1])
-        self.derivatives_evaluations = np.zeros([n_pts * self.num_vertices, 1])
-        zero_pol = np.zeros(n_pts)
+        self.basis_evaluations = np.zeros([self.n_pts * self.num_vertices, 1])
+        self.derivatives_evaluations = np.zeros([self.n_pts * self.num_vertices, 1])
+        zero_pol = np.zeros(self.n_pts)
 
-        # dofs on vertices (evaluations)
-        v = 0
+        # do_fs on vertices (evaluations)
+        v = v_id
+        prev_v = v_id - 1 if v_id > 0 else self.num_vertices - 1
         for e in range(self.num_vertices):
             if e == v:  # edge e after vertex v
-                self.basis_evaluations[e * n_pts:(e + 1) * n_pts, v] = lagrange_values[:, 0]
-                self.derivatives_evaluations[e * n_pts:(e + 1) * n_pts, v] = lagrange_derivatives_values[:, 0]
-            elif e == self.num_vertices - 1:
-                self.basis_evaluations[e * n_pts:(e + 1) * n_pts, v] = lagrange_values[:, -1]
-                self.derivatives_evaluations[e * n_pts:(e + 1) * n_pts, v] = lagrange_derivatives_values[:, -1]
+                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = lagrange_values[:, 0]
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) *self. n_pts, v] = lagrange_derivatives_values[:, 0]
+            elif e == prev_v:
+                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = lagrange_values[:, 1]
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = lagrange_derivatives_values[:, 1]
             else:
-                self.basis_evaluations[e * n_pts:(e + 1) * n_pts, v] = zero_pol
-                self.derivatives_evaluations[e * n_pts:(e + 1) * n_pts, v] = zero_pol
+                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = zero_pol
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = zero_pol
 
-        # dofs on edges (evaluations)
+        # do_fs on edges (evaluations)
         e = 0  # edge with the support of the basis function
         for e2 in range(self.num_vertices):  # generic edge of the polygon
             for local_p in range(self.method_order - 1):  # number of internal polynomials
                 if e == e2:
-                    self.basis_evaluations[e2 * n_pts:(e2 + 1) * n_pts,
+                    self.basis_evaluations[e2 * self.n_pts:(e2 + 1) * self.n_pts,
                     self.num_vertices + e * (self.method_order - 1) + local_p] = \
                         lagrange_values[:, local_p + 1]
-                    self.derivatives_evaluations[e2 * n_pts:(e2 + 1) * n_pts,
+                    self.derivatives_evaluations[e2 * self.n_pts:(e2 + 1) * self.n_pts,
                     self.num_vertices + e * (self.method_order - 1) + local_p] = \
                         lagrange_derivatives_values[:, local_p + 1]
                 else:
                     self.basis_evaluations[
-                    e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
+                    e2 * self.n_pts:(e2 + 1) * self.n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
                     self.derivatives_evaluations[
-                    e2 * n_pts:(e2 + 1) * n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
+                    e2 * self.n_pts:(e2 + 1) * self.n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
 
-    def add_0_pols_from_internal_do_fs(self, n_internal_do_fs: int, nodes: List[float]):
-        rep_nodes = np.tile(nodes, (n_internal_do_fs, 1))
-        zero_pols = np.zeros(self.num_vertices * self.n_pts * n_internal_do_fs)
-        return rep_nodes, zero_pols
 
     def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> Tuple[
         NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
         nodes = np.zeros((2, self.num_vertices * self.n_pts))
-        normals = np.zeros((2, self.num_vertices * self.n_pts))
+        tangents = np.zeros((2, self.num_vertices * self.n_pts))
 
         # mapping the training pts from the reference element to the current one
         for e in range(self.num_vertices):
@@ -217,11 +225,11 @@ class BoundaryLoss:
             # tf.print("vertices",v_start, v_end)
             first_idx, last_idx = [e * self.n_pts, (e + 1) * self.n_pts]
             nodes[:, first_idx:last_idx] = map_pts_from_1d_to_2d(self.reference_eval_points, v_start, v_end)[:2, :]
-            normals[:, first_idx:last_idx] = (v_end - v_start)[:2, :]
+            tangents[:, first_idx:last_idx] = (v_end - v_start)[:2, :]
 
         nodes = nodes.T
-        edge_lengths = np.sqrt(normals[0, :] ** 2 + normals[1, :] ** 2)
-        normals /= edge_lengths  # normal normalization
+        edge_lengths = np.sqrt(tangents[0, :] ** 2 + tangents[1, :] ** 2)
+        tangents /= edge_lengths  # normal normalization
         # values of polynomials for boundary dofs
         all_pols = np.squeeze(self.basis_evaluations.T.reshape(-1, 1))
         # values of derivatives for boundary dofs
@@ -232,7 +240,7 @@ class BoundaryLoss:
             rep_xy_vertices = np.repeat(xy_vertices, nodes.shape[0], axis=0)
             nodes = np.concatenate([nodes, rep_xy_vertices], axis=1)
 
-        return nodes, all_pols, normals.T, all_derivatives
+        return nodes, all_pols, tangents.T, all_derivatives
 
 
 class HNAVEMNeuralNetwork(tf.keras.Model):

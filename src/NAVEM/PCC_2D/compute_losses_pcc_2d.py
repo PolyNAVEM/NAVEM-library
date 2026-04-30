@@ -1,11 +1,97 @@
 import numpy as np
 import tensorflow as tf
+
+from src.NAVEM.NeuralNetwork.h_navem_network import BoundaryLoss
 from src.NAVEM.PCC_2D import NAVEM_PCC_2D, LocalSpace_PCC_2D
 from pypolydim import gedim, polydim
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
 from typing import Dict, Tuple
 from numpy.typing import NDArray
 
+
+def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
+                          mesh_geometric_data: MeshGeometricData2D,
+                          reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
+                          method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+
+    num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
+
+    monomials = polydim.utilities.Monomials_2D()
+    monomials_data = monomials.compute(reference_element_data.method_order)
+
+    test_l2_loss_cells = np.zeros([num_cell_2, monomials_data.num_monomials])
+    test_h1_loss_cells = np.zeros([num_cell_2, monomials_data.num_monomials])
+
+    quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
+    reference_quadrature = gedim.quadrature.Quadrature_Gauss1D()
+    reference_quadrature_data = reference_quadrature.fill_points_and_weights(20)
+
+    evaluation_points: Dict[int, NDArray[np.float64]] = {}
+    evaluation_weights: Dict[int, NDArray[np.float64]] = {}
+    for c in range(num_cell_2):
+
+        vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
+        quadrature_data = quadrature.polygon_edges_quadrature(reference_quadrature_data,
+                                                              vertices,
+                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[c],
+                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_directions[c],
+                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[c],
+                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_normals[c])
+
+        evaluation_points[c] = quadrature_data.quadrature.points
+        evaluation_weights[c] = quadrature_data.quadrature.weights
+
+
+    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
+    evaluation_navem_input_output = None
+    match method_type:
+        case LocalSpace_PCC_2D.MethodTypes.NAVEM:
+            evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
+                                                                                   mesh_geometric_data,
+                                                                                   reference_element_data.navem_categories,
+                                                                                   evaluation_points)
+        case _:
+            pass
+
+    boundary_loss = BoundaryLoss(geometry_utilities, method_order=reference_element_data.method_order)
+    for c in range(num_cell_2):
+
+        polygon_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
+        boundary_loss.initialize_basis_evaluations_on_boundary(reference_quadrature_data.points[0, :], polygon_vertices.shape[1])
+
+        local_space_data.create_local_space(geometry_utilities.tolerance1_d(),
+                                            geometry_utilities.tolerance2_d(),
+                                            mesh_geometric_data,
+                                            c,
+                                            reference_element_data)
+
+        basis_functions_values = local_space_data.basis_functions_values(reference_element_data,
+                                                                         polydim.vem.pcc.ProjectionTypes.pi0k,
+                                                                         evaluation_points[c],
+                                                                         evaluation_navem_input_output)
+
+        basis_functions_derivatives_values \
+            = local_space_data.basis_functions_derivative_values(reference_element_data,
+                                                                 polydim.vem.pcc.ProjectionTypes.pi0km1_der,
+                                                                 evaluation_points[c],
+                                                                 evaluation_navem_input_output)
+
+        _, labels, _, labels_derivatives = boundary_loss.add_polygon(polygon_vertices)
+
+        a = 3
+
+        # test_l2_loss_cells[c, :] = (evaluation_weights[c] @
+        #                              (basis_functions_values @ monomials_do_fs - monomials_values) ** 2)
+        # test_h1_loss_cells[c, :] = (evaluation_weights[c] @
+        #                              ((basis_functions_derivatives_values[0] @ monomials_do_fs - monomials_derivatives_values[0]) ** 2
+        #                              + (basis_functions_derivatives_values[1] @ monomials_do_fs - monomials_derivatives_values[1]) ** 2))
+
+    test_l2_loss = np.sqrt(np.sum(test_l2_loss_cells, axis = 0))
+    test_h1_loss = np.sqrt(np.sum(test_h1_loss_cells, axis=0))
+
+    print(test_l2_loss, test_h1_loss)
+
+    return test_l2_loss, test_h1_loss, test_l2_loss_cells, test_h1_loss_cells
 
 def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
                             mesh_geometric_data: MeshGeometricData2D,

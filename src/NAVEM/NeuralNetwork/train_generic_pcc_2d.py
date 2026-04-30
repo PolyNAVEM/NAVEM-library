@@ -8,6 +8,8 @@ import numpy as np
 import tensorflow as tf
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
 import csv
+from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
+
 
 def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                           method_type: NAVEMType,
@@ -70,8 +72,13 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     nn = HNAVEMNetworksContainer(flags)
 
+
+    # evaluation points
+    reference_eval_points = reference_points_distribution(0.0, 1.0, num_points_on_each_edge, PointsSegmentDistributionType.uniform)
+
     # Initialize edge loss
-    boundary_loss = BoundaryLoss(geometry_utilities, num_points_on_each_edge, method_order, num_vertices)
+    boundary_loss = BoundaryLoss(geometry_utilities, method_order)
+    boundary_loss.initialize_basis_evaluations_on_boundary(reference_eval_points, num_vertices)
 
     tangents = np.array([], dtype=np.float64).reshape(0, 2)
     labels = np.array([], dtype=np.float64)
