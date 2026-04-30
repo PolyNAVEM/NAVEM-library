@@ -130,6 +130,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         case NAVEMType.P_NAVEM:
             nn.store_terms_for_loss(xy_per_pol, vertices_per_pol, jac_inv_per_pol)
             setup_n_derivatives = 1
+            nn.exact_one = 1
 
             if copy_basis_in_train:
                 nn.call_for_training = nn.get_u_and_du

@@ -16,7 +16,7 @@ def lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarray) -> tf.T
 
 
 def filter_window_f(x: tf.Tensor):
-    return tf.where(x > 0, tf.exp(-1/x), 0)
+    return tf.where(x > 0, tf.exp(-1 / x), 0)
 
 
 def filter_window(x: tf.Tensor, margin: float) -> tf.Tensor:
@@ -201,7 +201,6 @@ class EnforcingBoundary:
                 psi_ijE = localized_lagrange_basis_1d(i, proj, nodes_1d, margin) * transf_ws
                 g = tf.concat([g, psi_ijE], axis=-1)
 
-
         # self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(self.references_do_fs_on_edge)
         # lagrange_values = polydim.interpolation.lagrange.lagrange_1_d_values(self.references_do_fs_on_edge,
         #                                                                      self.lagrange_coefficients,
@@ -290,6 +289,12 @@ class EnforcingBoundary:
             phi_sec_ders = np.repeat(np.expand_dims(phi_sec_ders, axis=2), self.num_functions, axis=2)
             return phi_sec_ders, g_sec_ders
         else:
+            # g_sec_ders_mapped_full = np.einsum("pdav,pdbv,psvk->psvab", self.jac_per_pol, self.jac_per_pol, g_sec_ders)
+            # new_g_sec_ders = np.zeros(shape=g_sec_ders.shape)
+            # new_g_sec_ders[:, :, :, 0] = g_sec_ders_mapped_full[:, :, :, 0, 0]
+            # new_g_sec_ders[:, :, :, 1] = g_sec_ders_mapped_full[:, :, :, 0, 1]
+            # new_g_sec_ders[:, :, :, 2] = g_sec_ders_mapped_full[:, :, :, 1, 1]
+
             g_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
             phi_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
 
@@ -311,6 +316,9 @@ class EnforcingBoundary:
                             phi_sec_ders_mapped[p, :, v, 2] += self.jac_per_pol[p, d1, 1, v] * self.jac_per_pol[
                                 p, d2, 1, v] * phi_sec_ders[p, :, d1 + d2]
 
+            # print(g_sec_ders_mapped.shape, new_g_sec_ders.shape)
+            # print(np.sum(np.abs(g_sec_ders_mapped - new_g_sec_ders)))
+            # aa
             return phi_sec_ders_mapped, g_sec_ders_mapped
 
     def phi_and_g_and_grads_and_second_derivatives(self, inputs):

@@ -14,9 +14,9 @@ from src.NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss
 
 def main():
 
-    parser =argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=2, type=int,
+    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
                         help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int,
                         help="Test type: 1 - Polynomial")
@@ -27,7 +27,7 @@ def main():
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='', type=str, help="Dictionary file")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='TrainedModels/H-NAVEM/dictionary.txt', type=str, help="Dictionary file")
     parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss', default=True, type=bool, help="Evaluate polynomial loss")
     args = parser.parse_args()
 
