@@ -38,11 +38,9 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
     local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     evaluation_navem_input_output = None
     match method_type:
-        case LocalSpace_PCC_2D.MethodTypes.NAVEM | LocalSpace_PCC_2D.MethodTypes.B_NAVEM | LocalSpace_PCC_2D.MethodTypes.P_NAVEM:
+        case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
-                                                                                   NAVEM_PCC_2D.NAVEMType(
-                                                                                       method_type.value),
                                                                                    reference_element_data.navem_categories,
                                                                                    evaluation_points)
         case _:

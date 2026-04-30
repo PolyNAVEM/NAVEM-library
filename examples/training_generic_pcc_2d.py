@@ -13,7 +13,8 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type',dest='method_type', default=3, type=int, help="Method type")
+    parser.add_argument('-method', '--method-type',dest='method_type', default=3, type=int,
+                        help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingReferenceSquare', type=str, help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
@@ -29,9 +30,9 @@ def main():
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
                         help='Number of nodes per hidden layers for the polynomial neural network')
 
-    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=500, type=int,
+    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=2000, type=int,
                         help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=100, type=int,
+    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=500, type=int,
 
                         help='Number of training epochs with second order optimizer')
     parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-2, type=float,
@@ -96,7 +97,7 @@ def main():
     method_type = NAVEMType(args.method_type)
 
     match method_type:
-        case method_type.NAVEM:
+        case method_type.H_NAVEM:
             train_navem_pcc_2d_on_generic_polygon(args.method_order,
                                                   method_type,
                                                   args.num_vertices,

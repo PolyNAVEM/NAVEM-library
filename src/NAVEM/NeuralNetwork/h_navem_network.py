@@ -235,10 +235,10 @@ class BoundaryLoss:
         return nodes, all_pols, normals.T, all_derivatives
 
 
-class NAVEMNeuralNetwork(tf.keras.Model):
+class HNAVEMNeuralNetwork(tf.keras.Model):
     def __init__(self, input_dim: int, n_outputs: int, n_neurons: int, n_hidden_layers: int, reg_coefficient: float,
                  use_sqrt: bool):
-        super(NAVEMNeuralNetwork, self).__init__(name='navem_neural_network')
+        super(HNAVEMNeuralNetwork, self).__init__(name='h_navem_neural_network')
         self.input_dim = input_dim
         self.n_neurons = n_neurons
         self.n_hidden_layers = n_hidden_layers
@@ -334,18 +334,18 @@ class NAVEMNeuralNetwork(tf.keras.Model):
             self.layers_list[i].set_weights(nn.layers_list[i].get_weights())
 
 
-class NAVEMNetworksContainer:
+class HNAVEMNetworksContainer:
     def __init__(self, flags: Flags):
         self.flags: Flags = flags
 
-        self.nn_basis_function = NAVEMNeuralNetwork(self.flags['input_dim'] - 2,
+        self.nn_basis_function = HNAVEMNeuralNetwork(self.flags['input_dim'] - 2,
                                                     self.flags['num_generators'],
                                                     self.flags['num_neurons_per_layer'],
                                                     self.flags['num_hidden_layers'],
                                                     self.flags['regularization_coefficient'],
                                                     self.flags['use_sqrt_in_train'])
 
-        self.nn_basis_derivatives = NAVEMNeuralNetwork(self.flags['input_dim'] - 2,
+        self.nn_basis_derivatives = HNAVEMNeuralNetwork(self.flags['input_dim'] - 2,
                                                        self.flags['num_generators'],
                                                        self.flags['num_neurons_per_layer'],
                                                        self.flags['num_hidden_layers'],

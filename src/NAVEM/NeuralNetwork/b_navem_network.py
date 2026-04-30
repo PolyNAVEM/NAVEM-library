@@ -10,7 +10,7 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
     def __init__(self, flags: Flags):
 
-        super(BNAVEMNetwork, self).__init__(name='bnavem_neural_network')
+        super(BNAVEMNetwork, self).__init__(name='b_navem_neural_network')
 
         self.flags = flags
 
@@ -97,7 +97,7 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         u_y = grad[:, 1:2] * self.var_phi + u0 * self.var_phi_y + self.var_g_y
         return tf.concat([u, u_x, u_y], 1)
 
-    def get_u0_phi_g_and_du0_dphi_dg(self, inputs):
+    def get_u0_phi_g_and_du0_d_phi_dg(self, inputs):
         with tf.GradientTape() as t2:
             t2.watch(inputs)
             u0 = self.internal_call(inputs)

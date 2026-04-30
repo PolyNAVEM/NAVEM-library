@@ -34,9 +34,9 @@ class StoreLoss(tf.keras.callbacks.Callback):
 
 
 class StoreTime(tf.keras.callbacks.Callback):
-    def __init__(self, list_of_timess, n_steps=100):
+    def __init__(self, list_of_times, n_steps=100):
         super(StoreTime, self).__init__()
-        self.list_of_times = list_of_timess
+        self.list_of_times = list_of_times
         self.n_steps = n_steps
         self.t0 = time.perf_counter()
 
@@ -62,7 +62,7 @@ def train_with_first_order(model, loss_f, x, y, bsize, n_epochs, shuffle, cb_lis
     del optimizer
 
 
-def print_info_navem(model, iteration, total_iterations=None):
+def print_info_h_navem(model, iteration, total_iterations=None):
     if total_iterations is None:
         l2 = tf.strings.regex_replace(tf.strings.as_string(model.curr_distance_l2,
                                                            scientific=True,
@@ -82,7 +82,7 @@ def print_info_navem(model, iteration, total_iterations=None):
                         model.curr_distance_l2.read_value(), model.curr_distance_h1.read_value()))
 
 
-def print_info_pnavem(model, iteration, total_iterations=None):
+def print_info_p_navem(model, iteration, total_iterations=None):
     if model.loss_x_dx.read_value() == 0:
         if total_iterations is None:
             loss_one = tf.strings.regex_replace(tf.strings.as_string(model.loss_one,
@@ -180,7 +180,7 @@ def print_info_pnavem(model, iteration, total_iterations=None):
                                 ))
 
 
-def print_info_bnavem(model, iteration, total_iterations=None):
+def print_info_b_navem(model, iteration, total_iterations=None):
     if total_iterations is None:
         laplacian = tf.strings.regex_replace(tf.strings.as_string(model.curr_laplacian,
                                                                   scientific=True,
@@ -221,8 +221,8 @@ def function_factory(model, loss, train_x, train_y, info_printer):
         """
 
         params = tf.dynamic_partition(params_1d, part, n_tensors)
-        for i, (shape, param) in enumerate(zip(shapes, params)):
-            model.trainable_variables[i].assign(tf.reshape(param, shape))
+        for j, (shape_j, param) in enumerate(zip(shapes, params)):
+            model.trainable_variables[j].assign(tf.reshape(param, shape_j))
 
     # now create a function that will be returned by this factory
     @tf.function(experimental_relax_shapes=True)
@@ -295,17 +295,17 @@ def train_w_bfgs(model, loss, train_data, train_labels, n_epochs, bfgs=True, inv
 
 
 def assign_best(model):
-    func = function_factory(model, None, None, None)
+    func = function_factory(model, None, None, None, None)
     func.assign_new_model_parameters(model.best_w)
 
 
 def train_adam_bfgs(model, loss, inputs, labels, epochs_adam, epochs_bfgs, cb_list, use_bfgs=True):
-    if model.name == "navem_neural_network":
-        info_printer = print_info_navem
-    elif model.name == "bnavem_neural_network":
-        info_printer = print_info_bnavem
-    elif model.name == "pnavem_neural_network":
-        info_printer = print_info_pnavem
+    if model.name == "h_navem_neural_network":
+        info_printer = print_info_h_navem
+    elif model.name == "b_navem_neural_network":
+        info_printer = print_info_b_navem
+    elif model.name == "p_navem_neural_network":
+        info_printer = print_info_p_navem
     else:
         info_printer = None
 

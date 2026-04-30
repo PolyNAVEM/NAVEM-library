@@ -3,7 +3,7 @@ from pypolydim import gedim
 from typing import List, Dict, Tuple
 import numpy as np
 from numpy.typing import NDArray
-from src.NAVEM.NeuralNetwork import navem_network, b_navem_network, p_navem_network
+from src.NAVEM.NeuralNetwork import h_navem_network, b_navem_network, p_navem_network
 from src.NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
 from src.NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
@@ -11,7 +11,7 @@ from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
 
 
 class NAVEMType(Enum):
-    NAVEM = 1
+    H_NAVEM = 1
     B_NAVEM = 2
     P_NAVEM = 3
 
@@ -34,7 +34,7 @@ class NNDictionary:
 
     def __init__(self):
         self.list_elements: List[int] = []
-        self.method_type: NAVEMType = NAVEMType.NAVEM
+        self.method_type: NAVEMType = NAVEMType.H_NAVEM
         self.neural_network = None
 
 def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary_file_path: str) -> Dict[int, NNDictionary]:
@@ -65,12 +65,12 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 
                     raw[key] = value
 
-            method_type = NAVEMType(int(raw["method_type"]))
+            categories[num_vertices].method_type = NAVEMType(int(raw["method_type"]))
 
-            match method_type:
-                case NAVEMType.NAVEM:
-                    flags = navem_network.load_flags_from_dictionary(name_storage, raw)
-                    categories[num_vertices].neural_network = navem_network.NAVEMNetworksContainer(flags)
+            match categories[num_vertices].method_type:
+                case NAVEMType.H_NAVEM:
+                    flags = h_navem_network.load_flags_from_dictionary(name_storage, raw)
+                    categories[num_vertices].neural_network = h_navem_network.HNAVEMNetworksContainer(flags)
                     categories[num_vertices].neural_network.load_weights(name_storage)
                 case NAVEMType.B_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
@@ -100,7 +100,7 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 
 def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                mesh_geometric_data: MeshGeometricData2D,
-                                               neural_network: navem_network.NAVEMNetworksContainer,
+                                               neural_network: h_navem_network.HNAVEMNetworksContainer,
                                                list_points: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
 
     navem_generators = NAVEMGenerators.NAVEMGenerators(geometry_utilities,
@@ -310,58 +310,55 @@ def reproduce_polynomials(polygon_vertices: NDArray[np.float64],
 
 def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
                               mesh_geometric_data: MeshGeometricData2D,
-                              method_type: NAVEMType,
                               navem_categories: Dict[int, NNDictionary],
                               evaluation_points: Dict[int, NDArray[np.float64]],
                               evaluation_weights: Dict[int, NDArray[np.float64]] = None) -> Dict[int, InputOutput]:
 
-    match method_type:
-        case NAVEMType.NAVEM | NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
-            navem_input_output: Dict[int, InputOutput] = {}
 
-            for num_vertices, dictionary in navem_categories.items():
+        navem_input_output: Dict[int, InputOutput] = {}
 
-                if len(dictionary.list_elements) == 0:
+        for num_vertices, dictionary in navem_categories.items():
+
+            if len(dictionary.list_elements) == 0:
+                continue
+
+            list_points: Dict[int, NDArray[np.float64]] = {}
+
+            for c in dictionary.list_elements:
+
+                if c not in evaluation_points:
                     continue
 
-                list_points: Dict[int, NDArray[np.float64]] = {}
+                navem_input_output[c] = InputOutput()
+                navem_input_output[c].internal_quadrature = gedim.quadrature.QuadratureData()
+                navem_input_output[c].internal_quadrature.points = evaluation_points[c]
+                navem_input_output[c].internal_quadrature.weights = evaluation_weights[c] if evaluation_weights is not None else np.zeros([0])
 
-                for c in dictionary.list_elements:
+                list_points[c] = navem_input_output[c].internal_quadrature.points
 
-                    if c not in evaluation_points:
-                        continue
+            outputs: Dict[int, Output] = {}
 
-                    navem_input_output[c] = InputOutput()
-                    navem_input_output[c].internal_quadrature = gedim.quadrature.QuadratureData()
-                    navem_input_output[c].internal_quadrature.points = evaluation_points[c]
-                    navem_input_output[c].internal_quadrature.weights = evaluation_weights[c] if evaluation_weights is not None else np.zeros([0])
+            match dictionary.method_type:
+                case NAVEMType.H_NAVEM:
+                    outputs \
+                        = navem_predict_basis_values_and_derivatives(geometry_utilities,
+                                                                     mesh_geometric_data,
+                                                                     dictionary.neural_network,
+                                                                     list_points)
+                case NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
+                    outputs \
+                        = exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
+                                                                              mesh_geometric_data,
+                                                                              dictionary.neural_network,
+                                                                              list_points)
+                case _:
+                    raise ValueError("Not valid method type")
 
-                    list_points[c] = navem_input_output[c].internal_quadrature.points
+            for c in dictionary.list_elements:
+                navem_input_output[c].basis_values, navem_input_output[c].basis_derivatives_values \
+                    = reproduce_polynomials(
+                    mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c],
+                    outputs[c].basis_values,
+                    outputs[c].basis_derivatives_values)
 
-                outputs: Dict[int, Output] = {}
-                match method_type:
-                    case NAVEMType.NAVEM:
-                        outputs \
-                            = navem_predict_basis_values_and_derivatives(geometry_utilities,
-                                                                         mesh_geometric_data,
-                                                                         dictionary.neural_network,
-                                                                         list_points)
-                    case NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
-                        outputs \
-                            = exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
-                                                                                  mesh_geometric_data,
-                                                                                  dictionary.neural_network,
-                                                                                  list_points)
-                    case _:
-                        raise ValueError("Not valid method type")
-
-                for c in dictionary.list_elements:
-                    navem_input_output[c].basis_values, navem_input_output[c].basis_derivatives_values \
-                        = reproduce_polynomials(
-                        mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c],
-                        outputs[c].basis_values,
-                        outputs[c].basis_derivatives_values)
-
-            return navem_input_output
-        case _:
-            raise ValueError("Not valid method type")
+        return navem_input_output

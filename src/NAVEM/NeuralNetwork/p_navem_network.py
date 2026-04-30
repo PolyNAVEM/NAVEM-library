@@ -10,7 +10,7 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
     def __init__(self, flags: Flags):
 
-        super(PNAVEMNetwork, self).__init__(name='pnavem_neural_network')
+        super(PNAVEMNetwork, self).__init__(name='p_navem_neural_network')
 
         self.flags = flags
 
@@ -67,14 +67,14 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         self.x_verts = None
         self.y_verts = None
-        self.jac_invs_00 = None
-        self.jac_invs_01 = None
-        self.jac_invs_10 = None
-        self.jac_invs_11 = None
+        self.jac_inverse_00 = None
+        self.jac_inverse_01 = None
+        self.jac_inverse_10 = None
+        self.jac_inverse_11 = None
         self.target_x_vals = None
         self.target_y_vals = None
-        self.x_lin_coeffs = None
-        self.y_lin_coeffs = None
+        self.x_lin_coefficients = None
+        self.y_lin_coefficients = None
 
     def build(self, input_shape):
         self.layers_list[0].build(input_shape)
@@ -111,7 +111,7 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         return u0_grad * self.var_phi + u0 * self.var_phi_grad + self.var_g_grad
 
-    def get_u0_phi_g_and_du0_dphi_dg(self, inputs):
+    def get_u0_phi_g_and_du0_d_phi_dg(self, inputs):
         with tf.GradientTape() as t:
             t.watch(inputs)
             u0 = self.internal_call(inputs)
@@ -128,22 +128,22 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         return tf.concat([u0, self.var_phi, self.var_g], 1)
 
     def store_terms_for_loss(self, xy_per_pol, vertices_per_pol, jac_inv_per_pol):
-        x_verts = tf.expand_dims(vertices_per_pol[:, 0, :], 2)[:, :, :, None, None]
-        y_verts = tf.expand_dims(vertices_per_pol[:, 1, :], 2)[:, :, :, None, None]
+        x_vertices = tf.expand_dims(vertices_per_pol[:, 0, :], 2)[:, :, :, None, None]
+        y_vertices = tf.expand_dims(vertices_per_pol[:, 1, :], 2)[:, :, :, None, None]
 
-        x_N = x_verts[:, -1:, :, :, :]
-        y_N = y_verts[:, -1:, :, :, :]
+        x_N = x_vertices[:, -1:, :, :, :]
+        y_N = y_vertices[:, -1:, :, :, :]
 
         self.target_x_vals = tf.expand_dims(xy_per_pol[:, :, 0], 1)[:, :, :, None, None] - x_N
         self.target_y_vals = tf.expand_dims(xy_per_pol[:, :, 1], 1)[:, :, :, None, None] - y_N
-        self.x_lin_coeffs = x_verts[:, :-1, :, :, :] - x_N
-        self.y_lin_coeffs = y_verts[:, :-1, :, :, :] - y_N
+        self.x_lin_coefficients = x_vertices[:, :-1, :, :, :] - x_N
+        self.y_lin_coefficients = y_vertices[:, :-1, :, :, :] - y_N
 
-        jac_invs = tf.convert_to_tensor(jac_inv_per_pol, dtype=tf.float64)
-        self.jac_invs_00 = jac_invs[:, 0, 0, :, None, None, None]
-        self.jac_invs_01 = jac_invs[:, 0, 1, :, None, None, None]
-        self.jac_invs_10 = jac_invs[:, 1, 0, :, None, None, None]
-        self.jac_invs_11 = jac_invs[:, 1, 1, :, None, None, None]
+        jac_inverse = tf.convert_to_tensor(jac_inv_per_pol, dtype=tf.float64)
+        self.jac_inverse_00 = jac_inverse[:, 0, 0, :, None, None, None]
+        self.jac_inverse_01 = jac_inverse[:, 0, 1, :, None, None, None]
+        self.jac_inverse_10 = jac_inverse[:, 1, 0, :, None, None, None]
+        self.jac_inverse_11 = jac_inverse[:, 1, 1, :, None, None, None]
 
     def setup_model_global_input(self, xy_per_pol, vertices, jac_per_pol, setup_n_derivatives, geometry_utilities):
         eb = EnforcingBoundary(geometry_utilities, method_order=self.flags["method_order"])
@@ -152,6 +152,8 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
         num_of_functions = self.flags["num_vertices"] - 1
 
+        phi_grad = None
+        g_grad = None
         if setup_n_derivatives == 0:
             phi, g = eb.phi_and_g(xy_per_pol)
         elif setup_n_derivatives == 1:
@@ -198,8 +200,8 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         return self.copy_grads(y_pred_reshaped)
 
     def copy_pols(self, bases):
-        comb_for_x = tf.reduce_sum(bases * self.x_lin_coeffs, axis=1, keepdims=True)
-        comb_for_y = tf.reduce_sum(bases * self.y_lin_coeffs, axis=1, keepdims=True)
+        comb_for_x = tf.reduce_sum(bases * self.x_lin_coefficients, axis=1, keepdims=True)
+        comb_for_y = tf.reduce_sum(bases * self.y_lin_coefficients, axis=1, keepdims=True)
 
         diff_for_x = tf.reduce_mean(tf.square(comb_for_x - self.target_x_vals))
         diff_for_y = tf.reduce_mean(tf.square(comb_for_y - self.target_y_vals))
@@ -212,14 +214,14 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         rot_dx = rot_grads[:, :, :, :, :1]
         rot_dy = rot_grads[:, :, :, :, 1:]
 
-        bases_dx = self.jac_invs_00 * rot_dx + self.jac_invs_10 * rot_dy
-        bases_dy = self.jac_invs_01 * rot_dx + self.jac_invs_11 * rot_dy
+        bases_dx = self.jac_inverse_00 * rot_dx + self.jac_inverse_10 * rot_dy
+        bases_dy = self.jac_inverse_01 * rot_dx + self.jac_inverse_11 * rot_dy
 
-        comb_for_x_dx = tf.reduce_sum(bases_dx * self.x_lin_coeffs, axis=1, keepdims=True)
-        comb_for_y_dx = tf.reduce_sum(bases_dx * self.y_lin_coeffs, axis=1, keepdims=True)
+        comb_for_x_dx = tf.reduce_sum(bases_dx * self.x_lin_coefficients, axis=1, keepdims=True)
+        comb_for_y_dx = tf.reduce_sum(bases_dx * self.y_lin_coefficients, axis=1, keepdims=True)
 
-        comb_for_x_dy = tf.reduce_sum(bases_dy * self.x_lin_coeffs, axis=1, keepdims=True)
-        comb_for_y_dy = tf.reduce_sum(bases_dy * self.y_lin_coeffs, axis=1, keepdims=True)
+        comb_for_x_dy = tf.reduce_sum(bases_dy * self.x_lin_coefficients, axis=1, keepdims=True)
+        comb_for_y_dy = tf.reduce_sum(bases_dy * self.y_lin_coefficients, axis=1, keepdims=True)
 
         diff_for_x_dx = tf.reduce_mean(tf.square(comb_for_x_dx - self.tf_one))
         diff_for_y_dx = tf.reduce_mean(tf.square(comb_for_y_dx))
@@ -253,14 +255,14 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         self.x_verts = None
         self.y_verts = None
-        self.jac_invs_00 = None
-        self.jac_invs_01 = None
-        self.jac_invs_10 = None
-        self.jac_invs_11 = None
+        self.jac_inverse_00 = None
+        self.jac_inverse_01 = None
+        self.jac_inverse_10 = None
+        self.jac_inverse_11 = None
         self.target_x_vals = None
         self.target_y_vals = None
-        self.x_lin_coeffs = None
-        self.y_lin_coeffs = None
+        self.x_lin_coefficients = None
+        self.y_lin_coefficients = None
 
         self.save_weights(name_storage + "/nn_weights.weights.h5")
 

@@ -17,15 +17,15 @@ def main():
     # Reading from command line all required information
     parser =argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=2, type=int,
-                        help="Method type: 1 - NAVEM; 2 - B-NAVEM; 3 - P-NAVEM; 4 - FEM; 5 - VEM")
+    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
+                        help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int, help="Mesh type")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/B-NAVEM/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/P-NAVEM/dictionary.txt', type=str, help="Dictionary file")
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')
@@ -111,10 +111,9 @@ def main():
     local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     evaluation_navem_input_output = None
     match method_type:
-        case LocalSpace_PCC_2D.MethodTypes.NAVEM | LocalSpace_PCC_2D.MethodTypes.B_NAVEM | LocalSpace_PCC_2D.MethodTypes.P_NAVEM:
+        case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
-                                                                                   NAVEM_PCC_2D.NAVEMType(method_type.value),
                                                                                    reference_element_data.navem_categories,
                                                                                    evaluation_points)
         case _:
