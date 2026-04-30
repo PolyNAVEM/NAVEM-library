@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -281,44 +283,50 @@ class EnforcingBoundary:
             return phi_grad_mapped, g_grad_mapped
 
     def map_phi_and_g_second_derivatives(self, phi_sec_ders, g_sec_ders):
-        tf.print(
-            "\n Stai usando EnforcingBoundary.map_phi_and_g_second_derivatives() per calcolare la loss, questa funzione è stralenta, se proprio ti "
-            "serve usarla riscrivila come EnforcingBoundary.map_phi_and_g_grads() con np.einsum()\n")
-
         if self.jac_per_pol is None:
             phi_sec_ders = np.repeat(np.expand_dims(phi_sec_ders, axis=2), self.num_functions, axis=2)
             return phi_sec_ders, g_sec_ders
         else:
-            # g_sec_ders_mapped_full = np.einsum("pdav,pdbv,psvk->psvab", self.jac_per_pol, self.jac_per_pol, g_sec_ders)
-            # new_g_sec_ders = np.zeros(shape=g_sec_ders.shape)
-            # new_g_sec_ders[:, :, :, 0] = g_sec_ders_mapped_full[:, :, :, 0, 0]
-            # new_g_sec_ders[:, :, :, 1] = g_sec_ders_mapped_full[:, :, :, 0, 1]
-            # new_g_sec_ders[:, :, :, 2] = g_sec_ders_mapped_full[:, :, :, 1, 1]
-
             g_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
             phi_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
 
-            for p in range(g_sec_ders.shape[0]):
-                for v in range(g_sec_ders.shape[2]):
-                    for d1 in range(2):
-                        for d2 in range(2):
-                            g_sec_ders_mapped[p, :, v, 0] += self.jac_per_pol[p, d1, 0, v] * self.jac_per_pol[
-                                p, d2, 0, v] * g_sec_ders[p, :, v, d1 + d2]
-                            g_sec_ders_mapped[p, :, v, 1] += self.jac_per_pol[p, d1, 0, v] * self.jac_per_pol[
-                                p, d2, 1, v] * g_sec_ders[p, :, v, d1 + d2]
-                            g_sec_ders_mapped[p, :, v, 2] += self.jac_per_pol[p, d1, 1, v] * self.jac_per_pol[
-                                p, d2, 1, v] * g_sec_ders[p, :, v, d1 + d2]
+            for d1 in range(2):
+                for d2 in range(2):
+                    g_sec_ders_mapped[..., 0] += np.einsum("pv,pv,psv->psv",
+                                                           self.jac_per_pol[:, d1, 0, :],
+                                                           self.jac_per_pol[:, d2, 0, :],
+                                                           g_sec_ders[..., d1 + d2]
+                                                           )
 
-                            phi_sec_ders_mapped[p, :, v, 0] += self.jac_per_pol[p, d1, 0, v] * self.jac_per_pol[
-                                p, d2, 0, v] * phi_sec_ders[p, :, d1 + d2]
-                            phi_sec_ders_mapped[p, :, v, 1] += self.jac_per_pol[p, d1, 0, v] * self.jac_per_pol[
-                                p, d2, 1, v] * phi_sec_ders[p, :, d1 + d2]
-                            phi_sec_ders_mapped[p, :, v, 2] += self.jac_per_pol[p, d1, 1, v] * self.jac_per_pol[
-                                p, d2, 1, v] * phi_sec_ders[p, :, d1 + d2]
+                    g_sec_ders_mapped[..., 1] += np.einsum("pv,pv,psv->psv",
+                                                           self.jac_per_pol[:, d1, 0, :],
+                                                           self.jac_per_pol[:, d2, 1, :],
+                                                           g_sec_ders[..., d1 + d2]
+                                                           )
 
-            # print(g_sec_ders_mapped.shape, new_g_sec_ders.shape)
-            # print(np.sum(np.abs(g_sec_ders_mapped - new_g_sec_ders)))
-            # aa
+                    g_sec_ders_mapped[..., 2] += np.einsum("pv,pv,psv->psv",
+                                                           self.jac_per_pol[:, d1, 1, :],
+                                                           self.jac_per_pol[:, d2, 1, :],
+                                                           g_sec_ders[..., d1 + d2]
+                                                           )
+
+                    phi_sec_ders_mapped[..., 0] += np.einsum("pv,pv,ps->psv",
+                                                             self.jac_per_pol[:, d1, 0, :],
+                                                             self.jac_per_pol[:, d2, 0, :],
+                                                             phi_sec_ders[..., d1 + d2]
+                                                             )
+
+                    phi_sec_ders_mapped[..., 1] += np.einsum("pv,pv,ps->psv",
+                                                             self.jac_per_pol[:, d1, 0, :],
+                                                             self.jac_per_pol[:, d2, 1, :],
+                                                             phi_sec_ders[..., d1 + d2]
+                                                             )
+
+                    phi_sec_ders_mapped[..., 2] += np.einsum("pv,pv,ps->psv",
+                                                             self.jac_per_pol[:, d1, 1, :],
+                                                             self.jac_per_pol[:, d2, 1, :],
+                                                             phi_sec_ders[..., d1 + d2]
+                                                             )
             return phi_sec_ders_mapped, g_sec_ders_mapped
 
     def phi_and_g_and_grads_and_second_derivatives(self, inputs):
