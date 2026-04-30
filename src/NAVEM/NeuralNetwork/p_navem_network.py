@@ -65,6 +65,8 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         self.tf_one = tf.convert_to_tensor(1.0, dtype=tf.float64)
 
+        self.exact_one = 0
+
         self.x_verts = None
         self.y_verts = None
         self.jac_inverse_00 = None
@@ -150,7 +152,7 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
         xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
-        num_of_functions = self.flags["num_vertices"] - 1
+        num_of_functions = self.flags["num_vertices"] - self.exact_one
 
         phi_grad = None
         g_grad = None

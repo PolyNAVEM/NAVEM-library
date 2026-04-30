@@ -30,9 +30,9 @@ def main():
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
                         help='Number of nodes per hidden layers for the polynomial neural network')
 
-    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=2000, type=int,
+    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=500, type=int,
                         help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=500, type=int,
+    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=100, type=int,
 
                         help='Number of training epochs with second order optimizer')
     parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-2, type=float,

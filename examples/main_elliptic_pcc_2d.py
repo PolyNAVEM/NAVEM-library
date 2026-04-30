@@ -14,7 +14,7 @@ from src.NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss, comp
 
 def main():
 
-    parser =argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
     parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
                         help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
