@@ -1,4 +1,16 @@
 from typing import TypedDict, Dict
+from abc import ABC, abstractmethod
+import tensorflow as tf
+from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary
+from enum import Enum
+from pypolydim import gedim
+from numpy.typing import NDArray
+import numpy as np
+
+class SetupDerivatives(Enum):
+    basis = 0
+    basis_and_derivatives = 1
+    basis_and_derivatives_and_laplacian = 2
 
 class Flags(TypedDict):
     input_dim: int
@@ -111,3 +123,134 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
                     'distribution_points_type': int(raw["distribution_points_type"])}
 
     return flags
+
+class AbstractBPNAVEM(ABC):
+
+    n_pols: int
+    n_local_pts: int
+    n_funcs_per_pol: int
+    one_over_n_funcs: tf.Tensor
+
+    def __init__(self, flags: Flags, in_training: bool = False):
+
+        self.flags = flags
+        self.in_training = in_training
+
+        self.var_phi = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                   validate_shape=False, shape=(None, 1), dtype=tf.float64)
+        self.var_phi_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
+                                        validate_shape=False, shape=(None, 2), dtype=tf.float64)
+        self.var_phi_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                         validate_shape=False, shape=(None, 1), dtype=tf.float64)
+
+
+        self.var_g = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                 validate_shape=False, shape=(None, None), dtype=tf.float64)
+        self.var_g_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
+                                      validate_shape=False, shape=(None, 2), dtype=tf.float64)
+        self.var_g_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                       validate_shape=False, shape=(None, 1), dtype=tf.float64)
+
+        self.exact_one = 0
+
+    @abstractmethod
+    def get_u(self, x):
+        pass
+
+    @abstractmethod
+    def get_u_and_du(self, x):
+        pass
+
+    @abstractmethod
+    def get_u0_phi_g(self, x):
+        pass
+
+    @abstractmethod
+    def get_u0_phi_g_and_du0_d_phi_dg(self, x):
+        pass
+
+    @abstractmethod
+    def load_model(self, name_storage: str):
+        pass
+
+    @abstractmethod
+    def save_model(self):
+        pass
+
+    def setup_model_global_input(self,
+                                 xy_per_pol: NDArray[np.float64],
+                                 vertices: NDArray[np.float64],
+                                 jac_per_pol: NDArray[np.float64],
+                                 setup_n_derivatives: SetupDerivatives,
+                                 geometry_utilities: gedim.GeometryUtilities):
+
+        eb = EnforcingBoundary(geometry_utilities, method_order=self.flags["method_order"])
+        eb.prepare_using_vertices(vertices, jac_per_pol)
+
+        xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
+        num_of_functions = self.flags["num_vertices"] - self.exact_one
+
+        g = None
+        phi = None
+        phi_grad = None
+        g_grad = None
+        phi_sec_ders = None
+        g_sec_ders = None
+        match setup_n_derivatives:
+            case SetupDerivatives.basis:
+                phi, g = eb.phi_and_g(xy_per_pol)
+            case SetupDerivatives.basis_and_derivatives:
+                phi, g, phi_grad, g_grad = eb.phi_and_g_and_grads(xy_per_pol)
+                g_grad = g_grad[:, :, :num_of_functions, :]
+                phi_grad, g_grad = eb.map_phi_and_g_grads(phi_grad, g_grad)
+            case SetupDerivatives.basis_and_derivatives_and_laplacian:
+                phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = eb.phi_and_g_and_grads_and_second_derivatives(
+                    xy_per_pol)
+
+                # if not self.in_training:
+                #     phi_grad, g_grad = eb.map_phi_and_g_grads(phi_grad, g_grad)
+                #     phi_sec_ders, g_sec_ders = eb.map_phi_and_g_second_derivatives(phi_sec_ders, g_sec_ders)
+            case _:
+                raise ValueError("not valid setup_n_derivatives.")
+
+        g = g[:, :, :num_of_functions]
+
+        self.n_pols, self.n_local_pts, self.n_funcs_per_pol = g.shape
+        self.one_over_n_funcs = tf.convert_to_tensor(1.0 / (self.n_pols * self.n_funcs_per_pol), dtype=tf.float64)
+
+        phi = tf.tile(phi, [1, 1, self.n_funcs_per_pol])
+        phi = tf.transpose(phi, [0, 2, 1])
+        phi = tf.reshape(phi, [-1, 1])
+        self.var_phi.assign(phi)
+
+        g = tf.transpose(g, [0, 2, 1])
+        g = tf.reshape(g, [-1, 1])
+        self.var_g.assign(g)
+
+        match setup_n_derivatives:
+            case SetupDerivatives.basis_and_derivatives | SetupDerivatives.basis_and_derivatives_and_laplacian:
+                phi_grad = tf.transpose(phi_grad, [0, 2, 1, 3])
+                phi_grad = tf.reshape(phi_grad, [-1, 2])
+                g_grad = tf.transpose(g_grad, [0, 2, 1, 3])
+                g_grad = tf.reshape(g_grad, [-1, 2])
+
+                self.var_phi_grad.assign(phi_grad)
+                self.var_g_grad.assign(g_grad)
+            case SetupDerivatives.basis:
+                pass
+            case _:
+                raise ValueError("not valid setup_n_derivatives.")
+
+        match setup_n_derivatives:
+            case SetupDerivatives.basis_and_derivatives_and_laplacian:
+                phi_sec_ders = tf.transpose(phi_sec_ders, [0, 2, 1, 3])
+                phi_sec_ders = tf.reshape(phi_sec_ders, [-1, 3])
+                g_sec_ders = tf.transpose(g_sec_ders, [0, 2, 1, 3])
+                g_sec_ders = tf.reshape(g_sec_ders, [-1, 3])
+
+                self.var_phi_xx_yy.assign(phi_sec_ders[:, 0:1] + phi_sec_ders[:, 2:3])
+                self.var_g_xx_yy.assign(g_sec_ders[:, 0:1] + g_sec_ders[:, 2:3])
+            case SetupDerivatives.basis | SetupDerivatives.basis_and_derivatives:
+                pass
+            case _:
+                raise ValueError("not valid setup_n_derivatives.")

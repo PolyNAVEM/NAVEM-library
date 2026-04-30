@@ -5,6 +5,7 @@ import numpy as np
 from numpy.typing import NDArray
 from src.NAVEM.NeuralNetwork import h_navem_network, b_navem_network, p_navem_network
 from src.NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
+from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import SetupDerivatives
 from src.NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
 from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
@@ -201,6 +202,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
     return output_values
 
+
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
                                                         neural_network,
@@ -258,7 +260,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
 
-    neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, 1, geometry_utilities)
+    neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
     net_output = neural_network.get_u_and_du(inputs).numpy()
 
     u = net_output[:, 0]

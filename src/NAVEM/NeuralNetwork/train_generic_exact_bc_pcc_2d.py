@@ -57,9 +57,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     nn = None
     match method_type:
         case NAVEMType.P_NAVEM:
-            nn = PNAVEMNetwork(flags)
+            nn = PNAVEMNetwork(flags, in_training=True)
         case NAVEMType.B_NAVEM:
-            nn = BNAVEMNetwork(flags)
+            nn = BNAVEMNetwork(flags, in_training=True)
         case _:
             raise ValueError("not valid method")
 
@@ -122,21 +122,17 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     labels = 0 * inputs[:, 0:1]
 
     considered_loss = None
-    setup_n_derivatives = None
+    setup_n_derivatives = SetupDerivatives.basis
     match method_type:
         case NAVEMType.B_NAVEM:
-            setup_n_derivatives = 2
+            setup_n_derivatives = SetupDerivatives.basis_and_derivatives_and_laplacian
             considered_loss = nn.pinn_laplace_loss
         case NAVEMType.P_NAVEM:
             nn.store_terms_for_loss(xy_per_pol, vertices_per_pol, jac_inv_per_pol)
-            setup_n_derivatives = 1
-            nn.exact_one = 1
-
+            setup_n_derivatives = SetupDerivatives.basis_and_derivatives
             if copy_basis_in_train:
-                nn.call_for_training = nn.get_u_and_du
                 considered_loss = nn.internal_pol_and_grad_loss
             else:
-                nn.call_for_training = nn.get_du
                 considered_loss = nn.internal_grad_loss
         case _:
             raise ValueError("not valid navem type")

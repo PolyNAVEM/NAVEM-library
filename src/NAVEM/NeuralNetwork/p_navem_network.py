@@ -1,18 +1,15 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
-from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary
-from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags
-from src.NAVEM.NeuralNetwork.abstract_bp_navem import AbstractBPNAVEM
+from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags, AbstractBPNAVEM
 
 
 class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
-    def __init__(self, flags: Flags):
+    def __init__(self, flags: Flags, in_training: bool = False):
 
-        super(PNAVEMNetwork, self).__init__(name='p_navem_neural_network')
-
-        self.flags = flags
+        tf.keras.Model.__init__(self, name="p_navem_neural_network")
+        AbstractBPNAVEM.__init__(self, flags, in_training)
 
         self.reg_coefficient = self.flags['regularization_coefficient']
 
@@ -53,22 +50,13 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.training_quad_w = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                            validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
-        self.var_phi = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                   validate_shape=False, shape=(None, 1), dtype=tf.float64)
-        self.var_phi_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
-                                        validate_shape=False, shape=(None, 2), dtype=tf.float64)
-
-        self.var_g = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
-                                 validate_shape=False, shape=(None, None), dtype=tf.float64)
-        self.var_g_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 2), dtype=tf.float64)
 
         self.tf_one = tf.convert_to_tensor(1.0, dtype=tf.float64)
 
-        self.exact_one = 0
+        self.exact_one = int(self.in_training)
 
-        self.x_verts = None
-        self.y_verts = None
+        self.x_vertices = None
+        self.y_vertices = None
         self.jac_inverse_00 = None
         self.jac_inverse_01 = None
         self.jac_inverse_10 = None
@@ -92,7 +80,10 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
     # @tf.function
     def call(self, inputs):
-        return self.call_for_training(inputs)
+        if self.flags["copy_basis_in_train"]:
+            return self.get_u_and_du(inputs)
+        else:
+            return self.get_du(inputs)
 
     def get_u_and_du(self, inputs):
         with tf.GradientTape() as t:
@@ -133,13 +124,13 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         x_vertices = tf.expand_dims(vertices_per_pol[:, 0, :], 2)[:, :, :, None, None]
         y_vertices = tf.expand_dims(vertices_per_pol[:, 1, :], 2)[:, :, :, None, None]
 
-        x_N = x_vertices[:, -1:, :, :, :]
-        y_N = y_vertices[:, -1:, :, :, :]
+        x_n = x_vertices[:, -1:, :, :, :]
+        y_n = y_vertices[:, -1:, :, :, :]
 
-        self.target_x_vals = tf.expand_dims(xy_per_pol[:, :, 0], 1)[:, :, :, None, None] - x_N
-        self.target_y_vals = tf.expand_dims(xy_per_pol[:, :, 1], 1)[:, :, :, None, None] - y_N
-        self.x_lin_coefficients = x_vertices[:, :-1, :, :, :] - x_N
-        self.y_lin_coefficients = y_vertices[:, :-1, :, :, :] - y_N
+        self.target_x_vals = tf.expand_dims(xy_per_pol[:, :, 0], 1)[:, :, :, None, None] - x_n
+        self.target_y_vals = tf.expand_dims(xy_per_pol[:, :, 1], 1)[:, :, :, None, None] - y_n
+        self.x_lin_coefficients = x_vertices[:, :-1, :, :, :] - x_n
+        self.y_lin_coefficients = y_vertices[:, :-1, :, :, :] - y_n
 
         jac_inverse = tf.convert_to_tensor(jac_inv_per_pol, dtype=tf.float64)
         self.jac_inverse_00 = jac_inverse[:, 0, 0, :, None, None, None]
@@ -147,59 +138,21 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.jac_inverse_10 = jac_inverse[:, 1, 0, :, None, None, None]
         self.jac_inverse_11 = jac_inverse[:, 1, 1, :, None, None, None]
 
-    def setup_model_global_input(self, xy_per_pol, vertices, jac_per_pol, setup_n_derivatives, geometry_utilities):
-        eb = EnforcingBoundary(geometry_utilities, method_order=self.flags["method_order"])
-        eb.prepare_using_vertices(vertices, jac_per_pol)
-
-        xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
-        num_of_functions = self.flags["num_vertices"] - self.exact_one
-
-        phi_grad = None
-        g_grad = None
-        if setup_n_derivatives == 0:
-            phi, g = eb.phi_and_g(xy_per_pol)
-        elif setup_n_derivatives == 1:
-            phi, g, phi_grad, g_grad = eb.phi_and_g_and_grads(xy_per_pol)
-            g_grad = g_grad[:, :, :num_of_functions, :]
-            phi_grad, g_grad = eb.map_phi_and_g_grads(phi_grad, g_grad)
-        else:
-            raise ValueError("setup_n_derivatives must be 0 or 1.")
-        g = g[:, :, :num_of_functions]
-
-        self.n_pols, self.n_local_pts, self.n_funcs_per_pol = g.shape
-
-        phi = tf.tile(phi, [1, 1, self.n_funcs_per_pol])
-        phi = tf.transpose(phi, [0, 2, 1])
-        phi = tf.reshape(phi, [-1, 1])
-        g = tf.transpose(g, [0, 2, 1])
-        g = tf.reshape(g, [-1, 1])
-
-        self.var_phi.assign(phi)
-        self.var_g.assign(g)
-
-        if setup_n_derivatives == 1:
-            phi_grad = tf.transpose(phi_grad, [0, 2, 1, 3])
-            phi_grad = tf.reshape(phi_grad, [-1, 2])
-            g_grad = tf.transpose(g_grad, [0, 2, 1, 3])
-            g_grad = tf.reshape(g_grad, [-1, 2])
-
-            self.var_phi_grad.assign(phi_grad)
-            self.var_g_grad.assign(g_grad)
 
     # @tf.function
-    def internal_pol_loss(self, y_true, y_pred):
-        y_pred_reshaped = tf.reshape(y_pred, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 1])
-        return self.copy_pols(y_pred_reshaped)
+    def internal_pol_loss(self, _y_true, y_predicted):
+        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 1])
+        return self.copy_pols(y_predicted_reshaped)
 
-    def internal_pol_and_grad_loss(self, y_true, y_pred):
-        y_pred_reshaped = tf.reshape(y_pred, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 3])
-        pol_loss = self.copy_pols(y_pred_reshaped[:, :, :, :, :1])
-        grad_loss = self.copy_grads(y_pred_reshaped[:, :, :, :, 1:])
+    def internal_pol_and_grad_loss(self, _y_true, y_predicted):
+        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 3])
+        pol_loss = self.copy_pols(y_predicted_reshaped[:, :, :, :, :1])
+        grad_loss = self.copy_grads(y_predicted_reshaped[:, :, :, :, 1:])
         return pol_loss + grad_loss
 
-    def internal_grad_loss(self, y_true, y_pred):
-        y_pred_reshaped = tf.reshape(y_pred, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 2])
-        return self.copy_grads(y_pred_reshaped)
+    def internal_grad_loss(self, _y_true, y_predicted):
+        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 2])
+        return self.copy_grads(y_predicted_reshaped)
 
     def copy_pols(self, bases):
         comb_for_x = tf.reduce_sum(bases * self.x_lin_coefficients, axis=1, keepdims=True)
@@ -255,8 +208,8 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.var_g_grad.assign(zero_zero_2d)
         self.var_phi_grad.assign(zero_zero_2d)
 
-        self.x_verts = None
-        self.y_verts = None
+        self.x_vertices = None
+        self.y_vertices = None
         self.jac_inverse_00 = None
         self.jac_inverse_01 = None
         self.jac_inverse_10 = None
