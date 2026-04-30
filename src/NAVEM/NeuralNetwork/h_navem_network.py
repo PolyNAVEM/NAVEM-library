@@ -150,6 +150,8 @@ class BoundaryLoss:
         self.geometry_utilities = geometry_utilities
         self.method_order = method_order
 
+        assert method_order == 1
+
         lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
         quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)
         self.references_do_fs_on_edge = quadrature_data.points[0, :]
@@ -185,32 +187,14 @@ class BoundaryLoss:
         prev_v = v_id - 1 if v_id > 0 else self.num_vertices - 1
         for e in range(self.num_vertices):
             if e == v:  # edge e after vertex v
-                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = lagrange_values[:, 0]
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) *self. n_pts, v] = lagrange_derivatives_values[:, 0]
+                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 0]
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) *self. n_pts, 0] = lagrange_derivatives_values[:, 0]
             elif e == prev_v:
-                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = lagrange_values[:, 1]
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = lagrange_derivatives_values[:, 1]
+                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 1]
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 1]
             else:
-                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = zero_pol
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, v] = zero_pol
-
-        # do_fs on edges (evaluations)
-        e = 0  # edge with the support of the basis function
-        for e2 in range(self.num_vertices):  # generic edge of the polygon
-            for local_p in range(self.method_order - 1):  # number of internal polynomials
-                if e == e2:
-                    self.basis_evaluations[e2 * self.n_pts:(e2 + 1) * self.n_pts,
-                    self.num_vertices + e * (self.method_order - 1) + local_p] = \
-                        lagrange_values[:, local_p + 1]
-                    self.derivatives_evaluations[e2 * self.n_pts:(e2 + 1) * self.n_pts,
-                    self.num_vertices + e * (self.method_order - 1) + local_p] = \
-                        lagrange_derivatives_values[:, local_p + 1]
-                else:
-                    self.basis_evaluations[
-                    e2 * self.n_pts:(e2 + 1) * self.n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
-                    self.derivatives_evaluations[
-                    e2 * self.n_pts:(e2 + 1) * self.n_pts, self.num_vertices + e * (self.method_order - 1) + local_p] = zero_pol
-
+                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
 
     def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> Tuple[
         NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
@@ -229,7 +213,7 @@ class BoundaryLoss:
 
         nodes = nodes.T
         edge_lengths = np.sqrt(tangents[0, :] ** 2 + tangents[1, :] ** 2)
-        tangents /= edge_lengths  # normal normalization
+        tangents /= edge_lengths  # tangent normalization
         # values of polynomials for boundary dofs
         all_pols = np.squeeze(self.basis_evaluations.T.reshape(-1, 1))
         # values of derivatives for boundary dofs

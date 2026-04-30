@@ -119,7 +119,7 @@ def main():
     for mesh_type in mesh_types:
         mt = 0
         for method_type in method_types:
-            print("Begin of convergence test with method_type =", method_types_name[mt])
+            print('\x1b[6;30;41m' + "Begin of convergence test with method_type =", method_types_name[mt] + '\x1b[0m')
             dictionary_file = dictionary_files[mt]
             for order in method_orders:
                 export_path = dirpath_pcc_2d + "/Export_" + method_types_name[mt] + "_" + str(order) + "_" + str(

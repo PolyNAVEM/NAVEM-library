@@ -14,13 +14,12 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
                           reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
                           method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
+    assert reference_element_data.method_order == 1
+
     num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
 
-    monomials = polydim.utilities.Monomials_2D()
-    monomials_data = monomials.compute(reference_element_data.method_order)
-
-    test_l2_loss_cells = np.zeros([num_cell_2, monomials_data.num_monomials])
-    test_h1_loss_cells = np.zeros([num_cell_2, monomials_data.num_monomials])
+    test_l2_loss_cells = np.zeros([num_cell_2])
+    test_h1_loss_cells = np.zeros([num_cell_2])
 
     quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
     reference_quadrature = gedim.quadrature.Quadrature_Gauss1D()
@@ -34,7 +33,7 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
         quadrature_data = quadrature.polygon_edges_quadrature(reference_quadrature_data,
                                                               vertices,
                                                               mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[c],
-                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_directions[c],
+                                                              [True, True, True, True],
                                                               mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[c],
                                                               mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_normals[c])
 
@@ -56,9 +55,6 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
     boundary_loss = BoundaryLoss(geometry_utilities, method_order=reference_element_data.method_order)
     for c in range(num_cell_2):
 
-        polygon_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
-        boundary_loss.initialize_basis_evaluations_on_boundary(reference_quadrature_data.points[0, :], polygon_vertices.shape[1])
-
         local_space_data.create_local_space(geometry_utilities.tolerance1_d(),
                                             geometry_utilities.tolerance2_d(),
                                             mesh_geometric_data,
@@ -76,18 +72,34 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                  evaluation_points[c],
                                                                  evaluation_navem_input_output)
 
-        _, labels, _, labels_derivatives = boundary_loss.add_polygon(polygon_vertices)
+        polygon_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
+        edge_tangents = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[c]
+        edge_lengths = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[c]
+        num_vertices = polygon_vertices.shape[1]
 
-        a = 3
+        labels = np.zeros([evaluation_points[c].shape[1], num_vertices])
+        labels_tangent_derivatives = np.zeros([evaluation_points[c].shape[1], num_vertices])
+        basis_tangent_derivatives = np.zeros([evaluation_points[c].shape[1], num_vertices])
+        for i in range(num_vertices):
+            boundary_loss.initialize_basis_evaluations_on_boundary(reference_quadrature_data.points[0, :],
+                                                                   num_vertices, v_id=i)
+            _, labels[:, i], _, labels_tangent_derivatives[:, i] = boundary_loss.add_polygon(polygon_vertices)
 
-        # test_l2_loss_cells[c, :] = (evaluation_weights[c] @
-        #                              (basis_functions_values @ monomials_do_fs - monomials_values) ** 2)
-        # test_h1_loss_cells[c, :] = (evaluation_weights[c] @
-        #                              ((basis_functions_derivatives_values[0] @ monomials_do_fs - monomials_derivatives_values[0]) ** 2
-        #                              + (basis_functions_derivatives_values[1] @ monomials_do_fs - monomials_derivatives_values[1]) ** 2))
+            num_points_on_each_edge = reference_quadrature_data.points.shape[1]
+            for e in range(num_vertices):
+                basis_tangent_derivatives[e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] \
+                    = (basis_functions_derivatives_values[0][e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * edge_tangents[0, e]
+                       + basis_functions_derivatives_values[1][e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * edge_tangents[1, e]) / edge_lengths[e]
 
-    test_l2_loss = np.sqrt(np.sum(test_l2_loss_cells, axis = 0))
-    test_h1_loss = np.sqrt(np.sum(test_h1_loss_cells, axis=0))
+
+        test_l2_loss_cells[c] = np.sum((evaluation_weights[c] @
+                                        (basis_functions_values - labels) ** 2),axis=0)
+
+        test_h1_loss_cells[c] = np.sum((evaluation_weights[c] @
+                                        (basis_tangent_derivatives - labels_tangent_derivatives) ** 2),axis=0)
+
+    test_l2_loss = np.sqrt(np.sum(test_l2_loss_cells))
+    test_h1_loss = np.sqrt(np.sum(test_h1_loss_cells))
 
     print(test_l2_loss, test_h1_loss)
 
