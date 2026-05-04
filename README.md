@@ -9,6 +9,5 @@ If you use this software in your work, please cite it according to the reference
 ## HOW TO USE
 
 ```bash
-pip install -r requirements.txt
 pip install -e .
 ```
