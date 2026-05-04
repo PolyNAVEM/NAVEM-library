@@ -5,3 +5,10 @@ NAVEM-library is a numerical computing library for the solution of partial diffe
 The library is built on top of the PolyDiM framework. For further details, please refer to its official documentation available at: https://polydim.it/
 
 If you use this software in your work, please cite it according to the references provided in the CITATION.cff file.
+
+## HOW TO USE
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
