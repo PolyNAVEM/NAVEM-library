@@ -1,6 +1,6 @@
-from src.NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials, change_basis_matrix
-from src.NAVEM.Utilities.LaplaceSolver import hanging_function
-from src.NAVEM.Utilities.FunctionUtilities import *
+from NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials, change_basis_matrix
+from NAVEM.Utilities.LaplaceSolver import hanging_function
+from NAVEM.Utilities.FunctionUtilities import *
 
 
 class NAVEMGenerators:

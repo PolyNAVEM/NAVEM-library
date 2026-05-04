@@ -290,12 +290,12 @@ def minimize(value_and_gradients_function,
           tolerance, f_relative_tolerance, x_tolerance, stopping_condition,
           max_line_search_iterations, f_absolute_tolerance)
 
-	  # compute and apply rescaling
+      # compute and apply rescaling
       alpha_k = (next_state.position[0] - current_state.position[0])/actual_search_direction[0]
-      Bk_times_sk = -alpha_k * current_state.objective_gradient
+      bmatrix_k_times_sk = -alpha_k * current_state.objective_gradient
 
       # Update the inverse Hessian if needed and continue.
-      return [_update_inv_hessian(current_state, next_state, Bk_times_sk)]
+      return [_update_inv_hessian(current_state, next_state, bmatrix_k_times_sk)]
 
     kwargs = bfgs_utils.get_initial_state_args(
         value_and_gradients_function,

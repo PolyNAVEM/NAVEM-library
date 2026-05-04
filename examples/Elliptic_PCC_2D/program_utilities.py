@@ -1,5 +1,5 @@
-from examples.Elliptic_PCC_2D.test_definition import EllipticPolynomialProblem
-from examples.Elliptic_PCC_2D.assembler import *
+from Elliptic_PCC_2D.test_definition import EllipticPolynomialProblem
+from Elliptic_PCC_2D.assembler import *
 import os
 
 def create_test(test_id: int) -> ITest:

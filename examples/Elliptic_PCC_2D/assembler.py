@@ -1,11 +1,11 @@
 import numpy as np
 from pypolydim import polydim, gedim
-from examples.Elliptic_PCC_2D.test_definition import ITest
+from Elliptic_PCC_2D.test_definition import ITest
 import scipy.sparse.linalg as sla
 from pypolydim.assembler_utilities import assembler_utilities
 from scipy.sparse import coo_array
-from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
-from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.PCC_2D import LocalSpace_PCC_2D
+from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 
 
 class EllipticPCC2DProblemData:

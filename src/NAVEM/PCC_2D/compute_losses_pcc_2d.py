@@ -1,8 +1,8 @@
 import numpy as np
-from src.NAVEM.NeuralNetwork.h_navem_network import BoundaryLoss
-from src.NAVEM.PCC_2D import NAVEM_PCC_2D, LocalSpace_PCC_2D
+from NAVEM.NeuralNetwork.h_navem_network import BoundaryLoss
+from NAVEM.PCC_2D import NAVEM_PCC_2D, LocalSpace_PCC_2D
 from pypolydim import gedim, polydim
-from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 from typing import Dict, Tuple
 from numpy.typing import NDArray
 
@@ -46,11 +46,13 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
                                                                                    reference_element_data.navem_categories,
-                                                                                   evaluation_points)
+                                                                                   evaluation_points,
+                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMElementType.standard)
         case _:
             pass
 
     boundary_loss = BoundaryLoss(geometry_utilities, method_order=reference_element_data.method_order)
+    denominator = 0
     for c in range(num_cell_2):
 
         local_space_data.create_local_space(geometry_utilities.tolerance1_d(),
@@ -96,15 +98,17 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
         test_h1_loss_cells[c] = np.sum((evaluation_weights[c] @
                                         (basis_tangent_derivatives - labels_tangent_derivatives) ** 2),axis=0)
 
-    test_l2_loss = np.sqrt(np.sum(test_l2_loss_cells))
-    test_h1_loss = np.sqrt(np.sum(test_h1_loss_cells))
+        denominator += basis_functions_values.shape[1]
+
+    test_l2_loss = np.sqrt(np.sum(test_l2_loss_cells) / denominator)
+    test_h1_loss = np.sqrt(np.sum(test_h1_loss_cells) / denominator)
 
     return test_l2_loss, test_h1_loss, test_l2_loss_cells, test_h1_loss_cells
 
 def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
                             mesh_geometric_data: MeshGeometricData2D,
                             reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
-                            method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[float, float, NDArray[np.float64], NDArray[np.float64]]:
+                            method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
     num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
 
@@ -136,7 +140,8 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
                                                                                    reference_element_data.navem_categories,
-                                                                                   evaluation_points)
+                                                                                   evaluation_points,
+                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMElementType.standard)
         case _:
             pass
 
@@ -181,6 +186,12 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
                            reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
                            method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[float, NDArray[np.float64]]:
 
+
+    """
+    To preserve powers of the mesh-size w.r.t. training loss,
+    this loss should be computed over the rotated inertia polygon
+    """
+
     num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
     test_laplacian_loss_cells = np.zeros([num_cell_2])
 
@@ -190,6 +201,7 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
     evaluation_points: Dict[int, NDArray[np.float64]] = {}
     evaluation_weights: Dict[int, NDArray[np.float64]] = {}
     for c in range(num_cell_2):
+
         internal_quadrature = quadrature.polygon_internal_quadrature(reference_quadrature_data,
                                                                      mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[
                                                                          c])
@@ -207,9 +219,13 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                                    mesh_geometric_data,
                                                                                    reference_element_data.navem_categories,
                                                                                    evaluation_points,
-                                                                                   predict_laplacian=True)
+                                                                                   evaluation_weights,
+                                                                                   predict_laplacian=True,
+                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMElementType.rotated_inertia)
         case _:
-            pass
+            raise ValueError("not valid method type")
+
+    denominator = 0
 
     for c in range(num_cell_2):
         local_space_data.create_local_space(geometry_utilities.tolerance1_d(),
@@ -224,11 +240,12 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                 evaluation_points[c],
                                                                 evaluation_navem_input_output)
 
+        test_laplacian_loss_cells[c] = 0.0
+        for i in range(basis_functions_laplacian_values.shape[1]):
+            test_laplacian_loss_cells[c] += np.sum(evaluation_navem_input_output[c].internal_quadrature_per_do_fs[i].weights * (basis_functions_laplacian_values[:, i] ** 2))
 
-        test_laplacian_loss_cells[c] = np.sum((evaluation_weights[c] @
-                                        basis_functions_laplacian_values ** 2),axis=0)
+        denominator += basis_functions_laplacian_values.shape[1]
 
-    test_laplacian_loss = np.sqrt(np.sum(test_laplacian_loss_cells))
-
+    test_laplacian_loss = np.sqrt(np.sum(test_laplacian_loss_cells) / denominator)
 
     return test_laplacian_loss, test_laplacian_loss_cells

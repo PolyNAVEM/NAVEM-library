@@ -2,10 +2,10 @@ from enum import Enum
 from pypolydim import gedim
 from typing import Dict, List
 from pypolydim import polydim
-from src.NAVEM.PCC_2D import NAVEM_PCC_2D
+from NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray
 import numpy as np
-from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 
 
 class MethodTypes(Enum):

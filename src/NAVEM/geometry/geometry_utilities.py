@@ -3,7 +3,7 @@ import math
 from typing import List, Tuple
 from pypolydim import gedim, polydim
 from numpy.typing import NDArray
-from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
+from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 
 class MeshGeometricData2D:
 

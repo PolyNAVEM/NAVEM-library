@@ -1,21 +1,20 @@
 import unittest
-import numpy as np
-from pypolydim import gedim
-from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
-from src.GeDiM.geometry.geometry_utilities import *
+from NAVEM.geometry.geometry_utilities import *
+import matplotlib.pyplot as plt
+from matplotlib import use
+import importlib
 
 try:
-    import matplotlib.pyplot as plt
-    from matplotlib import use
-    import importlib
     use("Qt5Agg")
     importlib.reload(plt)
 except ImportError:
     neglectingGraphicPackages = True
 
+plot_mapped = True
+
 def plot_mapped_polygon(vertex_points: List[NDArray[np.float64]], inertia_vertex_points: List[NDArray[np.float64]], mapped_vertex_points: List[NDArray[np.float64]]) -> None:
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))  # 1 riga, 3 colonne
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))  # 1 row, 3 columns
 
     ax = axes[0]
     i = 1
@@ -220,5 +219,4 @@ class TestPolygonUtilities(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    plot_mapped = True
     unittest.main()

@@ -2,17 +2,20 @@ import numpy as np
 import tensorflow as tf
 import os
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
-from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
-from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+from NAVEM.PCC_2D import LocalSpace_PCC_2D
+from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 import argparse
 from pypolydim import gedim, polydim
 from Elliptic_PCC_2D.program_utilities import create_mesh
-from src.NAVEM.PCC_2D import NAVEM_PCC_2D
+from NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray
 from typing import Dict
+from pathlib import Path
 
 
 def main():
+
+    program_folder = str(Path(__file__).resolve().parent)
 
     # Reading from command line all required information
     parser =argparse.ArgumentParser()
@@ -23,9 +26,9 @@ def main():
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
-    parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
+    parser.add_argument('-export', '--export-path', dest='export_path', default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/B-NAVEM/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default=program_folder + '/../TrainedModels/B-NAVEM', type=str, help="Dictionary file")
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "navem-library"
+version = "0.1.0"
+description = "Numerical library for PDEs based on the Neural Approximated Virtual Element Method (NAVEM)"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Gioana Teora", email = "gioana.teora@polito.it" },
+    { name = "Moreno Pintore", email = "moreno.pintore@sorbonne-universite.fr" }
+]
+maintainers = [
+    { name = "Gioana Teora", email = "gioana.teora@polito.it" }
+]
+license = { text = "GPL" }
+
+keywords = ["vem", "fem", "mesh", "navem", "neural network"]
+
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://www.polydim.it/"
+Repository = "https://github.com/PolyNAVEM/NAVEM-library"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

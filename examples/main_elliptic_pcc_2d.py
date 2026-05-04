@@ -1,18 +1,21 @@
 import argparse
 import os.path
-
-from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+from pathlib import Path
+from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 from Elliptic_PCC_2D.program_utilities import create_test, create_mesh, export_errors
 from Elliptic_PCC_2D.assembler import *
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
 from pypolydim.assembler_utilities import assembler_utilities
 import cProfile
 import tensorflow as tf
-from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
-from src.NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss, compute_boundary_loss, compute_laplacian_loss
+from NAVEM.PCC_2D import LocalSpace_PCC_2D
+from NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss, compute_boundary_loss, compute_laplacian_loss
+
 
 
 def main():
+
+    program_folder = str(Path(__file__).resolve().parent)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
@@ -25,12 +28,16 @@ def main():
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
-    parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
+    parser.add_argument('-export', '--export-path', dest='export_path', default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/B-NAVEM/dictionary.txt', type=str, help="Dictionary file")
-    parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss', default=True, type=bool, help="Evaluate polynomial loss")
-    parser.add_argument('-ebl', '--evaluate-boundary-loss', dest='evaluate_boundary_loss', default=True, type=bool, help="Evaluate boundary loss")
-    parser.add_argument('-ell', '--evaluate-laplacian-loss', dest='evaluate_laplacian_loss', default=True, type=bool, help="Evaluate laplacian loss")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file',
+                        default=program_folder+'/../TrainedModels/H-NAVEM', type=str, help="Dictionary file")
+    parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss',
+                        default=False, type=bool, help="Evaluate polynomial loss", action=argparse.BooleanOptionalAction)
+    parser.add_argument('-ebl', '--evaluate-boundary-loss', dest='evaluate_boundary_loss',
+                        default=False, type=bool, help="Evaluate boundary loss", action=argparse.BooleanOptionalAction)
+    parser.add_argument('-ell', '--evaluate-laplacian-loss', dest='evaluate_laplacian_loss',
+                        default=False, type=bool, help="Evaluate laplacian loss", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')
@@ -88,7 +95,7 @@ def main():
     count_do_fs_data = assembler_utilities_obj.count_do_fs([do_fs_data])
     do_fs_data_indices = dof_manager.compute_cells_do_fs_indices(do_fs_data, 2)
 
-    print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ", do_fs_data.number_strongs, " STRONGs" + '\x1b[0m')
+    print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ", do_fs_data.number_strongs, " STRONG" + '\x1b[0m')
     print("Assemble...")
     local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     assembler_data = assemble(geometry_utilities_config,
@@ -133,7 +140,8 @@ def main():
                                       reference_element_data,
                                       method_type)
 
-        print(test_l2_loss, test_h1_loss)
+        print("{:<10} {:<10}".format('l2 loss', 'h1 loss'))
+        print("{:<10.2e} {:<10.2e}".format(np.mean(test_l2_loss[1:]), np.mean(test_h1_loss[1:])))
 
     if args.evaluate_boundary_loss:
         print("Compute boundary loss...")
@@ -144,6 +152,8 @@ def main():
                                     method_type)
 
         print(test_l2_loss, test_h1_loss)
+        print("{:<10} {:<10}".format( 'l2 loss', 'h1 loss'))
+        print("{:<10.2e} {:<10.2e}".format(test_l2_loss, test_h1_loss))
 
     if args.evaluate_laplacian_loss:
         print("Compute laplacian loss...")
@@ -153,7 +163,8 @@ def main():
                                     reference_element_data,
                                     method_type)
 
-        print(test_laplacian_loss)
+        print("{:<10}".format( 'laplacian loss'))
+        print("{:<10.2e}".format(test_laplacian_loss))
 
     print('\x1b[6;30;42m' + "Finish" + '\x1b[0m')
 

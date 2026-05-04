@@ -1,6 +1,6 @@
 import unittest
-from src.NAVEM.Utilities.points_generator import *
-from src.GeDiM.geometry.geometry_utilities import *
+from NAVEM.Utilities.points_generator import *
+from NAVEM.geometry.geometry_utilities import *
 
 
 try:

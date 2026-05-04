@@ -1,11 +1,8 @@
-import numpy as np
-from pypolydim import gedim
-from src.NAVEM.Utilities.points_generator import *
+from NAVEM.Utilities.points_generator import *
 from abc import ABC, abstractmethod
-from typing import Tuple, Callable, List
-from numpy.typing import NDArray
+from typing import Callable
 import matplotlib.pyplot as plt
-from src.GeDiM.geometry.geometry_utilities import *
+from NAVEM.geometry.geometry_utilities import *
 
 class Function(ABC):
 

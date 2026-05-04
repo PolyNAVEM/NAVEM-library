@@ -1,14 +1,14 @@
 import importlib
 
 from scipy.sparse import diags
-from src.NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials
-from src.NAVEM.Utilities.RationalFunction import RationalFunction
-from src.GeDiM.geometry.geometry_utilities import *
-from src.NAVEM.Utilities.FunctionUtilities import Function
+from NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials
+from NAVEM.Utilities.RationalFunction import RationalFunction
+from NAVEM.geometry.geometry_utilities import *
+from NAVEM.Utilities.FunctionUtilities import Function
 import matplotlib.pyplot as plt
 from matplotlib import use
 from typing import Tuple, Callable
-from src.NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
+from NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
 
 use("Qt5Agg")
 importlib.reload(plt)

@@ -1,12 +1,13 @@
-from src.NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
-from src.GeDiM.geometry.geometry_utilities import MeshGeometricData2D
-from src.NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
-from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
-from src.NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
-from src.NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
-from src.NAVEM.NeuralNetwork.training_utilities import *
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
+from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
+from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
+from NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
+from NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
+from NAVEM.NeuralNetwork.training_utilities import *
 import csv
-from src.NAVEM.Utilities.points_generator import *
+from NAVEM.Utilities.points_generator import *
+from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
 
 def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    method_type: NAVEMType,
@@ -27,7 +28,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    export_training_data_file_path: str,
                                                    export_training_info: bool = False,
                                                    copy_basis_in_train: bool = False,
-                                                   use_sqrt_in_train: bool = False):
+                                                   use_sqrt_in_train: bool = False,
+                                                   boundary_method_type: BoundaryMethodType = BoundaryMethodType.segment,
+                                                   bubble_type: BubbleType = BubbleType.approximate_distance_function,):
 
     assert method_order == 1
 
@@ -51,7 +54,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                              export_training_data_file_path,
                              copy_basis_in_train,
                              quadrature_order,
-                             distribution_points_type)
+                             distribution_points_type,
+                             boundary_method_type.value,
+                             bubble_type.value)
 
     write_flags_on_dictionary(flags)
     nn = None

@@ -1,1 +1,1 @@
-4 = ./TrainedModels/H-NAVEM/quad
+4 = ./square

@@ -1,37 +1,52 @@
 import cProfile
 import os.path
+from pathlib import Path
 import argparse
 from pypolydim import gedim, polydim
-from src.NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
-from src.NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
-from src.NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
-from src.GeDiM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+from NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
+from NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
+from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+
+import os
+
+from NAVEM.Utilities.enforcing_boundary_functions import BoundaryMethodType, BubbleType
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
 import tensorflow as tf
 
 
 def main():
 
+    program_folder = str(Path(__file__).resolve().parent)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type',dest='method_type', default=3, type=int, help="Method type")
-    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4, type=int, help="Mesh generator type: 4 - CSV importer")
-    parser.add_argument('-import', '--import-path', dest='import_path', default='./TrainingDataset/TrainingReferenceSquare', type=str, help="Mesh Import Path")
+    parser.add_argument('-method', '--method-type',dest='method_type', default=2, type=int, help="Method type")
+    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
+                    type=int, help="Mesh generator type: 4 - CSV importer")
+    parser.add_argument('-import', '--import-path', dest='import_path',
+                        default=program_folder + '/../TrainingDataset/TrainingReferenceSquare', type=str, help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygon(s)')
-    parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
-    parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
+    parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12,
+                        type=float, help="Geometric Tolerance 1D")
+    parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14,
+                        type=float, help="Geometric Tolerance 2D")
 
     # Network
     parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
-                        default='./Export/test', help='Storage path of the neural network')
+                        default= program_folder + '/../Export/test', help='Storage path of the neural network')
     parser.add_argument('-nhl', '--num-hidden-layers', dest='num_hidden_layers', default=3, type=int,
                         help='Number of hidden layers for the polynomial neural network')
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
                         help='Number of nodes per hidden layers for the polynomial neural network')
 
-    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=2000, type=int,
+    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=100, type=int,
                         help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=1000, type=int,
+    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=50, type=int,
 
                         help='Number of training epochs with second order optimizer')
     parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-2, type=float,
@@ -62,6 +77,10 @@ def main():
                         help='Type of points: uniform (2), gauss (1) or accumulated (3)')
     parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False, type=bool,
                         help='Flag to specify if distance from basis functions should be added to the loss')
+    parser.add_argument('-bt', '--bubble-type', dest='bubble_type', type=int, default=1,
+                        help='Type of points: approximate_distance_function (1), product (2)')
+    parser.add_argument('-bmt', '--boundary-method-type', dest='boundary_method_type', default=2, type=int,
+                        help='Boundary method type: line (1), segment (2)')
 
 
     args = parser.parse_args()
@@ -138,7 +157,9 @@ def main():
                                                            args.export_training_data_file_path,
                                                            args.export_training_info,
                                                            args.copy_basis_in_train,
-                                                           args.use_sqrt_in_train)
+                                                           args.use_sqrt_in_train,
+                                                           BoundaryMethodType(args.boundary_method_type),
+                                                           BubbleType(args.bubble_type))
         case _:
             raise ValueError("not valid method")
 

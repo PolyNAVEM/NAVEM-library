@@ -1,11 +1,15 @@
 import numpy as np
 from numpy.typing import NDArray
-import tensorflow as tf
 from typing import List, TypedDict, Tuple, Dict
-from tensorflow.keras.layers import Dense
 from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.points_generator import map_pts_from_1d_to_2d
+from NAVEM.Utilities.points_generator import map_pts_from_1d_to_2d
 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
+import tensorflow as tf
+from tensorflow.keras.layers import Dense
 
 class Flags(TypedDict):
     input_dim: int
@@ -214,9 +218,9 @@ class BoundaryLoss:
         nodes = nodes.T
         edge_lengths = np.sqrt(tangents[0, :] ** 2 + tangents[1, :] ** 2)
         tangents /= edge_lengths  # tangent normalization
-        # values of polynomials for boundary dofs
+        # values of polynomials for boundary do_fs
         all_pols = np.squeeze(self.basis_evaluations.T.reshape(-1, 1))
-        # values of derivatives for boundary dofs
+        # values of derivatives for boundary do_fs
         all_derivatives = np.squeeze(self.derivatives_evaluations.T.reshape(-1, 1)) / edge_lengths
 
         if add_coordinates:
@@ -291,14 +295,14 @@ class HNAVEMNeuralNetwork(tf.keras.Model):
             x = layer(x) + x
         return self.layers_list[-1](x)
 
-    def copy_value_and_grad(self, y_true, y_pred):
-        value_cost = self.copy_value(y_true, y_pred)
-        deriv_cost = self.copy_grad(y_true, y_pred)
+    def copy_value_and_grad(self, y_true, y_predicted):
+        value_cost = self.copy_value(y_true, y_predicted)
+        deriv_cost = self.copy_grad(y_true, y_predicted)
 
         return value_cost + tf.square(deriv_cost)
 
-    def copy_value(self, y_true, y_pred):
-        u = self.apply_vandermonde(y_pred, self.train_vander)
+    def copy_value(self, y_true, y_predicted):
+        u = self.apply_vandermonde(y_predicted, self.train_vander)
         value_cost = tf.reduce_mean(tf.square(u - tf.squeeze(y_true)))
         self.curr_distance_l2.assign(value_cost)
 
@@ -307,9 +311,9 @@ class HNAVEMNeuralNetwork(tf.keras.Model):
         else:
             return value_cost
 
-    def copy_grad(self, y_true, y_pred):
-        ux = self.apply_vandermonde(y_pred, self.train_vander_dx)
-        uy = self.apply_vandermonde(y_pred, self.train_vander_dy)
+    def copy_grad(self, _y_true, y_predicted):
+        ux = self.apply_vandermonde(y_predicted, self.train_vander_dx)
+        uy = self.apply_vandermonde(y_predicted, self.train_vander_dy)
         tangent_derivative = ux * self.tangent_x + uy * self.tangent_y
         deriv_cost = tf.reduce_mean(tf.square(tangent_derivative - self.deriv_labels) * self.vertex_filter)
         self.curr_distance_h1.assign(deriv_cost)
@@ -354,7 +358,7 @@ class HNAVEMNetworksContainer:
         self.nn_basis_function.tangent_x.assign(zero_2d)
         self.nn_basis_function.tangent_y.assign(zero_2d)
         self.nn_basis_function.deriv_labels.assign(zero_2d)
-        self.nn_basis_function.vertex_filter.assign(zero_2d + 1)
+        self.nn_basis_function.vertex_filter.assign(zero_2d)
         self.nn_basis_function.train_vander.assign(zero_3d)
         self.nn_basis_function.train_vander_dx.assign(zero_3d)
         self.nn_basis_function.train_vander_dy.assign(zero_3d)
@@ -364,7 +368,7 @@ class HNAVEMNetworksContainer:
         self.nn_basis_derivatives.tangent_x.assign(zero_2d)
         self.nn_basis_derivatives.tangent_y.assign(zero_2d)
         self.nn_basis_derivatives.deriv_labels.assign(zero_2d)
-        self.nn_basis_derivatives.vertex_filter.assign(zero_2d + 1)
+        self.nn_basis_derivatives.vertex_filter.assign(zero_2d)
         self.nn_basis_derivatives.train_vander.assign(zero_3d)
         self.nn_basis_derivatives.train_vander_dx.assign(zero_3d)
         self.nn_basis_derivatives.train_vander_dy.assign(zero_3d)

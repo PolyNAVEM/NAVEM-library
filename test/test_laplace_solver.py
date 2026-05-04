@@ -1,8 +1,10 @@
 import unittest
 
-from src.NAVEM.Utilities.LaplaceSolver import LaplaceSolver, LaplaceProblem
-from src.NAVEM.Utilities.FunctionUtilities import *
-from src.GeDiM.geometry.geometry_utilities import *
+from NAVEM.Utilities.LaplaceSolver import LaplaceSolver, LaplaceProblem
+from NAVEM.Utilities.FunctionUtilities import *
+from NAVEM.geometry.geometry_utilities import *
+
+plot_function = True
 
 class TestLaplaceSolver(unittest.TestCase):
 
@@ -276,6 +278,5 @@ class TestLaplaceSolver(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    plot_function = True
     unittest.main()
 

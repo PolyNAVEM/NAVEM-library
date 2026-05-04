@@ -1,48 +1,48 @@
-import time
-
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
-import tensorflow as tf
-import matplotlib.path as mpltPath
-import os
-from pypolydim import gedim, polydim
-from src.NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
+import matplotlib.path as plt_path
+from pypolydim import gedim
+from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
 from enum import Enum
 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
+import tensorflow as tf
 
 class BoundaryMethodType(Enum):
     line = 1
     segment = 2
-
 
 class BubbleType(Enum):
     approximate_distance_function = 1
     product = 2
 
 
-def lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarray) -> tf.Tensor:
+def lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float64]) -> tf.Tensor:
     p = tf.convert_to_tensor(1.0, dtype=tf.float64)
-    for i, xi in enumerate(verts):
+    for i, xi in enumerate(vertices):
         if i != basis_index:
-            p *= (x - verts[i]) / (verts[basis_index] - verts[i])  # Lagrange representation
+            p *= (x - vertices[i]) / (vertices[basis_index] - vertices[i])  # Lagrange representation
     return p
 
 
 def filter_window_f(x: tf.Tensor) -> tf.Tensor:
-    return tf.where(x > 0, tf.exp(-1 / x), 0)
+    return tf.where(x > tf.constant(0.0, dtype=x.dtype), tf.exp(tf.constant(-1.0, dtype=x.dtype) / x), tf.constant(0.0, dtype=x.dtype))
 
 
 def filter_window(x: tf.Tensor, margin: float) -> tf.Tensor:
-    z_left = (x + margin) / margin
+    z_left = (x + tf.constant(margin, dtype=x.dtype)) / tf.constant(margin, dtype=x.dtype)
     one_side_window_left = filter_window_f(z_left) / (filter_window_f(z_left) + filter_window_f(1 - z_left))
-    z_right = (1 + margin - x) / margin
+    z_right = (tf.constant(1.0 + margin, dtype=x.dtype) - x) / tf.constant(margin, dtype=x.dtype)
     one_side_window_right = filter_window_f(z_right) / (filter_window_f(z_right) + filter_window_f(1 - z_right))
     return 0.5 * (one_side_window_left + one_side_window_right)
 
 
-def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarray, margin: float) -> tf.Tensor:
-    lagrange_basis = lagrange_basis_1d(basis_index, x, verts)
+def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float64], margin: float) -> tf.Tensor:
+    lagrange_basis = lagrange_basis_1d(basis_index, x, vertices)
     window = filter_window(x, margin)
     return lagrange_basis * window
 
@@ -50,39 +50,21 @@ def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarra
 class EnforcingBoundary:
     def __init__(self, geometry_utilities: gedim.GeometryUtilities,
                  method_order: int,
+                 vertices: NDArray[np.float64],
+                 jac_per_pol: NDArray[np.float64],
                  method_type: BoundaryMethodType = BoundaryMethodType.segment,
                  bubble_type: BubbleType = BubbleType.approximate_distance_function):
+
         self.geometry_utilities = geometry_utilities
         self.method_order = method_order
         self.method_type = method_type
         self.bubble_type = bubble_type
 
-        self.vertices = None
-        self.function_type = None
-        self.segments = None
-        self.num_verts = None
-        self.num_functions = None
-        self.lengths = None
-        self.tangents = None
-        self.normals = None
-        self.lengths = None
-        self.mid_points = None
-        self.jac_per_pol = None
-        self.next_verts = None
-        self.proj_normal = None
-        self.proj_d = None
-        self.select_b_type = None
-
-    def prepare_using_vertices(self, vertices: NDArray[np.float64],
-                               jac_per_pol: NDArray[np.float64] = None,
-                               function_type: str = "line"):
-
         self.vertices = np.transpose(vertices, axes=[0, 2, 1])
         next_vertices = np.roll(self.vertices, shift=-1, axis=1)
-        self.function_type = function_type
         self.segments = np.concatenate([self.vertices, next_vertices], axis=2)
-        self.num_verts = vertices.shape[2]
-        self.num_functions = self.num_verts * self.method_order
+        self.num_vertices = vertices.shape[2]
+        self.num_functions = self.num_vertices * self.method_order
 
         # compute tangent and normal for each edge
         self.lengths = np.linalg.norm(next_vertices - self.vertices, axis=2)
@@ -108,7 +90,7 @@ class EnforcingBoundary:
         # conversion to tensors
         self.jac_per_pol = jac_per_pol
         self.vertices = tf.convert_to_tensor(self.vertices, dtype=tf.float64)
-        self.next_verts = tf.convert_to_tensor(next_vertices, dtype=tf.float64)
+        self.next_vertices = tf.convert_to_tensor(next_vertices, dtype=tf.float64)
         self.lengths = tf.convert_to_tensor(self.lengths, dtype=tf.float64)
         self.mid_points = tf.convert_to_tensor(self.mid_points, dtype=tf.float64)
         self.normals = tf.convert_to_tensor(self.normals, dtype=tf.float64)
@@ -134,7 +116,7 @@ class EnforcingBoundary:
 
         t_k = 0.25 * exp_lengths - (1.0 / exp_lengths) * dist_from_mid_pts
 
-        d_k_power2 = d_k ** 2
+        d_k_power2 = tf.square(d_k)
         z_k = tf.sqrt(t_k ** 2 + d_k_power2 ** 2)
         phi_k = tf.sqrt(d_k_power2 + 0.25 * (z_k - t_k) ** 2)
 
@@ -151,7 +133,7 @@ class EnforcingBoundary:
     def transfinite_w(self, dist: tf.Tensor) -> tf.Tensor:
         numerator = tf.zeros(shape=(dist.shape[0], dist.shape[1], 0), dtype=tf.float64)
         # Compute all products of all terms except the i-th one
-        for i in range(self.num_verts):
+        for i in range(self.num_vertices):
             prod_all = tf.reduce_prod(dist[:, :, 0:i], axis=2, keepdims=True) * tf.reduce_prod(dist[:, :, i + 1:],
                                                                                                axis=2, keepdims=True)
             numerator = tf.concat([numerator, prod_all], axis=2)
@@ -191,6 +173,7 @@ class EnforcingBoundary:
         proj = self.projection(xy)
 
         phi_k_line = self.compute_phi_k_line(xy)
+        dist = tf.constant([], tf.float64)
         match self.method_type:
             case BoundaryMethodType.line:
                 dist = phi_k_line
@@ -202,10 +185,11 @@ class EnforcingBoundary:
         margin = np.inf if self.method_order == 1 else 0.5
         g = self.compute_g(proj, dist, margin)
 
+        phi = None
         match self.bubble_type:
             case BubbleType.approximate_distance_function:
                 m = 2
-                sum_inverse = tf.reduce_sum(1.0 / (dist ** m), axis=2, keepdims=True)
+                sum_inverse = tf.reduce_sum(tf.pow(dist, -tf.constant(m, dtype=dist.dtype)), axis=2, keepdims=True)
                 phi = 1.0 / sum_inverse ** (1 / m)
             case BubbleType.product:
                 phi = tf.reduce_prod(dist, axis=2, keepdims=True)
@@ -240,12 +224,13 @@ class EnforcingBoundary:
             return [phi_grad_mapped, g_grad_mapped]
 
     def map_phi_and_g_second_derivatives(self, phi_sec_ders: tf.Tensor, g_sec_ders: tf.Tensor) -> list[tf.Tensor]:
+
         if self.jac_per_pol is None:
             phi_sec_ders = tf.repeat(tf.expand_dims(phi_sec_ders, axis=2), self.num_functions, axis=2)
             return [phi_sec_ders, g_sec_ders]
         else:
-            g_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
-            phi_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
+            g_sec_ders_mapped = np.zeros(shape=g_sec_ders.numpy().shape)
+            phi_sec_ders_mapped = np.zeros(shape=g_sec_ders.numpy().shape)
 
             for d1 in range(2):
                 for d2 in range(2):
@@ -316,11 +301,11 @@ class EnforcingBoundary:
 
         return [phi, g, phi_grad_mapped, g_grad_mapped, phi_sec_ders_mapped, g_sec_ders_mapped]
 
-    def inside_pol(self, inputs: NDArray[tf.float64]) -> tf.Tensor:
+    def inside_pol(self, inputs: NDArray[np.float64]) -> tf.Tensor:
         inside = 0
         for p in range(self.vertices.shape[0]):
             polygon = self.vertices[p, :, :]
-            path = mpltPath.Path(polygon)
+            path = plt_path.Path(polygon)
             curr_inside = path.contains_points(inputs[p, :, :])
             if p == 0:
                 inside = np.expand_dims(curr_inside, 0)
@@ -329,24 +314,20 @@ class EnforcingBoundary:
                 inside = np.concatenate([inside, curr_inside], 0)
         return tf.convert_to_tensor(inside, dtype=tf.float64)
 
-    def draw_function_one_edge(self, N, x, y, xy, pol_id, edge_id, left_half_line = True):
+    def draw_function_one_edge(self, n, x, y, xy, pol_id, edge_id):
 
         phi_k_line = self.compute_phi_k_line(xy)
+        phi = np.zeros(0)
         match self.method_type:
             case BoundaryMethodType.line:
                 phi = phi_k_line
             case BoundaryMethodType.segment:
                 phi = self.compute_phi_k_segment(xy, phi_k_line)
-            case BoundaryMethodType.max_smoothness:
-                if left_half_line:
-                    phi = self.compute_phi_k_half_line_right(xy, phi_k_line)
-                else:
-                    phi = self.compute_phi_k_half_line_left(xy, phi_k_line)
             case _:
                 raise ValueError("Unknown boundary method type.")
 
         phi = phi[pol_id, :, edge_id]
-        phi = phi.numpy().reshape((N, N))
+        phi = phi.numpy().reshape((n, n))
 
         z = phi
 
@@ -358,13 +339,13 @@ class EnforcingBoundary:
         plt.plot([self.segments[pol_id, edge_id, 0], self.segments[pol_id, edge_id, 2]], [
                  self.segments[pol_id, edge_id, 1], self.segments[pol_id, edge_id, 3]], 'red', linewidth=3)
         # plt.scatter(self.vertices[pol_id, :, 0], self.vertices[pol_id, :, 1], c='blue', marker='o', s=50)
-        if edge_id < self.num_verts - 1:
+        if edge_id < self.num_vertices - 1:
             plt.scatter(self.vertices[pol_id, edge_id:edge_id + 2, 0], self.vertices[pol_id, edge_id:edge_id + 2, 1],
                         c='red', marker='o', s=60)
         else:
             plt.scatter(self.vertices[pol_id, 0, 0], self.vertices[pol_id, 0, 1],
                         c='red', marker='o', s=60)
-            plt.scatter(self.vertices[pol_id, self.num_verts-1, 0], self.vertices[pol_id, self.num_verts-1, 1],
+            plt.scatter(self.vertices[pol_id, self.num_vertices - 1, 0], self.vertices[pol_id, self.num_vertices - 1, 1],
                         c='red', marker='o', s=60)
         cbar.ax.tick_params(labelsize=17)
         plt.axis("equal")
@@ -402,30 +383,30 @@ class EnforcingBoundary:
         plt.axis("equal")
         plt.show()
 
-    def scatter_function(self, pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=True):
+    def scatter_function(self, pol_id, dof_id, plot_all_edges=True, plot_inner_pts=True, draw_lifting=True):
         fig = plt.figure(figsize=(5, 5))
         ax = fig.add_subplot(projection='3d')
 
         n = 51
         x = np.linspace(-1, 1, n)
         y = np.linspace(-1, 1, n)
-        xall = np.expand_dims(np.tile(x, n), 1)
-        yall = np.expand_dims(np.repeat(y, n), 1)
-        xy = np.concatenate([xall, yall], axis=1)
+        x_all = np.expand_dims(np.tile(x, n), 1)
+        y_all = np.expand_dims(np.repeat(y, n), 1)
+        xy = np.concatenate([x_all, y_all], axis=1)
         xy_expanded = np.expand_dims(xy, 0)
         xy_expanded = np.tile(xy_expanded, [self.vertices.shape[0], 1, 1])
         inside_mask = (self.inside_pol(xy_expanded)[pol_id, :] == 1)
-        x = xall[inside_mask, 0]
-        y = yall[inside_mask, 0]
+        x = x_all[inside_mask, 0]
+        y = y_all[inside_mask, 0]
 
         new_x = np.zeros(shape=(0,))
         new_y = np.zeros(shape=(0,))
-        linspace_01 = np.linspace(0, 1, n)
+        linespace_01 = np.linspace(0, 1, n)
         pol_segments = self.segments[pol_id, :, :]
-        for e in range(self.num_verts):
-            if (e != dof_id and e != (dof_id - 1) % self.num_verts) or plot_all_edges:
-                curr_new_x = pol_segments[e, 0] + linspace_01 * [pol_segments[e, 2] - pol_segments[e, 0]]
-                curr_new_y = pol_segments[e, 1] + linspace_01 * [pol_segments[e, 3] - pol_segments[e, 1]]
+        for e in range(self.num_vertices):
+            if (e != dof_id and e != (dof_id - 1) % self.num_vertices) or plot_all_edges:
+                curr_new_x = pol_segments[e, 0] + linespace_01 * [pol_segments[e, 2] - pol_segments[e, 0]]
+                curr_new_y = pol_segments[e, 1] + linespace_01 * [pol_segments[e, 3] - pol_segments[e, 1]]
                 new_x = np.concatenate([new_x, curr_new_x])
                 new_y = np.concatenate([new_y, curr_new_y])
 
@@ -436,12 +417,6 @@ class EnforcingBoundary:
 
         new_xy = tf.expand_dims(new_xy, 0)
         new_xy = tf.concat([new_xy] * self.vertices.shape[0], axis=0)
-
-        n_points_per_pol = new_xy.shape[1]
-        self.select_b_type = np.zeros(shape=(self.vertices.shape[0], n_points_per_pol, self.vertices.shape[2]))
-        for c in range(self.vertices.shape[0]):
-            self.select_b_type[c, :, :] = np.repeat(np.expand_dims(np.array([method_type]), axis=0),
-                                                    n_points_per_pol, axis=0)
 
         phi, g = self.phi_and_g(new_xy)
         phi = phi[pol_id, :]

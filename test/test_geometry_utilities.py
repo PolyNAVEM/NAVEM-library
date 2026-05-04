@@ -1,9 +1,11 @@
 import unittest
-from src.GeDiM.geometry.geometry_utilities import *
+from NAVEM.geometry.geometry_utilities import *
 import numpy as np
 from pypolydim import gedim
 import matplotlib.pyplot as plt
 
+plot_bisector = False
+plot_kernel = False
 
 def plot_polygon_with_external_bisectors(polygon_vertices: NDArray[np.float64],
                                          external_bisectors: NDArray[np.float64], scale=0.5):
@@ -342,7 +344,4 @@ class TestGeometryUtilities(unittest.TestCase):
 
 
 if __name__ == '__main__':
-
-    plot_bisector = False
-    plot_kernel = False
     unittest.main()

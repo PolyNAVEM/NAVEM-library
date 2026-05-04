@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-import src.NAVEM.NeuralNetwork.rescaled_bfgs as rescaled_bfgs
+import NAVEM.NeuralNetwork.rescaled_bfgs as rescaled_bfgs
 import time
 
 tfp.optimizer.bfgs = rescaled_bfgs

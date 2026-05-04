@@ -1,7 +1,7 @@
 from typing import TypedDict, Dict
 from abc import ABC, abstractmethod
 import tensorflow as tf
-from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary
+from NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary, BoundaryMethodType, BubbleType
 from enum import Enum
 from pypolydim import gedim
 from numpy.typing import NDArray
@@ -32,6 +32,8 @@ class Flags(TypedDict):
     copy_basis_in_train: bool
     quadrature_order: int
     distribution_points_type: int
+    boundary_method_type: int
+    bubble_type: int
 
 
 def set_flags(network_input_dimension: int,
@@ -51,7 +53,10 @@ def set_flags(network_input_dimension: int,
               export_training_data_file_path: str,
               copy_basis_in_train: bool,
               quadrature_order: int,
-              distribution_points_type: int) -> Flags:
+              distribution_points_type: int,
+              boundary_method_type: int,
+              bubble_type: int
+              ) -> Flags:
 
     flags: Flags = {'input_dim': network_input_dimension,
                     'output_dim': 1,
@@ -71,7 +76,9 @@ def set_flags(network_input_dimension: int,
                     'name_storage': export_training_data_file_path,
                     'copy_basis_in_train': copy_basis_in_train,
                     'quadrature_order': quadrature_order,
-                    'distribution_points_type': distribution_points_type}
+                    'distribution_points_type': distribution_points_type,
+                    'boundary_method_type': boundary_method_type,
+                    'bubble_type': bubble_type}
 
     return flags
 
@@ -97,6 +104,8 @@ def write_flags_on_dictionary(flags: Flags) -> None:
     file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
     file.write("use_sqrt_in_train = {}\n".format(flags['use_sqrt_in_train']))
     file.write("copy_basis_in_train = {}\n".format(flags['copy_basis_in_train']))
+    file.write("boundary_method_type = {}\n".format(flags['boundary_method_type']))
+    file.write("bubble_type = {}\n".format(flags['bubble_type']))
 
     file.close()
 
@@ -120,7 +129,9 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
                     'name_storage': name_storage,
                     'copy_basis_in_train': bool(raw["copy_basis_in_train"]),
                     'quadrature_order': int(raw["quadrature_order"]),
-                    'distribution_points_type': int(raw["distribution_points_type"])}
+                    'distribution_points_type': int(raw["distribution_points_type"]),
+                    'boundary_method_type': int(raw["boundary_method_type"]),
+                    'bubble_type': int(raw["bubble_type"])}
 
     return flags
 
@@ -194,8 +205,12 @@ class AbstractBPNAVEM(ABC):
                                  setup_n_derivatives: SetupDerivatives,
                                  geometry_utilities: gedim.GeometryUtilities):
 
-        eb = EnforcingBoundary(geometry_utilities, method_order=self.flags["method_order"])
-        eb.prepare_using_vertices(vertices, jac_per_pol)
+        eb = EnforcingBoundary(geometry_utilities,
+                               method_order=self.flags["method_order"],
+                               vertices=vertices,
+                               jac_per_pol=jac_per_pol,
+                               method_type=BoundaryMethodType(self.flags["boundary_method_type"]),
+                               bubble_type=BubbleType(self.flags["bubble_type"]))
 
         xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
         num_of_functions = self.flags["num_vertices"] - self.exact_one
@@ -216,10 +231,6 @@ class AbstractBPNAVEM(ABC):
             case SetupDerivatives.basis_and_derivatives_and_laplacian:
                 phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = eb.phi_and_g_and_grads_and_second_derivatives(
                     xy_per_pol)
-
-                # if not self.in_training:
-                #     phi_grad, g_grad = eb.map_phi_and_g_grads(phi_grad, g_grad)
-                #     phi_sec_ders, g_sec_ders = eb.map_phi_and_g_second_derivatives(phi_sec_ders, g_sec_ders)
             case _:
                 raise ValueError("not valid setup_n_derivatives.")
 

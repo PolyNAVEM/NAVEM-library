@@ -1,8 +1,12 @@
 import numpy as np
+from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags, AbstractBPNAVEM
+
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
-from src.NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags, AbstractBPNAVEM
-
 
 class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 

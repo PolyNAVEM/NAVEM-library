@@ -1,0 +1,33 @@
+cff-version: 0.0.1
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Berrone
+    given-names: Stefano
+    orcid: https://orcid.org/0000-0001-8642-4258
+  - family-names: Pintore
+    given-names: Moreno
+    orcid: https://orcid.org/0000-0002-2837-2792
+  - family-names: Teora
+    given-names: Gioana
+    orcid: https://orcid.org/0000-0002-8540-3639
+title: "NAVEM-library"
+url: https://github.com/PolyNAVEM/NAVEM-library
+preferred-citation:
+  type: article
+  authors:
+  - family-names: Berrone
+    given-names: Stefano
+    orcid: https://orcid.org/0000-0001-8642-4258
+  - family-names: Pintore
+    given-names: Moreno
+    orcid: https://orcid.org/0000-0002-2837-2792
+  - family-names: Teora
+    given-names: Gioana
+    orcid: https://orcid.org/0000-0002-8540-3639
+  url: "https://doi.org/10.1016/j.compstruc.2025.107753"
+  doi: "https://doi.org/10.1016/j.compstruc.2025.107753"
+  journal: "Computers & Structures"
+  title: "The lowest-order neural approximated virtual element method on polygonal elements"
+  year: 2025
+  volume: 252
+  star: 107753

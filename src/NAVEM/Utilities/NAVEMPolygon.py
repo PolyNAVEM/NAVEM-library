@@ -112,7 +112,6 @@ class NAVEMPolygon:
         vertex = self.mapped_vertices[:, index]
         norm_first_vertex = np.linalg.norm(vertex)
 
-        theta: float = 0.0
         if vertex[0] >= 0:
             if vertex[1] >= 0:
                 theta = 2 * np.pi - np.arccos(vertex[0] / norm_first_vertex)
@@ -173,7 +172,6 @@ class NAVEMPolygon:
         vertex = mapped_vertices[:, index]
         norm_first_vertex = np.linalg.norm(vertex)
 
-        theta: float = 0.0
         if vertex[0] >= 0:
             if vertex[1] >= 0:
                 theta = 2 * np.pi - np.arccos(vertex[0] / norm_first_vertex)

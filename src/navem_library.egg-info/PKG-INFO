@@ -1,0 +1,68 @@
+Metadata-Version: 2.4
+Name: navem-library
+Version: 0.1.0
+Summary: Numerical library for PDEs based on the Neural Approximated Virtual Element Method (NAVEM)
+Author-email: Gioana Teora <gioana.teora@polito.it>, Moreno Pintore <moreno.pintore@sorbonne-universite.fr>
+Maintainer-email: Gioana Teora <gioana.teora@polito.it>
+License: GPL
+Project-URL: Homepage, https://www.polydim.it/
+Project-URL: Repository, https://github.com/PolyNAVEM/NAVEM-library
+Keywords: vem,fem,mesh,navem,neural network
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: absl-py==2.4.0
+Requires-Dist: astunparse==1.6.3
+Requires-Dist: attrs==26.1.0
+Requires-Dist: certifi==2026.4.22
+Requires-Dist: charset-normalizer==3.4.7
+Requires-Dist: cloudpickle==3.1.2
+Requires-Dist: contourpy==1.3.3
+Requires-Dist: cycler==0.12.1
+Requires-Dist: decorator==5.2.1
+Requires-Dist: dm-tree==0.1.10
+Requires-Dist: flatbuffers==25.12.19
+Requires-Dist: fonttools==4.62.1
+Requires-Dist: gast==0.7.0
+Requires-Dist: google-pasta==0.2.0
+Requires-Dist: grpcio==1.80.0
+Requires-Dist: h5py==3.14.0
+Requires-Dist: idna==3.13
+Requires-Dist: keras==3.14.0
+Requires-Dist: kiwisolver==1.5.0
+Requires-Dist: libclang==18.1.1
+Requires-Dist: markdown-it-py==4.0.0
+Requires-Dist: matplotlib==3.10.8
+Requires-Dist: mdurl==0.1.2
+Requires-Dist: ml_dtypes==0.5.4
+Requires-Dist: namex==0.1.0
+Requires-Dist: numpy==2.4.4
+Requires-Dist: opt_einsum==3.4.0
+Requires-Dist: optree==0.19.0
+Requires-Dist: packaging==26.1
+Requires-Dist: pillow==12.2.0
+Requires-Dist: protobuf==7.34.1
+Requires-Dist: Pygments==2.20.0
+Requires-Dist: pyparsing==3.3.2
+Requires-Dist: pypolydim==2.0.15
+Requires-Dist: PyQt5==5.15.11
+Requires-Dist: PyQt5-Qt5==5.15.18
+Requires-Dist: PyQt5_sip==12.18.0
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: requests==2.33.1
+Requires-Dist: rich==15.0.0
+Requires-Dist: scipy==1.17.1
+Requires-Dist: setuptools==82.0.1
+Requires-Dist: six==1.17.0
+Requires-Dist: tensorflow==2.21.0
+Requires-Dist: tensorflow-probability==0.25.0
+Requires-Dist: termcolor==3.3.0
+Requires-Dist: tf_keras==2.21.0
+Requires-Dist: typing_extensions==4.15.0
+Requires-Dist: urllib3==2.6.3
+Requires-Dist: vtk==9.6.1
+Requires-Dist: wheel==0.47.0
+Requires-Dist: wrapt==2.1.2
+Dynamic: license-file
+
+# NAVEM-library
