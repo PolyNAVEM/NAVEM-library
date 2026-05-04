@@ -1,5 +1,7 @@
 # NAVEM-library
 
+**This library is a work in progress and is actively being developed.**
+
 NAVEM-library is a numerical computing library for the solution of partial differential equations (PDEs) based on the NAVEM (Neural Approximated Virtual Element Method), a discretization technique designed to operate on general polygonal meshes.
 
 The library is built on top of the PolyDiM framework. For further details, please refer to its official documentation available at: https://polydim.it/
