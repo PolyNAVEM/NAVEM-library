@@ -36,8 +36,6 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
                                            validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
 
-        self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
-
     def build(self, input_shape):
         self.layers_list[0].build(input_shape)
         for layer in self.layers_list[1:]:
@@ -66,6 +64,35 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
                      self.tf_two * (grad[:, 0:1] * self.var_phi_grad[:, 0:1] + grad[:, 1:2] * self.var_phi_grad[:, 1:2]) +
                      u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
         return laplacian
+
+    def get_second_derivatives_u(self, inputs):
+
+        with tf.GradientTape(persistent=False) as tape2:
+            tape2.watch(inputs)
+            with tf.GradientTape() as tape1:
+                tape1.watch(inputs)
+                u0 = self.internal_call(inputs)
+            grad = tape1.gradient(u0, inputs, output_gradients=tf.ones_like(u0))
+        second_derivatives = tape2.batch_jacobian(grad, inputs)
+
+        u0_xx = second_derivatives[:, 0, 0:1]
+        u0_xy = second_derivatives[:, 0, 1:2]
+        u0_yy = second_derivatives[:, 1, 1:2]
+
+        u_xx = (u0_xx * self.var_phi + self.tf_two * (grad[:, 0:1] * self.var_phi_grad[:, 0:1])
+                + u0 * self.var_phi_second_derivatives[:, 0:1]
+                + self.var_g_second_derivatives[:, 0:1])
+
+        u_xy = (u0_xy * self.var_phi + grad[:, 0:1] * self.var_phi_grad[:, 1:2]
+                + grad[:, 1:2] * self.var_phi_grad[:, 0:1]
+                + u0 * self.var_phi_second_derivatives[:, 1:2]
+                + self.var_g_second_derivatives[:, 1:2])
+
+        u_yy = (u0_yy * self.var_phi + self.tf_two * (grad[:, 1:2] * self.var_phi_grad[:, 1:2])
+                + u0 * self.var_phi_second_derivatives[:, 2:3]
+                + self.var_g_second_derivatives[:, 2:3])
+
+        return tf.concat([u_xx, u_xy, u_yy], 1)
 
     def get_u_and_du(self, inputs):
         with tf.GradientTape() as t2:

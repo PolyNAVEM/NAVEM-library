@@ -50,23 +50,23 @@ class EnforcingBoundary:
     def prepare_using_vertices(self, vertices, jac_per_pol=None, function_type="line"):
 
         self.vertices = np.transpose(vertices, axes=[0, 2, 1])
-        next_verts = np.roll(self.vertices, shift=-1, axis=1)
+        next_vertices = np.roll(self.vertices, shift=-1, axis=1)
         self.function_type = function_type
-        self.segments = np.concatenate([self.vertices, next_verts], axis=2)
+        self.segments = np.concatenate([self.vertices, next_vertices], axis=2)
         self.num_verts = vertices.shape[2]
         self.num_functions = self.num_verts * self.method_order
 
         # compute tangent and normal for each edge
-        self.lengths = np.linalg.norm(next_verts - self.vertices, axis=2)
-        self.tangents = next_verts - self.vertices
+        self.lengths = np.linalg.norm(next_vertices - self.vertices, axis=2)
+        self.tangents = next_vertices - self.vertices
         self.normals = self.tangents[:, :, [1, 0]] * np.array([-1, 1])
         self.normals /= np.linalg.norm(self.tangents, axis=2, keepdims=True)
 
         # projecting plane directions
-        self.mid_points = 0.5 * (self.vertices + next_verts)
+        self.mid_points = 0.5 * (self.vertices + next_vertices)
         mid_p_normals = self.mid_points + self.normals
         zA, zB, zC = [1, 0, 0.5]
-        ux, uy, uz = [next_verts[:, :, 0] - self.vertices[:, :, 0], next_verts[:, :, 1] - self.vertices[:, :, 1],
+        ux, uy, uz = [next_vertices[:, :, 0] - self.vertices[:, :, 0], next_vertices[:, :, 1] - self.vertices[:, :, 1],
                       zB - zA]
         vx, vy, vz = [mid_p_normals[:, :, 0] - self.vertices[:, :, 0], mid_p_normals[:, :, 1] - self.vertices[:, :, 1],
                       zC - zA]
@@ -80,7 +80,7 @@ class EnforcingBoundary:
         # conversion to tensors
         self.jac_per_pol = jac_per_pol
         self.vertices = tf.convert_to_tensor(self.vertices, dtype=tf.float64)
-        self.next_verts = tf.convert_to_tensor(next_verts, dtype=tf.float64)
+        self.next_verts = tf.convert_to_tensor(next_vertices, dtype=tf.float64)
         self.lengths = tf.convert_to_tensor(self.lengths, dtype=tf.float64)
         self.mid_points = tf.convert_to_tensor(self.mid_points, dtype=tf.float64)
         self.normals = tf.convert_to_tensor(self.normals, dtype=tf.float64)

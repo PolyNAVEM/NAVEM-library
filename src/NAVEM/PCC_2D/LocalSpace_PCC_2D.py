@@ -275,6 +275,37 @@ class LocalSpaceData:
             case _:
                 raise ValueError("Not valid method type")
 
+    def basis_functions_laplacian_values(self, reference_element_data: ReferenceElementData,
+                                          projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi0km1_der,
+                                          evaluation_points: NDArray[np.float64] = None,
+                                          evaluation_navem_input_output = None) -> NDArray[np.float64]:
+
+        match reference_element_data.method_type:
+            case MethodTypes.NAVEM:
+                if self.num_vertices == 3:
+                    if evaluation_points is None:
+                        return polydim.pde_tools.local_space_pcc_2_d.basis_functions_laplacian_values(
+                            reference_element_data.fem_reference_element_data,
+                            self.standard_local_space_data,
+                            projection_type)
+                    else:
+                        raise ValueError("not implemented method")
+                else:
+                    if evaluation_points is None:
+                        return self.navem_input_output[self.cell_2_d_index].basis_laplacian_values
+                    else:
+                        return evaluation_navem_input_output[self.cell_2_d_index].basis_laplacian_values
+            case MethodTypes.VEM | MethodTypes.FEM:
+                if evaluation_points is None:
+                    return polydim.pde_tools.local_space_pcc_2_d.basis_functions_laplacian_values(
+                        reference_element_data.standard_reference_element_data,
+                        self.standard_local_space_data,
+                        projection_type)
+                else:
+                    raise ValueError("not implemented method")
+            case _:
+                raise ValueError("Not valid method type")
+
 
     def internal_quadrature(self, reference_element_data: ReferenceElementData) -> gedim.quadrature.QuadratureData:
 

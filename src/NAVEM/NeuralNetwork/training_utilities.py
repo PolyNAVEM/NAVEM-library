@@ -46,7 +46,7 @@ class StoreTime(tf.keras.callbacks.Callback):
 
 
 def get_lr_scheduler(n_epochs, lower, upper):
-    def scheduler(epoch, lr):
+    def scheduler(epoch, _lr):
         return upper * np.exp(np.log(lower / upper) * epoch / n_epochs)
 
     return scheduler

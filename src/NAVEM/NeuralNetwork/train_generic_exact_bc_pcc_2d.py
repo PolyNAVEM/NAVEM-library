@@ -95,16 +95,17 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(polygon.mapped_vertices, inertia_mapped_internal_point)
         inertia_mapped_list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(polygon.mapped_vertices, inertia_mapped_internal_point, inertia_mapped_list_triangles)
 
+        # Loss will be minimized over the inertia polygon
         inertia_mapped_internal_nodes = grid_over_polygon(distribution_points_type,
                                                           reference_nodes,
                                                           inertia_mapped_list_triangles_points,
                                                           uniform_boundary, accumulating_border)
 
-        xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T
-        vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]
+        xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T # points over the inertia polygon
+        vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :] # vertices are set up over the inertia polygon
 
         for v_id in range(num_functions_per_polygon):
-            rotated_vertices, rotated_mapped_points, jac_inv, jac, inv_rescaling_factor = NAVEMPolygon.map_fix_vertex_inv(
+            rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = NAVEMPolygon.map_fix_vertex_inv(
                 polygon.mapped_vertices,
                 inertia_mapped_internal_nodes,
                 v_id)

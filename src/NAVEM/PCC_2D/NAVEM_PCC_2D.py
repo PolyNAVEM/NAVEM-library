@@ -21,12 +21,14 @@ class Output:
     def __init__(self):
         self.basis_values: NDArray[np.float64] = np.zeros((0,0))
         self.basis_derivatives_values: List[NDArray[np.float64]] = [np.zeros((0,0)) for _ in range(2)]
+        self.basis_laplacian_values: NDArray[np.float64] = np.zeros((0,0))
 
 class InputOutput:
 
     internal_quadrature: gedim.quadrature.QuadratureData
     basis_values: NDArray[np.float64]
     basis_derivatives_values: List[NDArray[np.float64]]
+    basis_laplacian_values: NDArray[np.float64]
 
     def __init__(self):
         pass
@@ -102,7 +104,11 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                mesh_geometric_data: MeshGeometricData2D,
                                                neural_network: h_navem_network.HNAVEMNetworksContainer,
-                                               list_points: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
+                                               list_points: Dict[int, NDArray[np.float64]],
+                                               predict_laplacian: bool = False) -> Dict[int, Output]:
+
+    if not predict_laplacian:
+        raise ValueError("not implemented method")
 
     navem_generators = NAVEMGenerators.NAVEMGenerators(geometry_utilities,
                                                        neural_network.flags["num_vertices"],
@@ -185,6 +191,8 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
         output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])
         output_values[c].basis_values = np.zeros([n_local_pts, num_vertices])
 
+        output_values[c].basis_laplacian_values = None
+
         for i in range(num_vertices):
             matrix_jac_inv_transpose = global_jac_inv[offset_func, 0:2, 0:2].T
             output_values[c].basis_derivatives_values[0][:, i] \
@@ -206,7 +214,8 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
                                                         neural_network,
-                                                        list_elements: Dict[int, NDArray[np.float64]]) -> Dict[int, Output]:
+                                                        list_elements: Dict[int, NDArray[np.float64]],
+                                                        predict_laplacian: bool = False) -> Dict[int, Output]:
 
     num_vertices = neural_network.flags["num_vertices"]
     network_input_dimension = 2 * num_vertices
@@ -239,13 +248,17 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
         for v_id in range(num_vertices):
             # Create input
-            rotated_vertices, rotated_mapped_points, jac_inv, jac, inv_rescaling_factor = polygon.map_fix_vertex_inv(
+            rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = polygon.map_fix_vertex_inv(
                 polygon.mapped_vertices,
                 inertia_mapped_internal_nodes,
                 v_id)
 
             mapped_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
-            global_jac_inv[offset_func, :, :] = jac_inv[:2, :2] @ jac_inv_inertia[:2, :2]
+
+            if predict_laplacian:
+                global_jac_inv[offset_func, :, :] = np.eye(2)
+            else:
+                global_jac_inv[offset_func, :, :] = jac_inv[:2, :2] @ jac_inv_inertia[:2, :2]
 
             flat_rotated_vertices = mapped_vertices[:2, 1:].flatten()
             rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [n_local_pts, 1])
@@ -260,7 +273,18 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
 
-    neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
+    du_ref_dxx = None
+    du_ref_dxy = None
+    du_ref_dyy = None
+    if predict_laplacian:
+        neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives_and_laplacian, geometry_utilities)
+        laplacian_output = neural_network.get_second_derivatives_u(inputs).numpy()
+        du_ref_dxx = laplacian_output[:, 0]
+        du_ref_dxy = laplacian_output[:, 1]
+        du_ref_dyy = laplacian_output[:, 2]
+    else:
+        neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
+
     net_output = neural_network.get_u_and_du(inputs).numpy()
 
     u = net_output[:, 0]
@@ -277,6 +301,11 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
         output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])
         output_values[c].basis_values = np.zeros([n_local_pts, num_vertices])
 
+        if predict_laplacian:
+            output_values[c].basis_laplacian_values = np.zeros([n_local_pts, num_vertices])
+        else:
+            output_values[c].basis_laplacian_values = None
+
         for i in range(num_vertices):
             matrix_jac_inv_transpose = global_jac_inv[offset_func, 0:2, 0:2].T
             output_values[c].basis_derivatives_values[0][:, i] \
@@ -289,6 +318,13 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
             output_values[c].basis_values[:, i]\
                 = u[offset_point:offset_point + n_local_pts]
 
+            if predict_laplacian:
+                b_lap = matrix_jac_inv_transpose.T @ matrix_jac_inv_transpose
+                output_values[c].basis_laplacian_values[:, i] = (b_lap[0, 0] * du_ref_dxx[offset_point: offset_point + n_local_pts]
+                                                                 + b_lap[0, 1] * du_ref_dxy[offset_point: offset_point + n_local_pts]
+                                                                 + b_lap[1, 0] * du_ref_dxy[offset_point: offset_point + n_local_pts]
+                                                                 + b_lap[1, 1] * du_ref_dyy[offset_point: offset_point + n_local_pts])
+
             offset_func += 1
             offset_point += n_local_pts
 
@@ -296,8 +332,9 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
 def reproduce_polynomials(polygon_vertices: NDArray[np.float64],
                           basis_function_values: NDArray[np.float64],
-                          basis_function_derivatives_values: List[NDArray[np.float64]]) \
-        -> Tuple[NDArray[np.float64], List[NDArray[np.float64]]]:
+                          basis_function_derivatives_values: List[NDArray[np.float64]],
+                          basis_laplacian_values: NDArray[np.float64] = None) \
+        -> Tuple[NDArray[np.float64], List[NDArray[np.float64]], NDArray[np.float64]]:
 
     basis_function_values[:, -1] = 1.0 - np.sum(basis_function_values[:, 0:-1], axis=1)
     basis_function_derivatives_values[0][:, -1] = - np.sum(basis_function_derivatives_values[0][:, 0:-1],
@@ -305,13 +342,17 @@ def reproduce_polynomials(polygon_vertices: NDArray[np.float64],
     basis_function_derivatives_values[1][:, -1] = - np.sum(basis_function_derivatives_values[1][:, 0:-1],
                                                            axis=1)
 
-    return basis_function_values, basis_function_derivatives_values
+    if basis_laplacian_values is not None:
+        basis_laplacian_values[:, -1] = - np.sum(basis_laplacian_values[:, 0:-1], axis=1)
+
+    return basis_function_values, basis_function_derivatives_values, basis_laplacian_values
 
 def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
                               mesh_geometric_data: MeshGeometricData2D,
                               navem_categories: Dict[int, NNDictionary],
                               evaluation_points: Dict[int, NDArray[np.float64]],
-                              evaluation_weights: Dict[int, NDArray[np.float64]] = None) -> Dict[int, InputOutput]:
+                              evaluation_weights: Dict[int, NDArray[np.float64]] = None,
+                              predict_laplacian: bool = False) -> Dict[int, InputOutput]:
 
 
         navem_input_output: Dict[int, InputOutput] = {}
@@ -343,21 +384,24 @@ def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
                         = navem_predict_basis_values_and_derivatives(geometry_utilities,
                                                                      mesh_geometric_data,
                                                                      dictionary.neural_network,
-                                                                     list_points)
+                                                                     list_points,
+                                                                     predict_laplacian)
                 case NAVEMType.B_NAVEM | NAVEMType.P_NAVEM:
                     outputs \
                         = exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities,
                                                                               mesh_geometric_data,
                                                                               dictionary.neural_network,
-                                                                              list_points)
+                                                                              list_points,
+                                                                              predict_laplacian)
                 case _:
                     raise ValueError("Not valid method type")
 
             for c in dictionary.list_elements:
-                navem_input_output[c].basis_values, navem_input_output[c].basis_derivatives_values \
+                navem_input_output[c].basis_values, navem_input_output[c].basis_derivatives_values, navem_input_output[c].basis_laplacian_values \
                     = reproduce_polynomials(
                     mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c],
                     outputs[c].basis_values,
-                    outputs[c].basis_derivatives_values)
+                    outputs[c].basis_derivatives_values,
+                    outputs[c].basis_laplacian_values)
 
         return navem_input_output

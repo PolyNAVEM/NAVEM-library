@@ -9,7 +9,7 @@ from pypolydim.assembler_utilities import assembler_utilities
 import cProfile
 import tensorflow as tf
 from src.NAVEM.PCC_2D import LocalSpace_PCC_2D
-from src.NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss, compute_boundary_loss
+from src.NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss, compute_boundary_loss, compute_laplacian_loss
 
 
 def main():
@@ -27,9 +27,10 @@ def main():
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
     parser.add_argument('-export', '--export-path', dest='export_path', default='./Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
-    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/P-NAVEM/dictionary.txt', type=str, help="Dictionary file")
-    parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss', default=False, type=bool, help="Evaluate polynomial loss")
+    parser.add_argument('-df', '--dictionary-file', dest='dictionary_file', default='./TrainedModels/B-NAVEM/dictionary.txt', type=str, help="Dictionary file")
+    parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss', default=True, type=bool, help="Evaluate polynomial loss")
     parser.add_argument('-ebl', '--evaluate-boundary-loss', dest='evaluate_boundary_loss', default=True, type=bool, help="Evaluate boundary loss")
+    parser.add_argument('-ell', '--evaluate-laplacian-loss', dest='evaluate_laplacian_loss', default=True, type=bool, help="Evaluate laplacian loss")
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')
@@ -117,6 +118,12 @@ def main():
 
     export_errors(export_file_path, args.test_id, args.mesh_type, args.method_type, args.method_order, mesh, count_do_fs_data, post_process_data)
 
+    print("Export Solution...")
+    vtk_utilities.export_solution_2(export_file_path + '/Solution_' + str(args.test_id) + '_' + str(args.method_type)
+                                    + '_' + str(method_order), mesh, post_process_data.cell0_ds_numeric,
+                                    cell0_d_exact_solution=post_process_data.cell0_ds_exact,
+                                    cell2_ds_error_l2=post_process_data.cell2_ds_error_l2,
+                                    cell2_ds_error_h1=post_process_data.cell2_ds_error_h1)
 
     if args.evaluate_polynomial_loss:
         print("Compute polynomial loss...")
@@ -126,6 +133,8 @@ def main():
                                       reference_element_data,
                                       method_type)
 
+        print(test_l2_loss, test_h1_loss)
+
     if args.evaluate_boundary_loss:
         print("Compute boundary loss...")
         test_l2_loss, test_h1_loss, test_l2_loss_cells, test_h1_loss_cells \
@@ -134,12 +143,17 @@ def main():
                                     reference_element_data,
                                     method_type)
 
-    print("Export Solution...")
-    vtk_utilities.export_solution_2(export_file_path + '/Solution_' + str(args.test_id) + '_' + str(args.method_type)
-                                    + '_' + str(method_order), mesh, post_process_data.cell0_ds_numeric,
-                                    cell0_d_exact_solution=post_process_data.cell0_ds_exact,
-                                    cell2_ds_error_l2=post_process_data.cell2_ds_error_l2,
-                                    cell2_ds_error_h1=post_process_data.cell2_ds_error_h1)
+        print(test_l2_loss, test_h1_loss)
+
+    if args.evaluate_laplacian_loss:
+        print("Compute laplacian loss...")
+        test_laplacian_loss, test_laplacian_loss_cells \
+            = compute_laplacian_loss(geometry_utilities,
+                                    mesh_geometric_data,
+                                    reference_element_data,
+                                    method_type)
+
+        print(test_laplacian_loss)
 
     print('\x1b[6;30;42m' + "Finish" + '\x1b[0m')
 

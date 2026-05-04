@@ -140,6 +140,8 @@ class AbstractBPNAVEM(ABC):
                                    validate_shape=False, shape=(None, 1), dtype=tf.float64)
         self.var_phi_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
                                         validate_shape=False, shape=(None, 2), dtype=tf.float64)
+        self.var_phi_second_derivatives = tf.Variable(tf.convert_to_tensor([[0., 0., 0.]], dtype=tf.float64), trainable=False,
+                                      validate_shape=False, shape=(None, 3), dtype=tf.float64)
         self.var_phi_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                          validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
@@ -148,10 +150,14 @@ class AbstractBPNAVEM(ABC):
                                  validate_shape=False, shape=(None, None), dtype=tf.float64)
         self.var_g_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
                                       validate_shape=False, shape=(None, 2), dtype=tf.float64)
+        self.var_g_second_derivatives = tf.Variable(tf.convert_to_tensor([[0., 0., 0.]], dtype=tf.float64), trainable=False,
+                                      validate_shape=False, shape=(None, 3), dtype=tf.float64)
         self.var_g_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                        validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
         self.exact_one = 0
+
+        self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
     @abstractmethod
     def get_u(self, x):
@@ -175,6 +181,10 @@ class AbstractBPNAVEM(ABC):
 
     @abstractmethod
     def save_model(self):
+        pass
+
+    @abstractmethod
+    def get_second_derivatives_u(self, inputs):
         pass
 
     def setup_model_global_input(self,
@@ -244,12 +254,12 @@ class AbstractBPNAVEM(ABC):
         match setup_n_derivatives:
             case SetupDerivatives.basis_and_derivatives_and_laplacian:
                 phi_sec_ders = tf.transpose(phi_sec_ders, [0, 2, 1, 3])
-                phi_sec_ders = tf.reshape(phi_sec_ders, [-1, 3])
+                self.var_phi_second_derivatives = tf.reshape(phi_sec_ders, [-1, 3])
                 g_sec_ders = tf.transpose(g_sec_ders, [0, 2, 1, 3])
-                g_sec_ders = tf.reshape(g_sec_ders, [-1, 3])
+                self.var_g_second_derivatives = tf.reshape(g_sec_ders, [-1, 3])
 
-                self.var_phi_xx_yy.assign(phi_sec_ders[:, 0:1] + phi_sec_ders[:, 2:3])
-                self.var_g_xx_yy.assign(g_sec_ders[:, 0:1] + g_sec_ders[:, 2:3])
+                self.var_phi_xx_yy.assign(self.var_phi_second_derivatives[:, 0:1] + self.var_phi_second_derivatives[:, 2:3])
+                self.var_g_xx_yy.assign(self.var_g_second_derivatives[:, 0:1] + self.var_g_second_derivatives[:, 2:3])
             case SetupDerivatives.basis | SetupDerivatives.basis_and_derivatives:
                 pass
             case _:
