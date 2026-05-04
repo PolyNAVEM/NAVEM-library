@@ -1,5 +1,5 @@
 import unittest
-from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary
+from src.NAVEM.Utilities.enforcing_boundary_functions import EnforcingBoundary, BoundaryMethodType, BubbleType
 import tensorflow as tf
 import numpy as np
 from pypolydim import gedim
@@ -51,25 +51,21 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         n_points_per_pol = xy.shape[1]
         jac_per_pol = np.zeros(shape=(vertices.shape[0], 2, 2, vertices.shape[2]))
 
-        method_type = 0
+        method_type = BoundaryMethodType.line
+        bubble_type = BubbleType.product
+
         for p in range(vertices.shape[0]):
             for v in range(vertices.shape[2]):
                 jac_per_pol[p, :, :, v] = np.eye(2)
 
         draw_lifting = False
-        eb = EnforcingBoundary(geometry_utilities)
+        eb = EnforcingBoundary(geometry_utilities, method_order=1, method_type=method_type, bubble_type=bubble_type)
         eb.prepare_using_vertices(vertices, jac_per_pol)
-
-        export_file_path = './Export/test_pentagon_line'
-        if not os.path.exists(export_file_path):
-            os.makedirs(export_file_path)
 
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, export_file_path, method_type=method_type, bubble_type = 2)
-            #eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
-            #eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id)
 
     def test_pentagon_segment(self):
 
@@ -115,10 +111,6 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
-        export_file_path = './Export/test_pentagon_segment'
-        if not os.path.exists(export_file_path):
-            os.makedirs(export_file_path)
-
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
             eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1, file_path = export_file_path)
@@ -136,39 +128,34 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
                               [ 0.0, 0.4, 0.8,  0.0, -0.8, -0.4]]
                               ])
 
-        N = 151
-        x = np.linspace(-1, 1, N)
-        y = np.linspace(-1, 1, N)
-        xall = np.expand_dims(np.tile(x, N), 1)
-        yall = np.expand_dims(np.repeat(y, N), 1)
-        xy = np.concatenate([xall, yall], axis=1)
+        n = 151
+        x = np.linspace(-1, 1, n)
+        y = np.linspace(-1, 1, n)
+        x_all = np.expand_dims(np.tile(x, n), 1)
+        y_all = np.expand_dims(np.repeat(y, n), 1)
+        xy = np.concatenate([x_all, y_all], axis=1)
         xy = tf.convert_to_tensor(xy, dtype=tf.float64)
 
         xy = tf.expand_dims(xy, 0)
         xy = tf.concat([xy] * vertices.shape[0], axis=0)
 
-        n_points_per_pol = xy.shape[1]
         jac_per_pol = np.zeros(shape=(vertices.shape[0], 2, 2, vertices.shape[2]))
 
-        method_type = 0
+        method_type = BoundaryMethodType.line
+        bubble_type = BubbleType.product
+
         for p in range(vertices.shape[0]):
             for v in range(vertices.shape[2]):
                 jac_per_pol[p, :, :, v] = np.eye(2)
 
         draw_lifting = False
-        eb = EnforcingBoundary(geometry_utilities)
+        eb = EnforcingBoundary(geometry_utilities, method_order=1, method_type=method_type, bubble_type=bubble_type)
         eb.prepare_using_vertices(vertices, jac_per_pol)
-
-        export_file_path = './Export/test_hexagon_line'
-        if not os.path.exists(export_file_path):
-            os.makedirs(export_file_path)
 
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=2, file_path = export_file_path)
-            # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
-            # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
+            eb.draw_function(n, x, y, xy, pol_id, dof_id, draw_lifting)
+            eb.draw_function_one_edge(n, x, y, xy, pol_id=pol_id, edge_id=dof_id)
 
 
     def test_hexagon_segment(self):
@@ -194,25 +181,21 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         n_points_per_pol = xy.shape[1]
         jac_per_pol = np.zeros(shape=(vertices.shape[0], 2, 2, vertices.shape[2]))
 
-        method_type = 1
+        method_type = BoundaryMethodType.segment
+        bubble_type = BubbleType.approximate_distance_function
+
         for p in range(vertices.shape[0]):
             for v in range(vertices.shape[2]):
                 jac_per_pol[p, :, :, v] = np.eye(2)
 
         draw_lifting = False
-        eb = EnforcingBoundary(geometry_utilities)
+        eb = EnforcingBoundary(geometry_utilities, method_order=1, method_type=method_type, bubble_type=bubble_type)
         eb.prepare_using_vertices(vertices, jac_per_pol)
-
-        export_file_path = './Export/test_hexagon_segment'
-        if not os.path.exists(export_file_path):
-            os.makedirs(export_file_path)
 
         for pol_id in range(vertices.shape[0]):
             dof_id = 5
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=1, file_path = export_file_path)
-            # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
-            # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id)
 
 
     def test_quad_line(self):
@@ -241,7 +224,6 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         n_points_per_pol = xy.shape[1]
         jac_per_pol = np.zeros(shape=(vertices.shape[0], 2, 2, vertices.shape[2]))
 
-        method_type = 0
         for p in range(vertices.shape[0]):
             for v in range(vertices.shape[2]):
                 jac_per_pol[p, :, :, v] = np.eye(2)
@@ -250,16 +232,10 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         eb = EnforcingBoundary(geometry_utilities)
         eb.prepare_using_vertices(vertices, jac_per_pol)
 
-        export_file_path = './Export/test_quad_line'
-        if not os.path.exists(export_file_path):
-            os.makedirs(export_file_path)
-
         for pol_id in range(vertices.shape[0]):
             dof_id = 0
-            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=method_type, bubble_type=2, file_path = export_file_path)
-            # eb.draw_sec_der_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
-            # eb.scatter_border(pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=draw_lifting)
-            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id, method_type=method_type, file_path = export_file_path)
+            eb.draw_function(N, x, y, xy, pol_id, dof_id, draw_lifting)
+            eb.draw_function_one_edge(N, x, y, xy, pol_id=pol_id, edge_id=dof_id)
 
     def test_quad_segment(self):
 

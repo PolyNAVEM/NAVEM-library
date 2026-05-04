@@ -1,12 +1,24 @@
 import time
 
 import numpy as np
+from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 import tensorflow as tf
-# from geometry.geometry_properties import GeometryUtilities
 import matplotlib.path as mpltPath
 import os
 from pypolydim import gedim, polydim
+from src.NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
+from enum import Enum
+
+
+class BoundaryMethodType(Enum):
+    line = 1
+    segment = 2
+
+
+class BubbleType(Enum):
+    approximate_distance_function = 1
+    product = 2
 
 
 def lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarray) -> tf.Tensor:
@@ -17,7 +29,7 @@ def lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarray) -> tf.T
     return p
 
 
-def filter_window_f(x: tf.Tensor):
+def filter_window_f(x: tf.Tensor) -> tf.Tensor:
     return tf.where(x > 0, tf.exp(-1 / x), 0)
 
 
@@ -35,19 +47,35 @@ def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, verts: np.ndarra
     return lagrange_basis * window
 
 
-def chebyshev_lobatto_nodes(a, b, n):
-    # n Chebyshev nodes in interval [a, b]
-    i = np.array(range(n))
-    x = -np.cos(i * np.pi / (n - 1))  # noder over interval [-1,1]
-    return 0.5 * (b - a) * x + 0.5 * (b + a)  # noder over interval [a,b]
-
-
 class EnforcingBoundary:
-    def __init__(self, geometry_utilities, method_order):
+    def __init__(self, geometry_utilities: gedim.GeometryUtilities,
+                 method_order: int,
+                 method_type: BoundaryMethodType = BoundaryMethodType.segment,
+                 bubble_type: BubbleType = BubbleType.approximate_distance_function):
         self.geometry_utilities = geometry_utilities
         self.method_order = method_order
+        self.method_type = method_type
+        self.bubble_type = bubble_type
 
-    def prepare_using_vertices(self, vertices, jac_per_pol=None, function_type="line"):
+        self.vertices = None
+        self.function_type = None
+        self.segments = None
+        self.num_verts = None
+        self.num_functions = None
+        self.lengths = None
+        self.tangents = None
+        self.normals = None
+        self.lengths = None
+        self.mid_points = None
+        self.jac_per_pol = None
+        self.next_verts = None
+        self.proj_normal = None
+        self.proj_d = None
+        self.select_b_type = None
+
+    def prepare_using_vertices(self, vertices: NDArray[np.float64],
+                               jac_per_pol: NDArray[np.float64] = None,
+                               function_type: str = "line"):
 
         self.vertices = np.transpose(vertices, axes=[0, 2, 1])
         next_vertices = np.roll(self.vertices, shift=-1, axis=1)
@@ -65,11 +93,11 @@ class EnforcingBoundary:
         # projecting plane directions
         self.mid_points = 0.5 * (self.vertices + next_vertices)
         mid_p_normals = self.mid_points + self.normals
-        zA, zB, zC = [1, 0, 0.5]
+        z_a, z_b, z_c = [1, 0, 0.5]
         ux, uy, uz = [next_vertices[:, :, 0] - self.vertices[:, :, 0], next_vertices[:, :, 1] - self.vertices[:, :, 1],
-                      zB - zA]
+                      z_b - z_a]
         vx, vy, vz = [mid_p_normals[:, :, 0] - self.vertices[:, :, 0], mid_p_normals[:, :, 1] - self.vertices[:, :, 1],
-                      zC - zA]
+                      z_c - z_a]
         u_cross_v = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx]
 
         # projecting plane characterization
@@ -88,175 +116,105 @@ class EnforcingBoundary:
         self.proj_normal = tf.convert_to_tensor(self.proj_normal, dtype=tf.float64)
         self.proj_d = tf.expand_dims(tf.convert_to_tensor(self.proj_d, dtype=tf.float64), 1)
 
-    def compute_phi_k_line(self, xy):
-        # Compute differences (xP - xV) and (yP - yV)
-        diffs = xy[:, :, None, :] - self.vertices[:, None, :, :]  # Shape (Npts, Nvrts, 2)
+    def compute_phi_k_line(self, xy: tf.Tensor) -> tf.Tensor:
+        # Compute differences (x - x_v) and (y - y_v)
+        diffs = xy[:, :, None, :] - self.vertices[:, None, :, :]  # Shape (num_points, num_vertices, 2)
 
-        # Compute the final quantity: nxV * (xP - xV) + nyV * (yP - yV) with shape (Npts, Nvrts)
-        # -eps serve a valutare sempre leggermente dentro al poligono anche quando si valuta sul bordo
-        # return tf.reduce_sum(abs(self.normals[:, None, :, :] * diffs), axis=-1) - self.geometry_utilities.geometry_tol_2d
-        return tf.reduce_sum(self.normals[:, None, :, :] * diffs,
-                             axis=-1) - 1e-12  #self.geometry_utilities.geometry_tol_2d
+        # Compute the final quantity: n_x * (x - x_v) + n_y * (y - y_v) with shape (num_points, num_vertices)
+        # -eps is used to evaluate phi_k slightly inside the polygon in case (x,y) is on the boundary
+        return tf.reduce_sum(self.normals[:, None, :, :] * diffs, axis=-1) - self.geometry_utilities.tolerance2_d()
 
-    def compute_phi_k_segment(self, xy, d_k, return_t_k=False):
+    def compute_phi_k_segment(self, xy: tf.Tensor,
+                              d_k: tf.Tensor,
+                              return_t_k: bool = False) -> tf.Tensor | list[tf.Tensor]:
+
         exp_lengths = self.lengths[:, None, :]
         diff_wrt_mid_pts = xy[:, :, None, :] - self.mid_points[:, None, :, :]
         dist_from_mid_pts = tf.reduce_sum(tf.square(diff_wrt_mid_pts), axis=-1)
 
-        # f = (1 / exp_lengths) * (xy_vA[:, :, :, 0] * vA_vB[:, :, :, 1] - xy_vA[:, :, :, 1] * vA_vB[:, :, :, 0])
         t_k = 0.25 * exp_lengths - (1.0 / exp_lengths) * dist_from_mid_pts
-
-        # exp_xy = xy[:, :, None, :] # half-line
-        # exp_verts = self.vertices[:, None, :, :]
-        # xy_vA = exp_xy - exp_verts
-        # vA_vB = self.next_verts[:, None, :, :] - exp_verts
-        # t = (1 / exp_lengths) * tf.reduce_sum(xy_vA*vA_vB, axis=-1)
 
         d_k_power2 = d_k ** 2
         z_k = tf.sqrt(t_k ** 2 + d_k_power2 ** 2)
         phi_k = tf.sqrt(d_k_power2 + 0.25 * (z_k - t_k) ** 2)
 
         if return_t_k:
-            return phi_k, t_k
+            return [phi_k, t_k]
         else:
             return phi_k
 
-    def compute_phi_k_half_line_left(self, xy, d_k):
-        exp_lengths = self.lengths[:, None, :]
-        inv_exp_lengths = 1.0 / exp_lengths
+    def projection(self, xy: tf.Tensor) -> tf.Tensor:
+        # vectorized computation of: (-normal[0] * x - normal[1] * y - d) * 1. / normal[2]
+        return ((-tf.matmul(xy, tf.transpose(self.proj_normal[:, :, :2], perm=[0, 2, 1])) - self.proj_d) /
+                self.proj_normal[:, tf.newaxis, :, 2])
 
-        t_k = (xy[:, :, None, :] - self.next_verts[:, None, :, :])
-        t_k = - inv_exp_lengths * tf.reduce_sum(self.tangents[:, None, :, :] * t_k, axis=-1)
-
-        z_k = tf.sqrt(t_k ** 2 + d_k ** 4)
-        phi_k = tf.sqrt(d_k ** 2 + 0.25 * (z_k - t_k) ** 2)
-
-        return phi_k
-
-    def compute_phi_k_half_line_right(self, xy, d_k):
-        exp_lengths = self.lengths[:, None, :]
-        inv_exp_lengths = 1.0 / exp_lengths
-
-        t_k = (xy[:, :, None, :] - self.vertices[:, None, :, :])
-        t_k = inv_exp_lengths * tf.reduce_sum(self.tangents[:, None, :, :] * t_k, axis=-1)
-
-        z_k = tf.sqrt(t_k ** 2 + d_k ** 4)
-        phi_k = tf.sqrt(d_k ** 2 + 0.25 * (z_k - t_k) ** 2)
-
-        return phi_k
-
-    def projection(self, xy):
-        # Voglio vettorizzare questo: (-normal[0] * x - normal[1] * y - d) * 1. / normal[2]
-        return (-tf.matmul(xy,
-                           tf.transpose(self.proj_normal[:, :, :2], perm=[0, 2, 1])) - self.proj_d) / self.proj_normal[
-                                                                                                      :, tf.newaxis, :,
-                                                                                                      2]
-
-    def transfinite_w(self, dist):
-        # # Compute the product of all distances along axis 1 (for each row)
-        # prod_all = tf.reduce_prod(dist, axis=2, keepdims=True)  # Shape: (Npts, 1)
-        #
-        # # Compute the numerator: Exclude dist[i] by dividing by it
-        # numerator = prod_all / dist  # Shape: (Npts, Nvrts)
+    def transfinite_w(self, dist: tf.Tensor) -> tf.Tensor:
         numerator = tf.zeros(shape=(dist.shape[0], dist.shape[1], 0), dtype=tf.float64)
+        # Compute all products of all terms except the i-th one
         for i in range(self.num_verts):
             prod_all = tf.reduce_prod(dist[:, :, 0:i], axis=2, keepdims=True) * tf.reduce_prod(dist[:, :, i + 1:],
                                                                                                axis=2, keepdims=True)
             numerator = tf.concat([numerator, prod_all], axis=2)
 
-        # Compute the denominator: Sum of all terms where one dist[k] is removed
+        # Compute the denominator: sum of all terms where one dist[k] is removed
         # The numerator already excludes each element once
-        denominator = tf.reduce_sum(numerator, axis=2, keepdims=True)  # Shape: (Npts, 1)
+        denominator = tf.reduce_sum(numerator, axis=2, keepdims=True)  # Shape: (num_points, 1)
 
-        # Compute final ratio
-        return numerator / denominator  # Shape: (Npts, Nvrts)
+        # Compute the final ratio
+        return numerator / denominator  # Shape: (num_points, num_vertices)
 
-    def compute_g(self, proj, dist, margin=np.inf):
-        # evaluation points
-        # self.reference_eval_points = np.linspace(-0.1, 1.1, 1000)
-
-        # lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
-        # quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)
-        # self.references_do_fs_on_edge = quadrature_data.points[0, :]
-
-        # print(proj.shape, self.reference_eval_points.shape)
-        # self.reference_eval_points = proj[:, :, :, None]
-
-        transf_ws = self.transfinite_w(dist)
-        prev_transf_w = tf.roll(transf_ws, shift=1, axis=2)
+    def compute_g(self, proj: tf.Tensor, dist: tf.Tensor, margin: float = np.inf) -> tf.Tensor:
+        transfinite_ws = self.transfinite_w(dist)
+        prev_transfinite_w = tf.roll(transfinite_ws, shift=1, axis=2)
         prev_proj = tf.roll(proj, shift=1, axis=2)
 
         nodes_1d = chebyshev_lobatto_nodes(0, 1, self.method_order + 1)
 
         if margin == np.inf:
-            psi_0jE = lagrange_basis_1d(self.method_order, proj, nodes_1d) * transf_ws
-            psi_m1jE = lagrange_basis_1d(0, prev_proj, nodes_1d) * prev_transf_w
-            g = psi_0jE + psi_m1jE
+            psi_0je = lagrange_basis_1d(self.method_order, proj, nodes_1d) * transfinite_ws
+            psi_m1je = lagrange_basis_1d(0, prev_proj, nodes_1d) * prev_transfinite_w
+            g = psi_0je + psi_m1je
             for i in range(1, self.method_order):
-                psi_ijE = lagrange_basis_1d(i, proj, nodes_1d) * transf_ws
-                g = tf.concat([g, psi_ijE], axis=-1)
+                psi_ije = lagrange_basis_1d(i, proj, nodes_1d) * transfinite_ws
+                g = tf.concat([g, psi_ije], axis=-1)
         else:
-            psi_0jE = localized_lagrange_basis_1d(self.method_order, proj, nodes_1d, margin) * transf_ws
-            psi_m1jE = localized_lagrange_basis_1d(0, prev_proj, nodes_1d, margin) * prev_transf_w
-            g = psi_0jE + psi_m1jE
+            psi_0je = localized_lagrange_basis_1d(self.method_order, proj, nodes_1d, margin) * transfinite_ws
+            psi_m1je = localized_lagrange_basis_1d(0, prev_proj, nodes_1d, margin) * prev_transfinite_w
+            g = psi_0je + psi_m1je
             for i in range(1, self.method_order):
-                psi_ijE = localized_lagrange_basis_1d(i, proj, nodes_1d, margin) * transf_ws
-                g = tf.concat([g, psi_ijE], axis=-1)
+                psi_ije = localized_lagrange_basis_1d(i, proj, nodes_1d, margin) * transfinite_ws
+                g = tf.concat([g, psi_ije], axis=-1)
 
-        # self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(self.references_do_fs_on_edge)
-        # lagrange_values = polydim.interpolation.lagrange.lagrange_1_d_values(self.references_do_fs_on_edge,
-        #                                                                      self.lagrange_coefficients,
-        #                                                                      self.reference_eval_points)
-        # lagrange_derivatives_values = (
-        #     polydim.interpolation.lagrange.lagrange_1_d_derivative_values(self.references_do_fs_on_edge,
-        #                                                                   self.lagrange_coefficients,
-        #                                                                   self.reference_eval_points))
-
-        # plt.plot(self.reference_eval_points, lagrange_values)
-        # plt.show()
         return g
 
-    def phi_and_g(self, xy, reshape_for_net=False, method_type=1, bubble_type=1):
+    def phi_and_g(self, xy: tf.Tensor) -> list[tf.Tensor]:
         proj = self.projection(xy)
 
         phi_k_line = self.compute_phi_k_line(xy)
-        if method_type == 0:
-            dist = phi_k_line
-        elif method_type == 1:
-            dist = self.compute_phi_k_segment(xy, phi_k_line)
-        elif method_type == 2:
-            dist = self.compute_phi_k_half_line_right(xy, phi_k_line)
-        elif method_type == 3:
-            dist = self.compute_phi_k_half_line_left(xy, phi_k_line)
-        elif method_type == 4:
-            phi_k_half_line_left = self.compute_phi_k_half_line_left(xy, phi_k_line)
-            phi_k_half_line_right = self.compute_phi_k_half_line_right(xy, phi_k_line)
-            phi_k_segment = self.compute_phi_k_segment(xy, phi_k_line)
+        match self.method_type:
+            case BoundaryMethodType.line:
+                dist = phi_k_line
+            case BoundaryMethodType.segment:
+                dist = self.compute_phi_k_segment(xy, phi_k_line)
+            case _:
+                raise ValueError("Unknown boundary method type")
 
-            dist = (phi_k_line * (self.select_b_type[:, :, :] == 0) + phi_k_segment * (self.select_b_type[:, :, :] == 1)
-                    + phi_k_half_line_left * (self.select_b_type[:, :, :] == 2)
-                    + phi_k_half_line_right * (self.select_b_type[:, :, :] == 3))
+        margin = np.inf if self.method_order == 1 else 0.5
+        g = self.compute_g(proj, dist, margin)
 
-        transf_ws = self.transfinite_w(dist)
+        match self.bubble_type:
+            case BubbleType.approximate_distance_function:
+                m = 2
+                sum_inverse = tf.reduce_sum(1.0 / (dist ** m), axis=2, keepdims=True)
+                phi = 1.0 / sum_inverse ** (1 / m)
+            case BubbleType.product:
+                phi = tf.reduce_prod(dist, axis=2, keepdims=True)
+            case _:
+                raise ValueError("Unknown bubble type")
 
-        prev_transf_w = tf.roll(transf_ws, shift=1, axis=2)
-        prev_proj = tf.roll(proj, shift=1, axis=2)
-        g = prev_transf_w * (1.0 - prev_proj) + transf_ws * proj
+        return [phi, g]
 
-        # g = self.compute_g(proj, dist, margin=0.5)
-
-        if bubble_type == 1:
-            # ADF (derivata normale unitaria)
-            m = 2
-            sum_invers = tf.reduce_sum(1.0 / (dist ** m), axis=2, keepdims=True)
-            phi = 1.0 / sum_invers ** (1 / m)
-        elif bubble_type == 2:
-            # CLASSICA BOLLA (rischia di avere derivate normali molto piccole vicino ad alcuni bordi/vertici)
-            phi = tf.reduce_prod(dist, axis=2, keepdims=True)
-
-        return phi, g
-
-    def phi_and_g_and_grads(self, inputs):
+    def phi_and_g_and_grads(self, inputs: tf.Tensor) -> list[tf.Tensor]:
         with tf.GradientTape(persistent=True) as tape:
             tape.watch(inputs)
             phi, g = self.phi_and_g(inputs)
@@ -269,67 +227,67 @@ class EnforcingBoundary:
         g_grad = tf.stack(g_grad, 2)
         del tape
 
-        return phi, g, phi_grad, g_grad
+        return [phi, g, phi_grad, g_grad]
 
-    def map_phi_and_g_grads(self, phi_grad, g_grad):
+    def map_phi_and_g_grads(self, phi_grad: tf.Tensor, g_grad: tf.Tensor) -> list[tf.Tensor]:
 
         if self.jac_per_pol is None:
-            phi_grad = np.repeat(np.expand_dims(phi_grad, axis=2), self.num_functions, axis=2)
-            return phi_grad, g_grad
+            phi_grad = tf.repeat(tf.expand_dims(phi_grad, axis=2), self.num_functions, axis=2)
+            return [phi_grad, g_grad]
         else:
-            g_grad_mapped = np.einsum('pnvi,piov->pnvo', g_grad, self.jac_per_pol)
-            phi_grad_mapped = np.einsum('pni,piov->pnvo', phi_grad, self.jac_per_pol)
+            g_grad_mapped = tf.einsum('pnvi,piov->pnvo', g_grad, self.jac_per_pol)
+            phi_grad_mapped = tf.einsum('pni,piov->pnvo', phi_grad, self.jac_per_pol)
+            return [phi_grad_mapped, g_grad_mapped]
 
-            return phi_grad_mapped, g_grad_mapped
-
-    def map_phi_and_g_second_derivatives(self, phi_sec_ders, g_sec_ders):
+    def map_phi_and_g_second_derivatives(self, phi_sec_ders: tf.Tensor, g_sec_ders: tf.Tensor) -> list[tf.Tensor]:
         if self.jac_per_pol is None:
-            phi_sec_ders = np.repeat(np.expand_dims(phi_sec_ders, axis=2), self.num_functions, axis=2)
-            return phi_sec_ders, g_sec_ders
+            phi_sec_ders = tf.repeat(tf.expand_dims(phi_sec_ders, axis=2), self.num_functions, axis=2)
+            return [phi_sec_ders, g_sec_ders]
         else:
             g_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
             phi_sec_ders_mapped = np.zeros(shape=g_sec_ders.shape)
 
             for d1 in range(2):
                 for d2 in range(2):
-                    g_sec_ders_mapped[..., 0] += np.einsum("pv,pv,psv->psv",
+                    g_sec_ders_mapped[..., 0] += tf.einsum("pv,pv,psv->psv",
                                                            self.jac_per_pol[:, d1, 0, :],
                                                            self.jac_per_pol[:, d2, 0, :],
                                                            g_sec_ders[..., d1 + d2]
-                                                           )
+                                                           ).numpy()
 
-                    g_sec_ders_mapped[..., 1] += np.einsum("pv,pv,psv->psv",
+                    g_sec_ders_mapped[..., 1] += tf.einsum("pv,pv,psv->psv",
                                                            self.jac_per_pol[:, d1, 0, :],
                                                            self.jac_per_pol[:, d2, 1, :],
                                                            g_sec_ders[..., d1 + d2]
-                                                           )
+                                                           ).numpy()
 
-                    g_sec_ders_mapped[..., 2] += np.einsum("pv,pv,psv->psv",
+                    g_sec_ders_mapped[..., 2] += tf.einsum("pv,pv,psv->psv",
                                                            self.jac_per_pol[:, d1, 1, :],
                                                            self.jac_per_pol[:, d2, 1, :],
                                                            g_sec_ders[..., d1 + d2]
-                                                           )
+                                                           ).numpy()
 
-                    phi_sec_ders_mapped[..., 0] += np.einsum("pv,pv,ps->psv",
+                    phi_sec_ders_mapped[..., 0] += tf.einsum("pv,pv,ps->psv",
                                                              self.jac_per_pol[:, d1, 0, :],
                                                              self.jac_per_pol[:, d2, 0, :],
                                                              phi_sec_ders[..., d1 + d2]
-                                                             )
+                                                             ).numpy()
 
-                    phi_sec_ders_mapped[..., 1] += np.einsum("pv,pv,ps->psv",
+                    phi_sec_ders_mapped[..., 1] += tf.einsum("pv,pv,ps->psv",
                                                              self.jac_per_pol[:, d1, 0, :],
                                                              self.jac_per_pol[:, d2, 1, :],
                                                              phi_sec_ders[..., d1 + d2]
-                                                             )
+                                                             ).numpy()
 
-                    phi_sec_ders_mapped[..., 2] += np.einsum("pv,pv,ps->psv",
+                    phi_sec_ders_mapped[..., 2] += tf.einsum("pv,pv,ps->psv",
                                                              self.jac_per_pol[:, d1, 1, :],
                                                              self.jac_per_pol[:, d2, 1, :],
                                                              phi_sec_ders[..., d1 + d2]
-                                                             )
-            return phi_sec_ders_mapped, g_sec_ders_mapped
+                                                             ).numpy()
+            return [tf.convert_to_tensor(phi_sec_ders_mapped, dtype=tf.float64),
+                    tf.convert_to_tensor(g_sec_ders_mapped, dtype=tf.float64)]
 
-    def phi_and_g_and_grads_and_second_derivatives(self, inputs):
+    def phi_and_g_and_grads_and_second_derivatives(self, inputs: tf.Tensor) -> list[tf.Tensor]:
         with tf.GradientTape(persistent=True) as tape:
             tape.watch(inputs)
 
@@ -356,9 +314,10 @@ class EnforcingBoundary:
         phi_grad_mapped, g_grad_mapped = self.map_phi_and_g_grads(phi_grad, g_grad)
         phi_sec_ders_mapped, g_sec_ders_mapped = self.map_phi_and_g_second_derivatives(phi_sec_ders, g_sec_ders)
 
-        return phi, g, phi_grad_mapped, g_grad_mapped, phi_sec_ders_mapped, g_sec_ders_mapped
+        return [phi, g, phi_grad_mapped, g_grad_mapped, phi_sec_ders_mapped, g_sec_ders_mapped]
 
-    def inside_pol(self, inputs):
+    def inside_pol(self, inputs: NDArray[tf.float64]) -> tf.Tensor:
+        inside = 0
         for p in range(self.vertices.shape[0]):
             polygon = self.vertices[p, :, :]
             path = mpltPath.Path(polygon)
@@ -370,143 +329,68 @@ class EnforcingBoundary:
                 inside = np.concatenate([inside, curr_inside], 0)
         return tf.convert_to_tensor(inside, dtype=tf.float64)
 
-    # def draw_function_one_edge(self, N, x, y, xy, pol_id, edge_id, method_type):
-    #
-    #     phi_k_line = self.compute_phi_k_line(xy)
-    #     if method_type == 0:
-    #         phi = phi_k_line
-    #     elif method_type == 1:
-    #         phi = self.compute_phi_k_segment(xy, phi_k_line)
-    #     elif method_type == 2:
-    #         phi = self.compute_phi_k_half_line_right(xy, phi_k_line)
-    #     elif method_type == 3:
-    #         phi = self.compute_phi_k_half_line_left(xy, phi_k_line)
-    #
-    #     phi = phi[pol_id, :, edge_id]
-    #     phi = phi.numpy().reshape((N, N))
-    #
-    #     z = phi
-    #
-    #     plt.contour(x, y, z, levels=20, linewidths=1, linestyles="solid", colors=["black"])
-    #     plt.contourf(x, y, z, levels=200)
-    #     cbar = plt.colorbar()
-    #     # for e in self.segments[pol_id, :, :]:
-    #     #    plt.plot([e[0], e[2]], [e[1], e[3]], 'blue', linewidth=1)
-    #     plt.plot([self.segments[pol_id, edge_id, 0], self.segments[pol_id, edge_id, 2]], [
-    #              self.segments[pol_id, edge_id, 1], self.segments[pol_id, edge_id, 3]], 'red', linewidth=3)
-    #     # plt.scatter(self.vertices[pol_id, :, 0], self.vertices[pol_id, :, 1], c='blue', marker='o', s=50)
-    #     if edge_id < self.n_verts - 1:
-    #         plt.scatter(self.vertices[pol_id, edge_id:edge_id + 2, 0], self.vertices[pol_id, edge_id:edge_id + 2, 1],
-    #                     c='red', marker='o', s=60)
-    #     else:
-    #         plt.scatter(self.vertices[pol_id, 0, 0], self.vertices[pol_id, 0, 1],
-    #                     c='red', marker='o', s=60)
-    #         plt.scatter(self.vertices[pol_id, self.n_verts-1, 0], self.vertices[pol_id, self.n_verts-1, 1],
-    #                     c='red', marker='o', s=60)
-    #     cbar.ax.tick_params(labelsize=17)
-    #     plt.axis("equal")
-    #     plt.axis("off")
-    #     root_dir = os.path.dirname(os.path.abspath(__file__))
-    #     plt.savefig(root_dir + "/../ExportParaview/phi0_edge_" + str(edge_id) + "_mt_" + str(method_type) +
-    #                 "_pol_id_" + str(pol_id) + "_nv_" + str(self.n_verts) + ".png",
-    #                 bbox_inches='tight')
-    #     plt.show()
+    def draw_function_one_edge(self, N, x, y, xy, pol_id, edge_id, left_half_line = True):
 
-    # def draw_trimming_function_one_edge(self, N, x, y, xy, pol_id, edge_id):
-    #
-    #     phi_k_line = self.compute_phi_k_line(xy)
-    #     _, t_k = self.compute_phi_k_segment(xy, phi_k_line, return_t_k=True)
-    #
-    #     t_k = t_k[pol_id, :, edge_id]
-    #     t = t_k.numpy().reshape((N, N))
-    #     z = t
-    #
-    #     plt.contour(x, y, z, levels=20, linewidths=1, linestyles="solid", colors=["black"])
-    #     plt.contourf(x, y, z, levels=200)
-    #     cbar = plt.colorbar()
-    #     # for e in self.segments[pol_id, :, :]:
-    #     #    plt.plot([e[0], e[2]], [e[1], e[3]], 'blue', linewidth=1)
-    #     plt.plot([self.segments[pol_id, edge_id, 0], self.segments[pol_id, edge_id, 2]], [
-    #         self.segments[pol_id, edge_id, 1], self.segments[pol_id, edge_id, 3]], 'red', linewidth=3)
-    #     # plt.scatter(self.vertices[pol_id, :, 0], self.vertices[pol_id, :, 1], c='blue', marker='o', s=50)
-    #     if edge_id < self.n_verts - 1:
-    #         plt.scatter(self.vertices[pol_id, edge_id:edge_id + 2, 0], self.vertices[pol_id, edge_id:edge_id + 2, 1],
-    #                     c='red', marker='o', s=60)
-    #     else:
-    #         plt.scatter(self.vertices[pol_id, 0, 0], self.vertices[pol_id, 0, 1],
-    #                     c='red', marker='o', s=60)
-    #         plt.scatter(self.vertices[pol_id, self.n_verts - 1, 0], self.vertices[pol_id, self.n_verts - 1, 1],
-    #                     c='red', marker='o', s=60)
-    #     cbar.ax.tick_params(labelsize=17)
-    #     plt.axis("equal")
-    #     plt.axis("off")
-    #     root_dir = os.path.dirname(os.path.abspath(__file__))
-    #     plt.savefig(root_dir + "/../ExportParaview/trim_edge_" + str(edge_id) +
-    #                 "_pol_id_" + str(pol_id) + "_nv_" + str(self.n_verts) + ".png",
-    #                 bbox_inches='tight')
-    #     plt.show()
+        phi_k_line = self.compute_phi_k_line(xy)
+        match self.method_type:
+            case BoundaryMethodType.line:
+                phi = phi_k_line
+            case BoundaryMethodType.segment:
+                phi = self.compute_phi_k_segment(xy, phi_k_line)
+            case BoundaryMethodType.max_smoothness:
+                if left_half_line:
+                    phi = self.compute_phi_k_half_line_right(xy, phi_k_line)
+                else:
+                    phi = self.compute_phi_k_half_line_left(xy, phi_k_line)
+            case _:
+                raise ValueError("Unknown boundary method type.")
 
-    def draw_function(self, N, x, y, xy, pol_id, dof_id, draw_lifting, method_type=1, bubble_type=1):
+        phi = phi[pol_id, :, edge_id]
+        phi = phi.numpy().reshape((N, N))
 
-        phi, g = self.phi_and_g(xy, method_type=method_type, bubble_type=bubble_type)
-        # phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = self.phi_and_g_and_grads_and_second_derivatives(xy)
-        # g = g_sec_ders[:, :, :, 0] + g_sec_ders[:, :, :, 2]
+        z = phi
+
+        plt.contour(x, y, z, levels=20, linewidths=1, linestyles="solid", colors=["black"])
+        plt.contourf(x, y, z, levels=200)
+        cbar = plt.colorbar()
+        for e in self.segments[pol_id, :, :]:
+           plt.plot([e[0], e[2]], [e[1], e[3]], 'blue', linewidth=1)
+        plt.plot([self.segments[pol_id, edge_id, 0], self.segments[pol_id, edge_id, 2]], [
+                 self.segments[pol_id, edge_id, 1], self.segments[pol_id, edge_id, 3]], 'red', linewidth=3)
+        # plt.scatter(self.vertices[pol_id, :, 0], self.vertices[pol_id, :, 1], c='blue', marker='o', s=50)
+        if edge_id < self.num_verts - 1:
+            plt.scatter(self.vertices[pol_id, edge_id:edge_id + 2, 0], self.vertices[pol_id, edge_id:edge_id + 2, 1],
+                        c='red', marker='o', s=60)
+        else:
+            plt.scatter(self.vertices[pol_id, 0, 0], self.vertices[pol_id, 0, 1],
+                        c='red', marker='o', s=60)
+            plt.scatter(self.vertices[pol_id, self.num_verts-1, 0], self.vertices[pol_id, self.num_verts-1, 1],
+                        c='red', marker='o', s=60)
+        cbar.ax.tick_params(labelsize=17)
+        plt.axis("equal")
+        plt.axis("off")
+        plt.show()
+
+    def draw_function(self, n: int, x, y, xy, pol_id, dof_id, draw_lifting):
+
+        phi, g = self.phi_and_g(xy)
 
         phi = phi[pol_id, :, :]
-        # g = g[pol_id, :, dof_id:dof_id+1]
+        g = g[pol_id, :, dof_id:dof_id+1]
         inside = self.inside_pol(xy)[pol_id, :]
 
-        # tv = self.vertices[pol_id, :, :] - self.vertices[pol_id, -3, :]
-        # tx = xy[pol_id, :, 0] - self.vertices[pol_id, -3, 0]
-        # ty = xy[pol_id, :, 1] - self.vertices[pol_id, -3, 1]
-        # ratio = tv[-1, 0] / tv[-1, 1]
-        # g_x = tx - ty * ratio
-        # g_y = ty
-        # g_c = 1.0
-        # for i in range(self.num_functions - 3):
-        #     g_x -= (tv[i, 0] - tv[i, 1] * ratio) * g[pol_id, :, i]
-        #     g_y -= tv[i, 1] * g[pol_id, :, i]
-        #     g_c -= g[pol_id, :, i]
-        # g_x /= (tv[-2, 0] - tv[-2, 1] * ratio)
-        # g_y = (g_y - tv[-2, 1] * g_x) / tv[-1, 1]
-        # g_c = g_c - g_x - g_y
-        #
-        # new_g = 0  # per calcolare 1
-        # for i in range(self.num_functions - 3):
-        #     new_g += g[pol_id, :, i]
-        # new_g += g_c
-        # new_g += g_x
-        # new_g += g_y
-        #
-        # new_g = 0  # per calcolare x
-        # for i in range(self.num_functions - 3):
-        #     new_g += self.vertices[pol_id, i, 0] * g[pol_id, :, i]
-        # new_g += self.vertices[pol_id, -3, 0] * g_c
-        # new_g += self.vertices[pol_id, -2, 0] * g_x
-        # new_g += self.vertices[pol_id, -1, 0] * g_y
-        #
-        # new_g = 0  # per calcolare y
-        # for i in range(self.num_functions - 3):
-        #     new_g += self.vertices[pol_id, i, 1] * g[pol_id, :, i]
-        # new_g += self.vertices[pol_id, -3, 1] * g_c
-        # new_g += self.vertices[pol_id, -2, 1] * g_x
-        # new_g += self.vertices[pol_id, -1, 1] * g_y
-        #
-        # new_g = g_y
-        # g = new_g[:, None]
+        lifting = g.numpy().reshape((n, n))
+        phi = phi.numpy().reshape((n, n))
 
-        lifting = g.numpy().reshape((N, N))
-        # print(phi.shape)
-        phi = phi.numpy().reshape((N, N))
-        lifting *= inside.numpy().reshape((N, N))
-        phi *= inside.numpy().reshape((N, N))
+        lifting *= inside.numpy().reshape((n, n))
+        phi *= inside.numpy().reshape((n, n))
 
         if draw_lifting:
             z = lifting
         else:
             z = phi
 
-        z = np.ma.masked_where(inside.numpy().reshape((N, N)) == 0, z)
+        z = np.ma.masked_where(inside.numpy().reshape((n, n)) == 0, z)
 
         plt.contour(x, y, z, levels=20, linewidths=1, linestyles="solid", colors=["black"])
         plt.contourf(x, y, z, levels=200)
@@ -516,56 +400,17 @@ class EnforcingBoundary:
         plt.scatter(self.vertices[pol_id, :, 0], self.vertices[pol_id, :, 1], c='red', marker='o', s=40)
         cbar.ax.tick_params(labelsize=17)
         plt.axis("equal")
-
-        # root_dir = os.path.dirname(os.path.abspath(__file__))
-        # plt.savefig(root_dir + "/../ExportParaview/phi0_mt_" + str(method_type) + "_bt_"
-        #             + str(bubble_type) + "_pol_id_" + str(pol_id) + "_nv_" + str(self.num_functions) + ".png", bbox_inches='tight')
         plt.show()
 
-    def draw_sec_der_function(self, N, x, y, xy, pol_id, dof_id, draw_lifting):
-
-        # phi, g = self.phi_and_g(xy)
-        # phi, g, phi_grad, g_grad = self.phi_and_g_and_grads(xy)
-        phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = self.phi_and_g_and_grads_and_second_derivatives(xy)
-
-        # norma del gradiente
-        phi = np.sqrt(phi_grad[pol_id, :, dof_id:dof_id + 1, 0] ** 2 + phi_grad[pol_id, :, dof_id:dof_id + 1, 1] ** 2)
-        g = np.sqrt(g_grad[pol_id, :, dof_id:dof_id + 1, 0] ** 2 + g_grad[pol_id, :, dof_id:dof_id + 1, 1] ** 2)
-
-        # laplaciano
-        # phi = phi_sec_ders[pol_id, :, dof_id:dof_id+1, 0] + phi_sec_ders[pol_id, :, dof_id:dof_id+1, 2]
-        # g = g_sec_ders[pol_id, :, dof_id:dof_id+1, 0] + g_sec_ders[pol_id, :, dof_id:dof_id+1, 2]
-
-        inside = self.inside_pol(xy)[pol_id, :]
-
-        lifting = g.reshape((N, N))
-        phi = phi.reshape((N, N))
-        lifting *= inside.numpy().reshape((N, N))
-        phi *= inside.numpy().reshape((N, N))
-
-        if draw_lifting:
-            z = lifting
-        else:
-            z = phi
-
-        plt.contour(x, y, z, levels=15, linewidths=1, linestyles="solid", colors=["black"])
-        plt.contourf(x, y, z, levels=150)
-        cbar = plt.colorbar()
-        for e in self.segments[pol_id, :, :]:
-            plt.plot([e[0], e[2]], [e[1], e[3]], 'red', linewidth=1.5)
-        cbar.ax.tick_params(labelsize=17)
-        plt.axis("equal")
-        plt.show()
-
-    def scatter_border(self, pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=True):
+    def scatter_function(self, pol_id, dof_id, method_type, plot_all_edges=True, plot_inner_pts=True, draw_lifting=True):
         fig = plt.figure(figsize=(5, 5))
         ax = fig.add_subplot(projection='3d')
 
-        N = 51
-        x = np.linspace(-1, 1, N)
-        y = np.linspace(-1, 1, N)
-        xall = np.expand_dims(np.tile(x, N), 1)
-        yall = np.expand_dims(np.repeat(y, N), 1)
+        n = 51
+        x = np.linspace(-1, 1, n)
+        y = np.linspace(-1, 1, n)
+        xall = np.expand_dims(np.tile(x, n), 1)
+        yall = np.expand_dims(np.repeat(y, n), 1)
         xy = np.concatenate([xall, yall], axis=1)
         xy_expanded = np.expand_dims(xy, 0)
         xy_expanded = np.tile(xy_expanded, [self.vertices.shape[0], 1, 1])
@@ -575,12 +420,12 @@ class EnforcingBoundary:
 
         new_x = np.zeros(shape=(0,))
         new_y = np.zeros(shape=(0,))
-        linsp01 = np.linspace(0, 1, N)
+        linspace_01 = np.linspace(0, 1, n)
         pol_segments = self.segments[pol_id, :, :]
         for e in range(self.num_verts):
             if (e != dof_id and e != (dof_id - 1) % self.num_verts) or plot_all_edges:
-                curr_new_x = pol_segments[e, 0] + linsp01 * [pol_segments[e, 2] - pol_segments[e, 0]]
-                curr_new_y = pol_segments[e, 1] + linsp01 * [pol_segments[e, 3] - pol_segments[e, 1]]
+                curr_new_x = pol_segments[e, 0] + linspace_01 * [pol_segments[e, 2] - pol_segments[e, 0]]
+                curr_new_y = pol_segments[e, 1] + linspace_01 * [pol_segments[e, 3] - pol_segments[e, 1]]
                 new_x = np.concatenate([new_x, curr_new_x])
                 new_y = np.concatenate([new_y, curr_new_y])
 
