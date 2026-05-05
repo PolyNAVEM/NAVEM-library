@@ -366,7 +366,7 @@ def _get_search_direction(inv_hessian_approx, gradient):
   return -tf.linalg.matvec(inv_hessian_approx, gradient)
 
 
-def _update_inv_hessian(prev_state, next_state, Bk_times_sk):
+def _update_inv_hessian(prev_state, next_state, bmatrix_k_times_sk):
   """Update the BGFS state by computing the next inverse hessian estimate."""
   # Only update the inverse Hessian if not already failed or converged.
   should_update = ~next_state.converged & ~next_state.failed
@@ -392,7 +392,7 @@ def _update_inv_hessian(prev_state, next_state, Bk_times_sk):
   def _do_update_inv_hessian():
     next_inv_hessian = _bfgs_inv_hessian_update(
         gradient_delta, position_delta, normalization_factor,
-        inverse_hessian_estimate, Bk_times_sk)
+        inverse_hessian_estimate, bmatrix_k_times_sk)
     return bfgs_utils.update_fields(
         next_state,
         inverse_hessian_estimate=tf.where(
@@ -407,7 +407,7 @@ def _update_inv_hessian(prev_state, next_state, Bk_times_sk):
 
 
 def _bfgs_inv_hessian_update(grad_delta, position_delta, normalization_factor,
-                             inv_hessian_estimate, Bk_times_sk):
+                             inv_hessian_estimate, bmatrix_k_times_sk):
   """Applies the BFGS update to the inverse Hessian estimate.
 
   The BFGS update rule is (note A^T denotes the transpose of a vector/matrix A).
@@ -473,7 +473,7 @@ def _bfgs_inv_hessian_update(grad_delta, position_delta, normalization_factor,
   cross_term = _tensor_product(position_delta, conditioned_grad_delta)
 
   # computation of b_k and tau_k
-  b_k_numerator = tf.reduce_sum(position_delta * Bk_times_sk, axis=-1)
+  b_k_numerator = tf.reduce_sum(position_delta * bmatrix_k_times_sk, axis=-1)
   b_k_denominator = tf.reduce_sum(position_delta * grad_delta, axis=-1)
   b_k = b_k_numerator / b_k_denominator
   tau_k = tf.minimum(1.0/(b_k+1e-12), 1.0)

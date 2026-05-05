@@ -116,10 +116,10 @@ def plot_function_and_tangent_derivatives_on_edges(geometry_utilities: gedim.Geo
                true_labels,
                label='true labels')
 
-    # ax.scatter(points_on_edges[0, :],
-    #            points_on_edges[1, :],
-    #            predicted_labels,
-    #            label='predicted labels')
+    ax.scatter(points_on_edges[0, :],
+               points_on_edges[1, :],
+               predicted_labels,
+               label='predicted labels')
     ##################################################################
 
     points_on_edges_nv, num_points_on_edge_nv \

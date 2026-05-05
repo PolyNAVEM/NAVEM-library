@@ -27,10 +27,14 @@ class NAVEMType(Enum):
     B_NAVEM = 2
     P_NAVEM = 3
 
-class NAVEMElementType(Enum):
+class NAVEMMappingType(Enum):
     standard = 1
     inertia = 2
     rotated_inertia = 3
+
+class NAVEMElementType(Enum):
+    generic_convex = 1
+    generic_concave = 2
 
 class NAVEMOutput:
 
@@ -48,20 +52,46 @@ class NNDictionary:
         self.method_type: NAVEMType = NAVEMType.H_NAVEM
         self.neural_network = None
 
-def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary_file_path: str) -> Dict[int, NNDictionary]:
+class NNCategory:
 
-    categories: Dict[int, NNDictionary] = {}
+    tolerance_hanging_nodes = 0.1
+
+    def __init__(self, num_vertices: int, element_type: NAVEMElementType):
+        self.num_vertices: int = num_vertices
+        self.element_type: NAVEMElementType = element_type
+
+
+    def __eq__(self, other):
+        if not isinstance(other, NNCategory):
+            return NotImplemented
+        return (
+            self.num_vertices == other.num_vertices and
+            self.element_type == other.element_type
+        )
+
+    def __hash__(self):
+        return hash((self.num_vertices, self.element_type))
+
+def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
+                                         mesh_geometric_data: MeshGeometricData2D,
+                                         dictionary_file_path: str) -> Dict[NNCategory, NNDictionary]:
+
+    categories: Dict[NNCategory, NNDictionary] = {}
     with open(dictionary_file_path + "/dictionary.txt", "r") as file:
         for line in file:
             line = line.strip()
             if not line:
                 continue
 
-            num_vertices, name_storage = line.split("=", 1)
+            element_class, name_storage = line.split("=", 1)
+            num_vertices, element_type = element_class.split(",", 1)
             num_vertices = int(num_vertices.strip())
+            element_type = NAVEMElementType(int(element_type.strip()))
+            category = NNCategory(num_vertices, element_type)
+
             name_storage = name_storage.strip()
             name_storage = dictionary_file_path + "/" + name_storage
-            categories[num_vertices] = NNDictionary()
+            categories[category] = NNDictionary()
 
             raw: Dict[str, str] = {}
             with open(name_storage + "/dictionary.txt", "r") as dictionary_file:
@@ -76,21 +106,21 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
 
                     raw[key] = value
 
-            categories[num_vertices].method_type = NAVEMType(int(raw["method_type"]))
+            categories[category].method_type = NAVEMType(int(raw["method_type"]))
 
-            match categories[num_vertices].method_type:
+            match categories[category].method_type:
                 case NAVEMType.H_NAVEM:
                     flags = h_navem_network.load_flags_from_dictionary(name_storage, raw)
-                    categories[num_vertices].neural_network = h_navem_network.HNAVEMNetworksContainer(flags)
-                    categories[num_vertices].neural_network.load_weights(name_storage)
+                    categories[category].neural_network = h_navem_network.HNAVEMNetworksContainer(flags)
+                    categories[category].neural_network.load_weights(name_storage)
                 case NAVEMType.B_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
-                    categories[num_vertices].neural_network = b_navem_network.BNAVEMNetwork(flags)
-                    categories[num_vertices].neural_network.load_model(name_storage)
+                    categories[category].neural_network = b_navem_network.BNAVEMNetwork(flags)
+                    categories[category].neural_network.load_model(name_storage)
                 case NAVEMType.P_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
-                    categories[num_vertices].neural_network = p_navem_network.PNAVEMNetwork(flags)
-                    categories[num_vertices].neural_network.load_model(name_storage)
+                    categories[category].neural_network = p_navem_network.PNAVEMNetwork(flags)
+                    categories[category].neural_network.load_model(name_storage)
                 case _:
                     raise ValueError("Unknown method type")
 
@@ -101,10 +131,26 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO, dictionary
         if num_vertices == 3:
             continue
 
-        if num_vertices not in categories:
+        internal_angles = mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]
+
+        sum_internal_angles = sum(internal_angles)
+
+        if abs(sum_internal_angles - (num_vertices - 2) * np.pi) > np.pi * NNCategory.tolerance_hanging_nodes:
+            raise ValueError("polygon is not simple")
+
+        is_concave = any(a > np.pi * (1.0 + NNCategory.tolerance_hanging_nodes) for a in internal_angles)
+
+        if is_concave:
+            element_type = NAVEMElementType.generic_concave
+        else:
+            element_type = NAVEMElementType.generic_convex
+
+        element_class = NNCategory(num_vertices, element_type)
+
+        if element_class not in categories:
             raise ValueError("Not valid element")
 
-        categories[num_vertices].list_elements.append(c)
+        categories[element_class].list_elements.append(c)
 
     return categories
 
@@ -115,7 +161,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
                                                evaluation_points: Dict[int, NDArray[np.float64]],
                                                evaluation_weights: Dict[int, NDArray[np.float64]],
                                                predict_laplacian: bool = False,
-                                               navem_element_type: NAVEMElementType = NAVEMElementType.standard) -> Dict[int, NAVEMOutput]:
+                                               navem_element_type: NAVEMMappingType = NAVEMMappingType.standard) -> Dict[int, NAVEMOutput]:
 
     if predict_laplacian:
         raise ValueError("not implemented method")
@@ -153,7 +199,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
         output_values[c] = NAVEMOutput()
 
         match navem_element_type:
-            case NAVEMElementType.standard:
+            case NAVEMMappingType.standard:
                 output_values[c].internal_quadrature.points = internal_nodes
                 output_values[c].internal_quadrature.weights = evaluation_weights[c]
             case _:
@@ -168,7 +214,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
             vertex_distance = scaling * np.roll(polygon.mapped_max_vertex_distance, shift=-v_id)
 
             match navem_element_type:
-                case NAVEMElementType.standard:
+                case NAVEMMappingType.standard:
                     global_jac_inv[c * num_vertices + v_id, :, :] = jac_inv[:2, :2]
                 case _:
                     raise ValueError("not valid navem element type")
@@ -240,7 +286,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
                                                         evaluation_points: Dict[int, NDArray[np.float64]],
                                                         evaluation_weights: Dict[int, NDArray[np.float64]],
                                                         predict_laplacian: bool = False,
-                                                        navem_element_type: NAVEMElementType = NAVEMElementType.standard) -> Dict[int, NAVEMOutput]:
+                                                        navem_element_type: NAVEMMappingType = NAVEMMappingType.standard) -> Dict[int, NAVEMOutput]:
 
     num_vertices = neural_network.flags["num_vertices"]
     network_input_dimension = 2 * num_vertices
@@ -275,15 +321,15 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
         vertices_per_pol[c_pol, :, :] = polygon.mapped_vertices[:2, :]
 
         match navem_element_type:
-            case NAVEMElementType.standard:
+            case NAVEMMappingType.standard:
                 output_values[c].internal_quadrature.points = internal_nodes
                 output_values[c].internal_quadrature.weights = evaluation_weights[c]
-            case NAVEMElementType.inertia:
+            case NAVEMMappingType.inertia:
                 output_values[c].internal_quadrature.points = inertia_mapped_internal_nodes
                 output_values[c].internal_quadrature.weights = (evaluation_weights[c]
                                                                 * geometry_utilities.polygon_area(mesh_geometric_data.cell2_ds_polygon[c].mapped_vertices)
                                                                 / mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c])
-            case NAVEMElementType.rotated_inertia:
+            case NAVEMMappingType.rotated_inertia:
                 output_values[c].internal_quadrature_per_do_fs = [gedim.quadrature.QuadratureData() for _ in range(num_vertices)]
             case _:
                 raise ValueError("not valid navem element type")
@@ -298,11 +344,11 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
             mapped_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
 
             match navem_element_type:
-                case NAVEMElementType.standard:
+                case NAVEMMappingType.standard:
                     global_jac_inv[offset_func, :, :] = jac_inv[:2, :2] @ jac_inv_inertia[:2, :2]
-                case NAVEMElementType.inertia:
+                case NAVEMMappingType.inertia:
                     global_jac_inv[offset_func, :, :] = jac_inv[:2, :2]
-                case NAVEMElementType.rotated_inertia:
+                case NAVEMMappingType.rotated_inertia:
                     global_jac_inv[offset_func, :, :] = np.eye(2)
                     output_values[c].internal_quadrature_per_do_fs[v_id].points = rotated_mapped_points
                     output_values[c].internal_quadrature_per_do_fs[v_id].weights = (evaluation_weights[c]
@@ -379,7 +425,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     return output_values
 
-def reproduce_polynomials(polygon_vertices: NDArray[np.float64],
+def reproduce_polynomials(_polygon_vertices: NDArray[np.float64],
                           basis_function_values: NDArray[np.float64],
                           basis_function_derivatives_values: List[NDArray[np.float64]],
                           basis_laplacian_values: NDArray[np.float64] = None) \
@@ -398,15 +444,15 @@ def reproduce_polynomials(polygon_vertices: NDArray[np.float64],
 
 def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
                               mesh_geometric_data: MeshGeometricData2D,
-                              navem_categories: Dict[int, NNDictionary],
+                              navem_categories: Dict[NNCategory, NNDictionary],
                               evaluation_points: Dict[int, NDArray[np.float64]],
                               evaluation_weights: Dict[int, NDArray[np.float64]] = None,
                               predict_laplacian: bool = False,
-                              navem_element_type: NAVEMElementType = NAVEMElementType.standard) -> Dict[int, NAVEMOutput]:
+                              navem_element_type: NAVEMMappingType = NAVEMMappingType.standard) -> Dict[int, NAVEMOutput]:
 
         outputs: Dict[int, NAVEMOutput] = {}
 
-        for num_vertices, dictionary in navem_categories.items():
+        for element_class, dictionary in navem_categories.items():
 
             if len(dictionary.list_elements) == 0:
                 continue

@@ -100,7 +100,7 @@ def main():
     mesh_connectivity_data = polydim.pde_tools.mesh.MeshMatricesDAO_mesh_connectivity_data(mesh)
 
     dof_manager = polydim.pde_tools.do_fs.DOFsManager()
-    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, boundary_info, args.dictionary_file)
+    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, mesh_geometric_data, boundary_info, args.dictionary_file)
     do_fs_data = dof_manager.create_do_fs_2_d(mesh_do_fs_info, mesh_connectivity_data)
     assembler_utilities_obj = assembler_utilities()
     count_do_fs_data = assembler_utilities_obj.count_do_fs([do_fs_data])

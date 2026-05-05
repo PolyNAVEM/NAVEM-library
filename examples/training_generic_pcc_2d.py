@@ -16,7 +16,7 @@ import argparse
 from pypolydim import gedim, polydim
 from NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
 from NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
-from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
 from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 
 import os
@@ -42,16 +42,16 @@ def main():
                         help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygon(s)')
-    parser.add_argument('-cp', '--use-convex-polygons', dest='use_convex_polygons', default=True,
-                        type=bool, help='Train the neural network using only convex polygons')
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12,
                         type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14,
                         type=float, help="Geometric Tolerance 2D")
+    parser.add_argument('-et', '--element-type', dest='element_type', default=1,
+                        type=int, help='Train the neural network using polygons that are: (1) generic convex (2) generic concave')
 
     # Network
     parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
-                        default=program_folder + '/../Export/training_outputs/', help='Storage path of the outputs')
+                        default=program_folder + '/../Export/TrainedModels/', help='Storage path of the outputs')
     parser.add_argument('-nhl', '--num-hidden-layers', dest='num_hidden_layers', default=3, type=int,
                         help='Number of hidden layers for the polynomial neural network')
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
@@ -98,7 +98,14 @@ def main():
 
     args = parser.parse_args()
 
+    method_type = NAVEMType(args.method_type)
+    element_type = NAVEMElementType(args.element_type)
+
     export_file_path = args.export_training_data_file_path
+    if not os.path.exists(export_file_path):
+        os.makedirs(export_file_path)
+
+    export_file_path = args.export_training_data_file_path + "/" + method_type.name
     if not os.path.exists(export_file_path):
         os.makedirs(export_file_path)
 
@@ -126,19 +133,7 @@ def main():
 
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
-    method_type = NAVEMType(args.method_type)
-
-    match method_type:
-        case NAVEMType.H_NAVEM:
-            method_name = "H-NAVEM"
-        case NAVEMType.B_NAVEM:
-            method_name = "B-NAVEM"
-        case NAVEMType.P_NAVEM:
-            method_name = "P-NAVEM"
-        case _:
-            raise ValueError("The selected method type is not admissible.")
-    full_export_training_data_file_path = (args.export_training_data_file_path + method_name + "/numVertices_" +
-                                           str(args.num_vertices) + "_convex_" + str(args.use_convex_polygons) + "/")
+    full_export_training_data_file_path = (export_file_path+ "/num_vertices_" + str(args.num_vertices) + "_" + element_type.name + "/")
     if not os.path.exists(full_export_training_data_file_path):
         os.makedirs(full_export_training_data_file_path)
 
@@ -162,7 +157,7 @@ def main():
                                                   full_export_training_data_file_path,
                                                   args.export_training_info,
                                                   args.use_sqrt_in_train,
-                                                  args.use_convex_polygons,
+                                                  element_type,
                                                   args.harmonic_degree,
                                                   args.normalization_diameter,
                                                   args.use_hanging_function)
@@ -187,7 +182,7 @@ def main():
                                                            args.export_training_info,
                                                            args.copy_basis_in_train,
                                                            args.use_sqrt_in_train,
-                                                           args.use_convex_polygons,
+                                                           element_type,
                                                            BoundaryMethodType(args.boundary_method_type),
                                                            BubbleType(args.bubble_type))
         case _:

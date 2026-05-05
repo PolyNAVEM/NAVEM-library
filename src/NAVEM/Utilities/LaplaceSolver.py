@@ -122,8 +122,8 @@ class LaplaceSolver(Function):
         grad_vandermonde_rat = self.rational_functions.vander_derivatives(points, self.flat_poles, self.distance_from_poles)
         vandermonde_rational = self.rational_functions.vander(points, self.flat_poles, self.distance_from_poles)
 
-        A = np.concatenate([vandermonde_harmonic, vandermonde_rational], axis=1)
-        vandermonde = np.expand_dims(A @ self.coefficients, axis=1)
+        matrix_coefficients = np.concatenate([vandermonde_harmonic, vandermonde_rational], axis=1)
+        vandermonde = np.expand_dims(matrix_coefficients @ self.coefficients, axis=1)
 
         grad_vandermonde = np.zeros([2, points.shape[1], 1])
         grad_vandermonde[0, :, :] = np.expand_dims(np.concatenate([grad_vandermonde_harm[0, :, :],

@@ -89,7 +89,7 @@ def main():
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     reference_element_data = LocalSpace_PCC_2D.ReferenceElementData(method_type, method_order)
-    reference_element_data.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(mesh, args.dictionary_file)
+    reference_element_data.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(mesh, mesh_geometric_data, args.dictionary_file)
 
     print("Compute Evaluation Points...")
     num_cell_2 = mesh.cell2_d_total_number()

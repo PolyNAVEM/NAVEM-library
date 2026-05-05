@@ -16,6 +16,7 @@ from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
 from NAVEM.NeuralNetwork.training_utilities import *
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMElementType
 import csv
 from NAVEM.Utilities.points_generator import *
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
@@ -40,7 +41,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    export_training_info: bool = False,
                                                    copy_basis_in_train: bool = False,
                                                    use_sqrt_in_train: bool = False,
-                                                   use_convex_polygons: bool = True,
+                                                   element_type: NAVEMElementType = NAVEMElementType.generic_convex,
                                                    boundary_method_type: BoundaryMethodType = BoundaryMethodType.segment,
                                                    bubble_type: BubbleType = BubbleType.approximate_distance_function,):
 
@@ -52,6 +53,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
                              method_type.value,
+                             element_type.value,
                              num_vertices,
                              mesh_import_path,
                              num_training_polygons,

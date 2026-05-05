@@ -11,7 +11,7 @@
 
 from pypolydim import gedim
 from NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
-from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
 from NAVEM.NeuralNetwork.training_utilities import *
 from NAVEM.NeuralNetwork.h_navem_network import Flags, set_flags, HNAVEMNetworksContainer, BoundaryLoss, \
     write_flags_on_dictionary
@@ -40,7 +40,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                           export_training_data_file_path: str,
                                           export_training_info: bool = False,
                                           use_sqrt_in_train: bool = False,
-                                          use_convex_polygons: bool = True,
+                                          element_type: NAVEMElementType = NAVEMElementType.generic_convex,
                                           harmonic_degree: int = 20,
                                           normalization_diameter: float = 3.0,
                                           use_hanging_function: bool = True):
@@ -60,6 +60,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
                              method_type.value,
+                             element_type.value,
                              num_vertices,
                              navem_generators.num_generators,
                              mesh_import_path,

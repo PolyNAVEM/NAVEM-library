@@ -1,1 +1,1 @@
-4 = ./square
+4, 1 = ./square

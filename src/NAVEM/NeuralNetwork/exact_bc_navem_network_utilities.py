@@ -28,6 +28,7 @@ class Flags(TypedDict):
     output_dim: int
     method_order: int
     method_type: int
+    element_type: int
     num_vertices: int
     mesh_import_path: str
     num_training_polygons: int
@@ -50,6 +51,7 @@ class Flags(TypedDict):
 def set_flags(network_input_dimension: int,
               method_order: int,
               method_type: int,
+              element_type: int,
               num_vertices: int,
               mesh_import_path: str,
               num_training_polygons: int,
@@ -73,6 +75,7 @@ def set_flags(network_input_dimension: int,
                     'output_dim': 1,
                     'method_order': method_order,
                     'method_type': method_type,
+                    'element_type': element_type,
                     'num_vertices': num_vertices,
                     'mesh_import_path': mesh_import_path,
                     'num_training_polygons': num_training_polygons,
@@ -98,6 +101,7 @@ def write_flags_on_dictionary(flags: Flags) -> None:
 
     file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
     file.write("method_type = {}\n".format(flags['method_type']))
+    file.write("element_type = {}\n".format(flags['element_type']))
     file.write("method_order = {}\n".format(flags['method_order']))
     file.write("input_dim = {}\n".format(flags['input_dim']))
     file.write("output_dim = {}\n".format(flags['output_dim']))
@@ -126,6 +130,7 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
                     'output_dim': int(raw["output_dim"]),
                     'method_order': int(raw["method_order"]),
                     'method_type': int(raw["method_type"]),
+                    'element_type': int(raw["element_type"]),
                     'num_vertices': int(raw["num_vertices"]),
                     'mesh_import_path': raw["mesh_import_path"],
                     'num_training_polygons': int(raw["num_training_polygons"]),

@@ -16,6 +16,8 @@ from pypolydim import polydim
 from NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray
 import numpy as np
+
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NNCategory
 from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 
 
@@ -26,7 +28,7 @@ class MethodTypes(Enum):
 
 class ReferenceElementData:
 
-    navem_categories: Dict[int, NAVEM_PCC_2D.NNDictionary]
+    navem_categories: Dict[NNCategory, NAVEM_PCC_2D.NNDictionary]
 
     def __init__(self, method_type: MethodTypes, method_order: int):
         self.method_type: MethodTypes = method_type
@@ -62,14 +64,14 @@ class ReferenceElementData:
                 raise ValueError("Not valid method type")
 
     def set_mesh_do_fs_info(self, mesh: gedim.MeshMatricesDAO,
+                            mesh_geometric_data: MeshGeometricData2D,
                             boundary_info: Dict[int, polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo.BoundaryInfo],
                             dictionary_file_name: str) -> polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo:
 
         match self.method_type:
             case MethodTypes.NAVEM:
 
-                self.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(mesh, dictionary_file_name)
-
+                self.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(mesh, mesh_geometric_data, dictionary_file_name)
 
                 num_cell0_ds = mesh.cell0_d_total_number()
 

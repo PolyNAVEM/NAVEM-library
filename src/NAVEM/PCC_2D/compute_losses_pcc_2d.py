@@ -58,7 +58,7 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                                    mesh_geometric_data,
                                                                                    reference_element_data.navem_categories,
                                                                                    evaluation_points,
-                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMElementType.standard)
+                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMMappingType.standard)
         case _:
             pass
 
@@ -152,7 +152,7 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                                    mesh_geometric_data,
                                                                                    reference_element_data.navem_categories,
                                                                                    evaluation_points,
-                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMElementType.standard)
+                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMMappingType.standard)
         case _:
             pass
 
@@ -232,7 +232,7 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                                    evaluation_points,
                                                                                    evaluation_weights,
                                                                                    predict_laplacian=True,
-                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMElementType.rotated_inertia)
+                                                                                   navem_element_type=NAVEM_PCC_2D.NAVEMMappingType.rotated_inertia)
         case _:
             raise ValueError("not valid method type")
 
