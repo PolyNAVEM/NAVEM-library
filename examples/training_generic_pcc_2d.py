@@ -162,6 +162,7 @@ def main():
                                                   full_export_training_data_file_path,
                                                   args.export_training_info,
                                                   args.use_sqrt_in_train,
+                                                  args.use_convex_polygons,
                                                   args.harmonic_degree,
                                                   args.normalization_diameter,
                                                   args.use_hanging_function)
@@ -186,6 +187,7 @@ def main():
                                                            args.export_training_info,
                                                            args.copy_basis_in_train,
                                                            args.use_sqrt_in_train,
+                                                           args.use_convex_polygons,
                                                            BoundaryMethodType(args.boundary_method_type),
                                                            BubbleType(args.bubble_type))
         case _:

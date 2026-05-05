@@ -40,6 +40,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    export_training_info: bool = False,
                                                    copy_basis_in_train: bool = False,
                                                    use_sqrt_in_train: bool = False,
+                                                   use_convex_polygons: bool = True,
                                                    boundary_method_type: BoundaryMethodType = BoundaryMethodType.segment,
                                                    bubble_type: BubbleType = BubbleType.approximate_distance_function,):
 

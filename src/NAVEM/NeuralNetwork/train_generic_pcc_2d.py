@@ -40,6 +40,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                           export_training_data_file_path: str,
                                           export_training_info: bool = False,
                                           use_sqrt_in_train: bool = False,
+                                          use_convex_polygons: bool = True,
                                           harmonic_degree: int = 20,
                                           normalization_diameter: float = 3.0,
                                           use_hanging_function: bool = True):
