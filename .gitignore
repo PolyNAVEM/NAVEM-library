@@ -4,3 +4,4 @@ __pycache__
 *.DS_Store
 *Export/*
 *.egg-info/*
+*Bash_files/*

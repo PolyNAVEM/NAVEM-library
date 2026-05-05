@@ -18,14 +18,17 @@ from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
 from enum import Enum
 
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 
+
 class BoundaryMethodType(Enum):
     line = 1
     segment = 2
+
 
 class BubbleType(Enum):
     approximate_distance_function = 1
@@ -41,7 +44,8 @@ def lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float
 
 
 def filter_window_f(x: tf.Tensor) -> tf.Tensor:
-    return tf.where(x > tf.constant(0.0, dtype=x.dtype), tf.exp(tf.constant(-1.0, dtype=x.dtype) / x), tf.constant(0.0, dtype=x.dtype))
+    return tf.where(x > tf.constant(0.0, dtype=x.dtype), tf.exp(tf.constant(-1.0, dtype=x.dtype) / x),
+                    tf.constant(0.0, dtype=x.dtype))
 
 
 def filter_window(x: tf.Tensor, margin: float) -> tf.Tensor:
@@ -52,7 +56,8 @@ def filter_window(x: tf.Tensor, margin: float) -> tf.Tensor:
     return 0.5 * (one_side_window_left + one_side_window_right)
 
 
-def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float64], margin: float) -> tf.Tensor:
+def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float64],
+                                margin: float) -> tf.Tensor:
     lagrange_basis = lagrange_basis_1d(basis_index, x, vertices)
     window = filter_window(x, margin)
     return lagrange_basis * window
@@ -312,7 +317,7 @@ class EnforcingBoundary:
 
         return [phi, g, phi_grad_mapped, g_grad_mapped, phi_sec_ders_mapped, g_sec_ders_mapped]
 
-    def inside_pol(self, inputs: NDArray[np.float64]) -> tf.Tensor:
+    def inside_pol(self, inputs: NDArray[np.float64] | tf.Tensor) -> tf.Tensor:
         inside = 0
         for p in range(self.vertices.shape[0]):
             polygon = self.vertices[p, :, :]
@@ -325,7 +330,8 @@ class EnforcingBoundary:
                 inside = np.concatenate([inside, curr_inside], 0)
         return tf.convert_to_tensor(inside, dtype=tf.float64)
 
-    def draw_function_one_edge(self, n, x, y, xy, pol_id, edge_id):
+    def draw_function_one_edge(self, n: int, x: NDArray[np.float64], y: NDArray[np.float64],
+                               xy: tf.Tensor, pol_id: int, edge_id: int):
 
         phi_k_line = self.compute_phi_k_line(xy)
         phi = np.zeros(0)
@@ -346,29 +352,30 @@ class EnforcingBoundary:
         plt.contourf(x, y, z, levels=200)
         cbar = plt.colorbar()
         for e in self.segments[pol_id, :, :]:
-           plt.plot([e[0], e[2]], [e[1], e[3]], 'blue', linewidth=1)
+            plt.plot([e[0], e[2]], [e[1], e[3]], 'blue', linewidth=1)
         plt.plot([self.segments[pol_id, edge_id, 0], self.segments[pol_id, edge_id, 2]], [
-                 self.segments[pol_id, edge_id, 1], self.segments[pol_id, edge_id, 3]], 'red', linewidth=3)
-        # plt.scatter(self.vertices[pol_id, :, 0], self.vertices[pol_id, :, 1], c='blue', marker='o', s=50)
+            self.segments[pol_id, edge_id, 1], self.segments[pol_id, edge_id, 3]], 'red', linewidth=3)
         if edge_id < self.num_vertices - 1:
             plt.scatter(self.vertices[pol_id, edge_id:edge_id + 2, 0], self.vertices[pol_id, edge_id:edge_id + 2, 1],
                         c='red', marker='o', s=60)
         else:
             plt.scatter(self.vertices[pol_id, 0, 0], self.vertices[pol_id, 0, 1],
                         c='red', marker='o', s=60)
-            plt.scatter(self.vertices[pol_id, self.num_vertices - 1, 0], self.vertices[pol_id, self.num_vertices - 1, 1],
+            plt.scatter(self.vertices[pol_id, self.num_vertices - 1, 0],
+                        self.vertices[pol_id, self.num_vertices - 1, 1],
                         c='red', marker='o', s=60)
         cbar.ax.tick_params(labelsize=17)
         plt.axis("equal")
         plt.axis("off")
         plt.show()
 
-    def draw_function(self, n: int, x, y, xy, pol_id, dof_id, draw_lifting):
+    def draw_function(self, n: int, x: NDArray[np.float64], y: NDArray[np.float64],
+                               xy: tf.Tensor, pol_id: int, dof_id: int, draw_lifting: bool):
 
         phi, g = self.phi_and_g(xy)
 
         phi = phi[pol_id, :, :]
-        g = g[pol_id, :, dof_id:dof_id+1]
+        g = g[pol_id, :, dof_id:dof_id + 1]
         inside = self.inside_pol(xy)[pol_id, :]
 
         lifting = g.numpy().reshape((n, n))
@@ -394,7 +401,8 @@ class EnforcingBoundary:
         plt.axis("equal")
         plt.show()
 
-    def scatter_function(self, pol_id, dof_id, plot_all_edges=True, plot_inner_pts=True, draw_lifting=True):
+    def scatter_function(self, pol_id: int, dof_id: int, plot_all_edges: bool = True,
+                         plot_inner_pts: bool = True, draw_lifting: bool = True):
         fig = plt.figure(figsize=(5, 5))
         ax = fig.add_subplot(projection='3d')
 

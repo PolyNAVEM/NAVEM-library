@@ -30,18 +30,20 @@ import tensorflow as tf
 
 
 def main():
-
     program_folder = str(Path(__file__).resolve().parent)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-order', '--method-order',dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type',dest='method_type', default=2, type=int, help="Method type")
+    parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
+    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int, help="Method type")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
-                    type=int, help="Mesh generator type: 4 - CSV importer")
+                        type=int, help="Mesh generator type: 4 - CSV importer")
     parser.add_argument('-import', '--import-path', dest='import_path',
-                        default=program_folder + '/../TrainingDataset/TrainingReferenceSquare', type=str, help="Mesh Import Path")
+                        default=program_folder + '/../TrainingDataset/TrainingReferenceSquare', type=str,
+                        help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygon(s)')
+    parser.add_argument('-cp', '--use-convex-polygons', dest='use_convex_polygons', default=True,
+                        type=bool, help='Train the neural network using only convex polygons')
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12,
                         type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14,
@@ -49,7 +51,7 @@ def main():
 
     # Network
     parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
-                        default= program_folder + '/../Export/test', help='Storage path of the neural network')
+                        default=program_folder + '/../Export/training_outputs/', help='Storage path of the outputs')
     parser.add_argument('-nhl', '--num-hidden-layers', dest='num_hidden_layers', default=3, type=int,
                         help='Number of hidden layers for the polynomial neural network')
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
@@ -64,11 +66,12 @@ def main():
                         help='Maximum value of the learning rate')
     parser.add_argument('-lr_min', '--lr-min', dest='learning_rate_min', default=1e-3, type=float,
                         help='Minimum value of the learning rate')
-    parser.add_argument('-rc', '--regularization-coefficient', dest='regularization_coefficient', default=1e-8, type=float,
+    parser.add_argument('-rc', '--regularization-coefficient', dest='regularization_coefficient', default=1e-8,
+                        type=float,
                         help='Regularization coefficient')
     parser.add_argument('-usit', '--use-sqrt-in-train', dest='use_sqrt_in_train', default=0, type=int,
                         help='Flag to specify if the NNs are trained using also the sqrt in loss definition')
-    parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=False, type=bool,
+    parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=True, type=bool,
                         help='Flag to specify if I want to export info (loss, time,...) during training')
 
     # NAVEM
@@ -93,7 +96,6 @@ def main():
     parser.add_argument('-bmt', '--boundary-method-type', dest='boundary_method_type', default=2, type=int,
                         help='Boundary method type: line (1), segment (2)')
 
-
     args = parser.parse_args()
 
     export_file_path = args.export_training_data_file_path
@@ -117,13 +119,28 @@ def main():
 
     polydim.pde_tools.mesh.pde_mesh_utilities.import_mesh_2_d(geometry_utilities,
                                                               mesh_utilities,
-                                                              polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D(args.mesh_type),
+                                                              polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D(
+                                                                  args.mesh_type),
                                                               args.import_path,
                                                               mesh)
 
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     method_type = NAVEMType(args.method_type)
+
+    match method_type:
+        case NAVEMType.H_NAVEM:
+            method_name = "H-NAVEM"
+        case NAVEMType.B_NAVEM:
+            method_name = "B-NAVEM"
+        case NAVEMType.P_NAVEM:
+            method_name = "P-NAVEM"
+        case _:
+            raise ValueError("The selected method type is not admissible.")
+    full_export_training_data_file_path = (args.export_training_data_file_path + method_name + "/numVertices_" +
+                                           str(args.num_vertices) + "_convex_" + str(args.use_convex_polygons) + "/")
+    if not os.path.exists(full_export_training_data_file_path):
+        os.makedirs(full_export_training_data_file_path)
 
     match method_type:
         case method_type.H_NAVEM:
@@ -142,7 +159,7 @@ def main():
                                                   args.learning_rate_min,
                                                   args.num_points_on_each_edge,
                                                   args.regularization_coefficient,
-                                                  args.export_training_data_file_path,
+                                                  full_export_training_data_file_path,
                                                   args.export_training_info,
                                                   args.use_sqrt_in_train,
                                                   args.harmonic_degree,
@@ -165,7 +182,7 @@ def main():
                                                            args.quadrature_order,
                                                            args.distribution_points_type,
                                                            args.regularization_coefficient,
-                                                           args.export_training_data_file_path,
+                                                           full_export_training_data_file_path,
                                                            args.export_training_info,
                                                            args.copy_basis_in_train,
                                                            args.use_sqrt_in_train,
@@ -174,10 +191,9 @@ def main():
         case _:
             raise ValueError("not valid method")
 
-
     pr.disable()
-    pr.dump_stats(export_file_path + "/program.prof")
+    pr.dump_stats(full_export_training_data_file_path + "/program.prof")
 
-if __name__=='__main__':
 
+if __name__ == '__main__':
     main()

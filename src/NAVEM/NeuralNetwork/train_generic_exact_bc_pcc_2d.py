@@ -200,7 +200,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
         data = np.concatenate([fake_header, export_data], axis=0)
 
-        np.savetxt(export_training_data_file_path + '/' + method_type.name + '_train_info.csv', data, delimiter=';')
+        np.savetxt(export_training_data_file_path + '/train_info.csv', data, delimiter=';')
 
 
     # Storing the final loss and the l2 and h1 errors

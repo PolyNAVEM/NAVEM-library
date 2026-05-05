@@ -43,7 +43,6 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                           harmonic_degree: int = 20,
                                           normalization_diameter: float = 3.0,
                                           use_hanging_function: bool = True):
-
     assert method_order == 1
     assert method_type == NAVEMType.H_NAVEM
 
@@ -83,9 +82,9 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     nn = HNAVEMNetworksContainer(flags)
 
-
     # evaluation points
-    reference_eval_points = reference_points_distribution(0.0, 1.0, num_points_on_each_edge, PointsSegmentDistributionType.uniform)
+    reference_eval_points = reference_points_distribution(0.0, 1.0, num_points_on_each_edge,
+                                                          PointsSegmentDistributionType.uniform)
 
     # Initialize edge loss
     boundary_loss = BoundaryLoss(geometry_utilities, method_order)
@@ -96,9 +95,12 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
     labels_derivatives = np.array([], dtype=np.float64)
     vertex_filter = np.array([], dtype=np.float64).reshape(0)
 
-    super_vandermonde = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
-    super_vander_dx = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
-    super_vander_dy = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
+    super_vandermonde = np.zeros(
+        (num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
+    super_vander_dx = np.zeros(
+        (num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
+    super_vander_dy = np.zeros(
+        (num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
     input_network = np.zeros((num_training_polygons * num_vertices, network_input_dimension - 2))
 
     exact_bfgs = True
@@ -114,7 +116,8 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
             internal_angles = np.roll(mapped_angles, axis=1, shift=-v_id)
             vertex_distance = scaling * np.roll(polygon.mapped_max_vertex_distance, shift=-v_id)
 
-            c_points, c_labels, c_tangents, c_labels_derivatives = boundary_loss.add_polygon(rotated_vertices, add_coordinates=True)
+            c_points, c_labels, c_tangents, c_labels_derivatives = boundary_loss.add_polygon(rotated_vertices,
+                                                                                             add_coordinates=True)
 
             labels = np.concatenate([labels, c_labels])
             labels_derivatives = np.concatenate([labels_derivatives, c_labels_derivatives])
@@ -176,10 +179,14 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     nn.nn_basis_derivatives.train_vander_dx.assign(tf.convert_to_tensor(np.array(super_vander_dx), dtype=tf.float64))
     nn.nn_basis_derivatives.train_vander_dy.assign(tf.convert_to_tensor(np.array(super_vander_dy), dtype=tf.float64))
-    nn.nn_basis_derivatives.deriv_labels.assign(tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_basis_derivatives.tangent_x.assign(tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_basis_derivatives.tangent_y.assign(tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
-    nn.nn_basis_derivatives.vertex_filter.assign(tf.reshape(vertex_filter, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.deriv_labels.assign(
+        tf.reshape(labels_derivatives, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.tangent_x.assign(
+        tf.reshape(tangents[:, 0], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.tangent_y.assign(
+        tf.reshape(tangents[:, 1], (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
+    nn.nn_basis_derivatives.vertex_filter.assign(
+        tf.reshape(vertex_filter, (num_training_polygons * num_vertices, num_vertices * num_points_on_each_edge)))
     considered_loss_dx = nn.nn_basis_derivatives.copy_grad
 
     learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
@@ -199,7 +206,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
-        bfgs_steps = np.arange(len(list_of_losses), len(list_of_losses)+len(pol_results[1].losses))
+        bfgs_steps = np.arange(len(list_of_losses), len(list_of_losses) + len(pol_results[1].losses))
 
         steps = np.concatenate([adam_steps, bfgs_steps], axis=0)
         losses = np.concatenate([np.array(list_of_losses), np.array(pol_results[1].losses)], axis=0)
@@ -209,15 +216,17 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
         export_data = np.stack([steps, losses, times], axis=1)
 
         adam_steps_deriv = np.arange(0, len(list_of_losses_deriv))
-        bfgs_steps_deriv = np.arange(len(list_of_losses_deriv), len(list_of_losses_deriv)+len(pol_deriv_results[1].losses))
+        bfgs_steps_deriv = np.arange(len(list_of_losses_deriv),
+                                     len(list_of_losses_deriv) + len(pol_deriv_results[1].losses))
 
         steps_deriv = np.concatenate([adam_steps_deriv, bfgs_steps_deriv], axis=0)
         losses_deriv = np.concatenate([np.array(list_of_losses_deriv), np.array(pol_deriv_results[1].losses)], axis=0)
-        times_deriv = np.concatenate([np.array(list_of_times_deriv), list_of_times_deriv[-1] + np.array(pol_deriv_results[1].times)], axis=0)
+        times_deriv = np.concatenate(
+            [np.array(list_of_times_deriv), list_of_times_deriv[-1] + np.array(pol_deriv_results[1].times)], axis=0)
         export_data_deriv = np.stack([steps_deriv, losses_deriv, times_deriv], axis=1)
         data = np.concatenate([fake_header, export_data, export_data_deriv], axis=0)
 
-        np.savetxt(export_training_data_file_path + '/' + method_type.name + 'train_info.csv', data, delimiter=';')
+        np.savetxt(export_training_data_file_path + '/train_info.csv', data, delimiter=';')
 
     # Storing the final loss and the l2 and h1 errors
     with open('{}/loss.csv'.format(flags['name_storage']), 'w', newline='') as file:

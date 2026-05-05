@@ -29,3 +29,8 @@ src/navem_library.egg-info/SOURCES.txt
 src/navem_library.egg-info/dependency_links.txt
 src/navem_library.egg-info/requires.txt
 src/navem_library.egg-info/top_level.txt
+test/test_enforcing_boundary_functions.py
+test/test_geometry_utilities.py
+test/test_laplace_solver.py
+test/test_navem_polygon.py
+test/test_points_generator.py
