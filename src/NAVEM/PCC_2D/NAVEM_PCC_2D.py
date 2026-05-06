@@ -54,7 +54,7 @@ class NNDictionary:
 
 class NNCategory:
 
-    tolerance_hanging_nodes = 0.1
+    tolerance_hanging_nodes = 0.05
 
     def __init__(self, num_vertices: int, element_type: NAVEMElementType):
         self.num_vertices: int = num_vertices

@@ -3,5 +3,5 @@
 __pycache__
 *.DS_Store
 *Export/*
-*.egg-info/*
 *Bash_files/*
+/src/navem_library.egg-info/

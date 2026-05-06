@@ -15,6 +15,7 @@ from typing import List, Tuple
 from pypolydim import gedim, polydim
 from numpy.typing import NDArray
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
+from typing import Dict
 
 class MeshGeometricData2D:
 
@@ -27,6 +28,50 @@ class MeshGeometricData2D:
         self.cell2_ds_polygon = cell2_ds_polygon
         self.cell2_ds_mapped_polygon_internal_angles = cell2_ds_mapped_polygon_internal_angles
 
+
+def polygon_is_simple(geometry_utilities: gedim.GeometryUtilities,
+                      polygon_vertex_points: NDArray[np.float64]) -> bool:
+
+    num_vertices: int = polygon_vertex_points.shape[1]
+
+    if polygon_vertex_points.shape[0] != 3 or num_vertices < 3:
+        raise ValueError("Not valid points in compute unaligned points")
+
+    is_simple = True
+    for e1 in range(num_vertices):
+
+        prev_e1 = e1 - 1 if e1 > 0 else num_vertices - 1
+
+        for e2 in np.arange(e1 + 2, num_vertices):
+
+            if e2 == prev_e1:
+                continue
+
+            origin_1 = polygon_vertex_points[:, e1]
+            end_1 = polygon_vertex_points[:, (e1 + 1) % num_vertices]
+            origin_2 = polygon_vertex_points[:, e2]
+            end_2 = polygon_vertex_points[:, (e2 + 1) % num_vertices]
+
+            segment_intersection_data: gedim.GeometryUtilities.IntersectionSegmentSegmentResult \
+                = geometry_utilities.intersection_segment_segment(origin_1, end_1, origin_2, end_2)
+
+            match segment_intersection_data.intersection_segments_type:
+                case gedim.GeometryUtilities.IntersectionSegmentSegmentResult.IntersectionSegmentTypes.no_intersection:
+                    pass
+                case gedim.GeometryUtilities.IntersectionSegmentSegmentResult.IntersectionSegmentTypes.single_intersection:
+                    is_simple = False
+                case gedim.GeometryUtilities.IntersectionSegmentSegmentResult.IntersectionSegmentTypes.multiple_intersections:
+                    is_simple = False
+                case _:
+                    raise ValueError("Not a valid intersection segment type")
+
+            if not is_simple:
+                break
+
+        if not is_simple:
+            break
+
+    return is_simple
 
 def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilities,
                                         mesh_utilities: gedim.MeshUtilities,
@@ -182,6 +227,9 @@ def compute_polygon_kernel(geometry_utilities: gedim.GeometryUtilities, vertices
             kernel_next = np.array([], dtype=np.float64).reshape(3, 0)
             num_vertices_actual_kernel = kernel.shape[1]
 
+            if num_vertices_actual_kernel == 0:
+                return np.zeros([3, 0])
+
             x = kernel[:, num_vertices_actual_kernel - 1]
             a = z_cross_2d(edge_direction, x - edge_origin) > -geometry_utilities.tolerance1_d()
 
@@ -222,3 +270,65 @@ def compute_polygon_kernel(geometry_utilities: gedim.GeometryUtilities, vertices
         kernel = np.zeros([3, 0])
 
     return kernel
+
+
+def select_non_convex_elements(mesh: gedim.MeshMatricesDAO,
+                               mesh_geometric_data: MeshGeometricData2D,
+                               tolerance_angle: float) -> Tuple[gedim.MeshMatrices, gedim.MeshMatricesDAO]:
+
+    non_convex_mesh_data = gedim.MeshMatrices()
+    non_convex_mesh = gedim.MeshMatricesDAO(non_convex_mesh_data)
+    non_convex_mesh.initialize_dimension(2)
+
+    for c in range(mesh.cell2_d_total_number()):
+
+        internal_angles = mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]
+
+        is_concave = any(a > np.pi * (1.0 + tolerance_angle) for a in internal_angles)
+
+        if is_concave:
+
+            num_vertices = mesh.cell2_d_number_vertices(c)
+            id_new_vertices = non_convex_mesh.cell0_d_append(num_vertices)
+            map_vertices: Dict[int, int] = {}
+            for v in range(num_vertices):
+
+                cell0_d_index = mesh.cell2_d_vertex(c, v)
+
+                map_vertices[cell0_d_index] = id_new_vertices
+
+                non_convex_mesh.cell0_d_insert_coordinates(id_new_vertices, mesh.cell0_d_coordinates(cell0_d_index))
+                non_convex_mesh.cell0_d_set_marker(id_new_vertices, mesh.cell0_d_marker(cell0_d_index))
+                non_convex_mesh.cell0_d_set_state(id_new_vertices, mesh.cell0_d_is_active(cell0_d_index))
+
+                id_new_vertices += 1
+
+            num_edges = mesh.cell2_d_number_edges(c)
+            id_new_edges = non_convex_mesh.cell1_d_append(num_edges)
+            map_edges: Dict[int, int] = {}
+            for e in range(num_edges):
+                cell1_d_index = mesh.cell2_d_edge(c, e)
+
+                map_edges[cell1_d_index] = id_new_edges
+
+                non_convex_mesh.cell1_d_insert_extremes(id_new_edges, map_vertices[mesh.cell1_d_origin(cell1_d_index)], map_vertices[mesh.cell1_d_end(cell1_d_index)])
+                non_convex_mesh.cell1_d_set_marker(id_new_edges, mesh.cell1_d_marker(cell1_d_index))
+                non_convex_mesh.cell1_d_set_state(id_new_edges, mesh.cell1_d_is_active(cell1_d_index))
+
+                id_new_edges += 1
+
+            id_new_cell = non_convex_mesh.cell2_d_append(1)
+
+            non_convex_mesh.cell2_d_initialize_vertices(id_new_cell, num_vertices)
+            for v in range(num_vertices):
+                non_convex_mesh.cell2_d_insert_vertex(id_new_cell, v, map_vertices[mesh.cell2_d_vertex(c, v)])
+
+            non_convex_mesh.cell2_d_initialize_edges(id_new_cell, num_edges)
+            for e in range(num_edges):
+                non_convex_mesh.cell2_d_insert_edge(id_new_cell, e, map_edges[mesh.cell2_d_edge(c, e)])
+
+            non_convex_mesh.cell2_d_set_marker(id_new_cell, mesh.cell2_d_marker(c))
+            non_convex_mesh.cell2_d_set_state(id_new_cell, mesh.cell2_d_is_active(c))
+
+    return non_convex_mesh_data, non_convex_mesh
+

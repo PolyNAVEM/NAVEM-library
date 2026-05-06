@@ -12,7 +12,7 @@
 import argparse
 import os.path
 from pathlib import Path
-from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2, select_non_convex_elements
 from Elliptic_PCC_2D.program_utilities import create_test, create_mesh, export_errors
 from Elliptic_PCC_2D.assembler import *
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
