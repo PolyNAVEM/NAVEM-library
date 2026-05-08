@@ -18,10 +18,12 @@ from pypolydim import gedim
 from numpy.typing import NDArray
 import numpy as np
 
+
 class SetupDerivatives(Enum):
     basis = 0
     basis_and_derivatives = 1
     basis_and_derivatives_and_laplacian = 2
+
 
 class Flags(TypedDict):
     input_dim: int
@@ -70,7 +72,6 @@ def set_flags(network_input_dimension: int,
               boundary_method_type: int,
               bubble_type: int
               ) -> Flags:
-
     flags: Flags = {'input_dim': network_input_dimension,
                     'output_dim': 1,
                     'method_order': method_order,
@@ -98,7 +99,6 @@ def set_flags(network_input_dimension: int,
 
 
 def write_flags_on_dictionary(flags: Flags) -> None:
-
     file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
     file.write("method_type = {}\n".format(flags['method_type']))
     file.write("element_type = {}\n".format(flags['element_type']))
@@ -124,8 +124,8 @@ def write_flags_on_dictionary(flags: Flags) -> None:
 
     file.close()
 
-def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
 
+def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
     flags: Flags = {'input_dim': int(raw["input_dim"]),
                     'output_dim': int(raw["output_dim"]),
                     'method_order': int(raw["method_order"]),
@@ -151,8 +151,8 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
 
     return flags
 
-class AbstractBPNAVEM(ABC):
 
+class AbstractBPNAVEM(ABC):
     n_pols: int
     n_local_pts: int
     n_funcs_per_pol: int
@@ -163,22 +163,25 @@ class AbstractBPNAVEM(ABC):
         self.flags = flags
         self.in_training = in_training
 
+        self.layers_list = []
+
         self.var_phi = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                    validate_shape=False, shape=(None, 1), dtype=tf.float64)
         self.var_phi_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
                                         validate_shape=False, shape=(None, 2), dtype=tf.float64)
-        self.var_phi_second_derivatives = tf.Variable(tf.convert_to_tensor([[0., 0., 0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 3), dtype=tf.float64)
+        self.var_phi_second_derivatives = tf.Variable(tf.convert_to_tensor([[0., 0., 0.]], dtype=tf.float64),
+                                                      trainable=False,
+                                                      validate_shape=False, shape=(None, 3), dtype=tf.float64)
         self.var_phi_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                          validate_shape=False, shape=(None, 1), dtype=tf.float64)
-
 
         self.var_g = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                  validate_shape=False, shape=(None, None), dtype=tf.float64)
         self.var_g_grad = tf.Variable(tf.convert_to_tensor([[0., 0.]], dtype=tf.float64), trainable=False,
                                       validate_shape=False, shape=(None, 2), dtype=tf.float64)
-        self.var_g_second_derivatives = tf.Variable(tf.convert_to_tensor([[0., 0., 0.]], dtype=tf.float64), trainable=False,
-                                      validate_shape=False, shape=(None, 3), dtype=tf.float64)
+        self.var_g_second_derivatives = tf.Variable(tf.convert_to_tensor([[0., 0., 0.]], dtype=tf.float64),
+                                                    trainable=False,
+                                                    validate_shape=False, shape=(None, 3), dtype=tf.float64)
         self.var_g_xx_yy = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                        validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
@@ -186,21 +189,21 @@ class AbstractBPNAVEM(ABC):
 
         self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
-    @abstractmethod
-    def get_u(self, x):
-        pass
+    # @abstractmethod
+    # def get_u(self, x: tf.Tensor):
+    #     pass
 
-    @abstractmethod
-    def get_u_and_du(self, x):
-        pass
+    # @abstractmethod
+    # def get_u_and_du(self, x: tf.Tensor):
+    #     pass
 
-    @abstractmethod
-    def get_u0_phi_g(self, x):
-        pass
+    # @abstractmethod
+    # def get_u0_phi_g(self, x: tf.Tensor):
+    #     pass
 
-    @abstractmethod
-    def get_u0_phi_g_and_du0_d_phi_dg(self, x):
-        pass
+    # @abstractmethod
+    # def get_u0_phi_g_and_du0_d_phi_dg(self, x: tf.Tensor):
+    #     pass
 
     @abstractmethod
     def load_model(self, name_storage: str):
@@ -210,9 +213,78 @@ class AbstractBPNAVEM(ABC):
     def save_model(self):
         pass
 
-    @abstractmethod
-    def get_second_derivatives_u(self, inputs):
-        pass
+    # @abstractmethod
+    # def get_second_derivatives_u(self, inputs: tf.Tensor):
+    #     pass
+
+    def internal_call(self, inputs: tf.Tensor) -> tf.Tensor:
+        u = self.layers_list[0](inputs)
+        for layer in self.layers_list[1:-1]:
+            u = layer(u) + u
+        return self.layers_list[-1](u)
+
+    def get_u(self, inputs: tf.Tensor) -> tf.Tensor:
+        u0 = self.internal_call(inputs)
+        return u0 * self.var_phi + self.var_g
+
+    def get_u0_phi_g(self, inputs: tf.Tensor) -> tf.Tensor:
+        u0 = self.internal_call(inputs)
+        return tf.concat([u0, self.var_phi, self.var_g], 1)
+
+    def get_u_and_du(self, inputs: tf.Tensor) -> tf.Tensor:
+        with tf.GradientTape() as t:
+            t.watch(inputs)
+            u0 = self.internal_call(inputs)
+        u0_grad = t.gradient(u0, inputs)[:, :2]
+
+        u = u0 * self.var_phi + self.var_g
+        grad_u = u0_grad * self.var_phi + u0 * self.var_phi_grad + self.var_g_grad
+        return tf.concat([u, grad_u], 1)
+
+    def get_du(self, inputs: tf.Tensor) -> tf.Tensor:
+        with tf.GradientTape() as t:
+            t.watch(inputs)
+            u0 = self.internal_call(inputs)
+        u0_grad = t.gradient(u0, inputs)[:, :2]
+
+        return u0_grad * self.var_phi + u0 * self.var_phi_grad + self.var_g_grad
+
+    def get_u0_phi_g_and_du0_d_phi_dg(self, inputs: tf.Tensor) -> tf.Tensor:
+        with tf.GradientTape() as t:
+            t.watch(inputs)
+            u0 = self.internal_call(inputs)
+        u0_grad = t.gradient(u0, inputs)[:, :2]
+
+        return tf.concat([u0, self.var_phi, self.var_g, u0_grad, self.var_phi_grad, self.var_g_grad], 1)
+
+    def get_second_derivatives_u(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        with tf.GradientTape(persistent=False) as tape2:
+            tape2.watch(inputs)
+            with tf.GradientTape() as tape1:
+                tape1.watch(inputs)
+                u0 = self.internal_call(inputs)
+            grad = tape1.gradient(u0, inputs, output_gradients=tf.ones_like(u0))
+        second_derivatives = tape2.batch_jacobian(grad, inputs)
+
+        u0_xx = second_derivatives[:, 0, 0:1]
+        u0_xy = second_derivatives[:, 0, 1:2]
+        u0_yy = second_derivatives[:, 1, 1:2]
+
+        u_xx = (u0_xx * self.var_phi + self.tf_two * (grad[:, 0:1] * self.var_phi_grad[:, 0:1])
+                + u0 * self.var_phi_second_derivatives[:, 0:1]
+                + self.var_g_second_derivatives[:, 0:1])
+
+        u_xy = (u0_xy * self.var_phi + grad[:, 0:1] * self.var_phi_grad[:, 1:2]
+                + grad[:, 1:2] * self.var_phi_grad[:, 0:1]
+                + u0 * self.var_phi_second_derivatives[:, 1:2]
+                + self.var_g_second_derivatives[:, 1:2])
+
+        u_yy = (u0_yy * self.var_phi + self.tf_two * (grad[:, 1:2] * self.var_phi_grad[:, 1:2])
+                + u0 * self.var_phi_second_derivatives[:, 2:3]
+                + self.var_g_second_derivatives[:, 2:3])
+
+        return tf.concat([u_xx, u_xy, u_yy], 1)
 
     def setup_model_global_input(self,
                                  xy_per_pol: NDArray[np.float64],
@@ -285,7 +357,8 @@ class AbstractBPNAVEM(ABC):
                 g_sec_ders = tf.transpose(g_sec_ders, [0, 2, 1, 3])
                 self.var_g_second_derivatives = tf.reshape(g_sec_ders, [-1, 3])
 
-                self.var_phi_xx_yy.assign(self.var_phi_second_derivatives[:, 0:1] + self.var_phi_second_derivatives[:, 2:3])
+                self.var_phi_xx_yy.assign(
+                    self.var_phi_second_derivatives[:, 0:1] + self.var_phi_second_derivatives[:, 2:3])
                 self.var_g_xx_yy.assign(self.var_g_second_derivatives[:, 0:1] + self.var_g_second_derivatives[:, 2:3])
             case SetupDerivatives.basis | SetupDerivatives.basis_and_derivatives:
                 pass

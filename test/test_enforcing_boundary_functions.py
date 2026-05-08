@@ -261,5 +261,46 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
             eb.scatter_function(pol_id, dof_id)
 
 
+    def test_pentagon_high_order(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
+        vertices = np.array([[[0.90, 0.65, -0.35, -0.90, 0.10],
+                              [-0.80, 0.86, 0.60, 0.10, -0.60]],
+                             ])
+
+        n = 151
+        x = np.linspace(-1, 1, n)
+        y = np.linspace(-1, 1, n)
+        x_all = np.expand_dims(np.tile(x, n), 1)
+        y_all = np.expand_dims(np.repeat(y, n), 1)
+        xy = np.concatenate([x_all, y_all], axis=1)
+        xy = tf.convert_to_tensor(xy, dtype=tf.float64)
+
+        xy = tf.expand_dims(xy, 0)
+        xy = tf.concat([xy] * vertices.shape[0], axis=0)
+
+        jac_per_pol = np.zeros(shape=(vertices.shape[0], 2, 2, vertices.shape[2]))
+
+        method_type = BoundaryMethodType.segment
+        bubble_type = BubbleType.approximate_distance_function
+
+        for p in range(vertices.shape[0]):
+            for v in range(vertices.shape[2]):
+                jac_per_pol[p, :, :, v] = np.eye(2)
+
+        eb = EnforcingBoundary(geometry_utilities,
+                               method_order=3,
+                               vertices=vertices,
+                               jac_per_pol=jac_per_pol,
+                               method_type=method_type,
+                               bubble_type=bubble_type)
+
+        for pol_id in range(vertices.shape[0]):
+            dof_id = 8
+            eb.scatter_function(pol_id, dof_id)
+
+
 if __name__ == '__main__':
     unittest.main()

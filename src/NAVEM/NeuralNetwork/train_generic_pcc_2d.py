@@ -41,6 +41,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                           export_training_info: bool = False,
                                           use_sqrt_in_train: bool = False,
                                           element_type: NAVEMElementType = NAVEMElementType.generic_convex,
+                                          max_num_polygons: int = 100000000,
                                           harmonic_degree: int = 20,
                                           normalization_diameter: float = 3.0,
                                           use_hanging_function: bool = True):
@@ -55,7 +56,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                        use_hanging_function,
                                        normalization_diameter)
 
-    num_training_polygons = mesh.cell2_d_total_number()
+    num_training_polygons = np.minimum(mesh.cell2_d_total_number(), max_num_polygons)
 
     flags: Flags = set_flags(network_input_dimension,
                              method_order,

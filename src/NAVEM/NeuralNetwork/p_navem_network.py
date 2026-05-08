@@ -10,14 +10,17 @@
 # This file can be used citing references in CITATION.cff file.
 
 import numpy as np
+from numpy.typing import NDArray
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags, AbstractBPNAVEM
 
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
+
 
 class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
@@ -65,7 +68,6 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.training_quad_w = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
                                            validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
-
         self.tf_one = tf.convert_to_tensor(1.0, dtype=tf.float64)
 
         self.exact_one = int(self.in_training)
@@ -81,96 +83,91 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.x_lin_coefficients = None
         self.y_lin_coefficients = None
 
-    def build(self, input_shape):
+    def build(self, input_shape: tuple[None, int]):
         self.layers_list[0].build(input_shape)
         for layer in self.layers_list[1:]:
             layer.build((None, self.flags["num_neurons_per_layer"]))
 
-    # @tf.function
-    def internal_call(self, inputs):
-        u = self.layers_list[0](inputs)
-        for layer in self.layers_list[1:-1]:
-            u = layer(u) + u
-        return self.layers_list[-1](u)
+    ## @tf.function
+    # def internal_call(self, inputs: tf.Tensor) -> tf.Tensor:
+    #     u = self.layers_list[0](inputs)
+    #     for layer in self.layers_list[1:-1]:
+    #         u = layer(u) + u
+    #     return self.layers_list[-1](u)
 
     # @tf.function
-    def call(self, inputs):
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
         if self.flags["copy_basis_in_train"]:
             return self.get_u_and_du(inputs)
         else:
             return self.get_du(inputs)
 
-    def get_second_derivatives_u(self, inputs):
+    # def get_second_derivatives_u(self, inputs: tf.Tensor) -> tf.Tensor:
+    #
+    #     with tf.GradientTape(persistent=False) as tape2:
+    #         tape2.watch(inputs)
+    #         with tf.GradientTape() as tape1:
+    #             tape1.watch(inputs)
+    #             u0 = self.internal_call(inputs)
+    #         grad = tape1.gradient(u0, inputs, output_gradients=tf.ones_like(u0))
+    #     second_derivatives = tape2.batch_jacobian(grad, inputs)
+    #
+    #     u0_xx = second_derivatives[:, 0, 0:1]
+    #     u0_xy = second_derivatives[:, 0, 1:2]
+    #     u0_yy = second_derivatives[:, 1, 1:2]
+    #
+    #     u_xx = (u0_xx * self.var_phi + self.tf_two * (grad[:, 0:1] * self.var_phi_grad[:, 0:1])
+    #             + u0 * self.var_phi_second_derivatives[:, 0:1]
+    #             + self.var_g_second_derivatives[:, 0:1])
+    #
+    #     u_xy = (u0_xy * self.var_phi + grad[:, 0:1] * self.var_phi_grad[:, 1:2]
+    #             + grad[:, 1:2] * self.var_phi_grad[:, 0:1]
+    #             + u0 * self.var_phi_second_derivatives[:, 1:2]
+    #             + self.var_g_second_derivatives[:, 1:2])
+    #
+    #     u_yy = (u0_yy * self.var_phi + self.tf_two * (grad[:, 1:2] * self.var_phi_grad[:, 1:2])
+    #             + u0 * self.var_phi_second_derivatives[:, 2:3]
+    #             + self.var_g_second_derivatives[:, 2:3])
+    #
+    #     return tf.concat([u_xx, u_xy, u_yy], 1)
 
-        with tf.GradientTape(persistent=False) as tape2:
-            tape2.watch(inputs)
-            with tf.GradientTape() as tape1:
-                tape1.watch(inputs)
-                u0 = self.internal_call(inputs)
-            grad = tape1.gradient(u0, inputs, output_gradients=tf.ones_like(u0))
-        second_derivatives = tape2.batch_jacobian(grad, inputs)
+    # # @tf.function
+    # def get_du(self, inputs: tf.Tensor) -> tf.Tensor:
+    #     with tf.GradientTape() as t:
+    #         t.watch(inputs)
+    #         u0 = self.internal_call(inputs)
+    #     u0_grad = t.gradient(u0, inputs)[:, :2]
+    #
+    #     return u0_grad * self.var_phi + u0 * self.var_phi_grad + self.var_g_grad
+    #
+    # def get_u0_phi_g_and_du0_d_phi_dg(self, inputs: tf.Tensor) -> tf.Tensor:
+    #     with tf.GradientTape() as t:
+    #         t.watch(inputs)
+    #         u0 = self.internal_call(inputs)
+    #     u0_grad = t.gradient(u0, inputs)[:, :2]
+    #
+    #     return tf.concat([u0, self.var_phi, self.var_g, u0_grad, self.var_phi_grad, self.var_g_grad], 1)
 
-        u0_xx = second_derivatives[:, 0, 0:1]
-        u0_xy = second_derivatives[:, 0, 1:2]
-        u0_yy = second_derivatives[:, 1, 1:2]
+    # def get_u(self, inputs: tf.Tensor) -> tf.Tensor:
+    #     u0 = self.internal_call(inputs)
+    #     return u0 * self.var_phi + self.var_g
 
-        u_xx = (u0_xx * self.var_phi + self.tf_two * (grad[:, 0:1] * self.var_phi_grad[:, 0:1])
-                + u0 * self.var_phi_second_derivatives[:, 0:1]
-                + self.var_g_second_derivatives[:, 0:1])
+    # def get_u0_phi_g(self, inputs: tf.Tensor) -> tf.Tensor:
+    #     u0 = self.internal_call(inputs)
+    #     return tf.concat([u0, self.var_phi, self.var_g], 1)
 
-        u_xy = (u0_xy * self.var_phi + grad[:, 0:1] * self.var_phi_grad[:, 1:2]
-                + grad[:, 1:2] * self.var_phi_grad[:, 0:1]
-                + u0 * self.var_phi_second_derivatives[:, 1:2]
-                + self.var_g_second_derivatives[:, 1:2])
+    def store_terms_for_loss(self, xy_per_pol: NDArray[np.float64],
+                             vertices_per_pol: NDArray[np.float64],
+                             jac_inv_per_pol: NDArray[np.float64]):
 
-        u_yy = (u0_yy * self.var_phi + self.tf_two * (grad[:, 1:2] * self.var_phi_grad[:, 1:2])
-                + u0 * self.var_phi_second_derivatives[:, 2:3]
-                + self.var_g_second_derivatives[:, 2:3])
-
-        return tf.concat([u_xx, u_xy, u_yy], 1)
-
-    def get_u_and_du(self, inputs):
-        with tf.GradientTape() as t:
-            t.watch(inputs)
-            u0 = self.internal_call(inputs)
-        u0_grad = t.gradient(u0, inputs)[:, :2]
-
-        u = u0 * self.var_phi + self.var_g
-        grad_u = u0_grad * self.var_phi + u0 * self.var_phi_grad + self.var_g_grad
-        return tf.concat([u, grad_u], 1)
-
-    # @tf.function
-    def get_du(self, inputs):
-        with tf.GradientTape() as t:
-            t.watch(inputs)
-            u0 = self.internal_call(inputs)
-        u0_grad = t.gradient(u0, inputs)[:, :2]
-
-        return u0_grad * self.var_phi + u0 * self.var_phi_grad + self.var_g_grad
-
-    def get_u0_phi_g_and_du0_d_phi_dg(self, inputs):
-        with tf.GradientTape() as t:
-            t.watch(inputs)
-            u0 = self.internal_call(inputs)
-        u0_grad = t.gradient(u0, inputs)[:, :2]
-
-        return tf.concat([u0, self.var_phi, self.var_g, u0_grad, self.var_phi_grad, self.var_g_grad], 1)
-
-    def get_u(self, inputs):
-        u0 = self.internal_call(inputs)
-        return u0 * self.var_phi + self.var_g
-
-    def get_u0_phi_g(self, inputs):
-        u0 = self.internal_call(inputs)
-        return tf.concat([u0, self.var_phi, self.var_g], 1)
-
-    def store_terms_for_loss(self, xy_per_pol, vertices_per_pol, jac_inv_per_pol):
+        vertices_per_pol = tf.convert_to_tensor(vertices_per_pol, dtype=tf.float64)
         x_vertices = tf.expand_dims(vertices_per_pol[:, 0, :], 2)[:, :, :, None, None]
         y_vertices = tf.expand_dims(vertices_per_pol[:, 1, :], 2)[:, :, :, None, None]
 
         x_n = x_vertices[:, -1:, :, :, :]
         y_n = y_vertices[:, -1:, :, :, :]
 
+        xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
         self.target_x_vals = tf.expand_dims(xy_per_pol[:, :, 0], 1)[:, :, :, None, None] - x_n
         self.target_y_vals = tf.expand_dims(xy_per_pol[:, :, 1], 1)[:, :, :, None, None] - y_n
         self.x_lin_coefficients = x_vertices[:, :-1, :, :, :] - x_n
@@ -182,23 +179,22 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.jac_inverse_10 = jac_inverse[:, 1, 0, :, None, None, None]
         self.jac_inverse_11 = jac_inverse[:, 1, 1, :, None, None, None]
 
-
     # @tf.function
-    def internal_pol_loss(self, _y_true, y_predicted):
+    def internal_pol_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
         y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 1])
         return self.copy_pols(y_predicted_reshaped)
 
-    def internal_pol_and_grad_loss(self, _y_true, y_predicted):
+    def internal_pol_and_grad_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
         y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 3])
         pol_loss = self.copy_pols(y_predicted_reshaped[:, :, :, :, :1])
         grad_loss = self.copy_grads(y_predicted_reshaped[:, :, :, :, 1:])
         return pol_loss + grad_loss
 
-    def internal_grad_loss(self, _y_true, y_predicted):
+    def internal_grad_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
         y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 2])
         return self.copy_grads(y_predicted_reshaped)
 
-    def copy_pols(self, bases):
+    def copy_pols(self, bases: tf.Tensor) -> tf.Tensor:
         comb_for_x = tf.reduce_sum(bases * self.x_lin_coefficients, axis=1, keepdims=True)
         comb_for_y = tf.reduce_sum(bases * self.y_lin_coefficients, axis=1, keepdims=True)
 
@@ -209,7 +205,7 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.loss_y.assign(diff_for_y)
         return diff_for_x + diff_for_y
 
-    def copy_grads(self, rot_grads):
+    def copy_grads(self, rot_grads: tf.Tensor) -> tf.Tensor:
         rot_dx = rot_grads[:, :, :, :, :1]
         rot_dy = rot_grads[:, :, :, :, 1:]
 

@@ -21,6 +21,7 @@ import csv
 from NAVEM.Utilities.points_generator import *
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
 
+
 def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    method_type: NAVEMType,
                                                    num_vertices: int,
@@ -42,13 +43,13 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    copy_basis_in_train: bool = False,
                                                    use_sqrt_in_train: bool = False,
                                                    element_type: NAVEMElementType = NAVEMElementType.generic_convex,
+                                                   max_num_polygons: int = 100000000,
                                                    boundary_method_type: BoundaryMethodType = BoundaryMethodType.segment,
-                                                   bubble_type: BubbleType = BubbleType.approximate_distance_function,):
-
+                                                   bubble_type: BubbleType = BubbleType.approximate_distance_function, ):
     assert method_order == 1
 
     network_input_dimension = 2 + 2 * (num_vertices - 1)
-    num_training_polygons = mesh.cell2_d_total_number()
+    num_training_polygons = np.minimum(mesh.cell2_d_total_number(), max_num_polygons)
 
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
@@ -88,15 +89,16 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     accumulating_power = 0.75
     accumulating_border = BorderType.no_borders
     reference_nodes = grid_over_triangle(PointsTriangleDistributionType(distribution_points_type), quadrature_order,
-                                         uniform_boundary = uniform_boundary, uniform_rescale = uniform_scale,
-                                         accumulating_power = accumulating_power, accumulating_border = accumulating_border,
+                                         uniform_boundary=uniform_boundary, uniform_rescale=uniform_scale,
+                                         accumulating_power=accumulating_power, accumulating_border=accumulating_border,
                                          polygon=num_vertices > 3)
 
     num_points_per_polygon = reference_nodes.shape[1] * num_vertices
 
     num_functions_per_polygon = num_vertices - (method_type == NAVEMType.P_NAVEM)
 
-    inputs = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))
+    inputs = np.zeros(
+        (num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))
 
     xy_per_pol = np.zeros(shape=(num_training_polygons, num_points_per_polygon, 2))
     vertices_per_pol = np.zeros(shape=(num_training_polygons, 2, num_vertices))
@@ -111,8 +113,10 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
 
         inertia_mapped_internal_point, _ = polygon.map_inertia_inv(np.expand_dims(internal_point, axis=1))
-        inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(polygon.mapped_vertices, inertia_mapped_internal_point)
-        inertia_mapped_list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(polygon.mapped_vertices, inertia_mapped_internal_point, inertia_mapped_list_triangles)
+        inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(
+            polygon.mapped_vertices, inertia_mapped_internal_point)
+        inertia_mapped_list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(
+            polygon.mapped_vertices, inertia_mapped_internal_point, inertia_mapped_list_triangles)
 
         # Loss will be minimized over the inertia polygon
         inertia_mapped_internal_nodes = grid_over_polygon(distribution_points_type,
@@ -120,8 +124,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                           inertia_mapped_list_triangles_points,
                                                           uniform_boundary, accumulating_border)
 
-        xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T # points over the inertia polygon
-        vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :] # vertices are set up over the inertia polygon
+        xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T  # points over the inertia polygon
+        vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]  # vertices are set up over the inertia polygon
 
         for v_id in range(num_functions_per_polygon):
             rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = NAVEMPolygon.map_fix_vertex_inv(
@@ -134,7 +138,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
             c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
 
-            inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon: (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
+            inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon: (
+                                                                                                c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon,
+            :] = c_inputs
             jac_per_pol[c, :, :, v_id] = jac[:2, :2]
             jac_inv_per_pol[c, :, :, v_id] = jac_inv[:2, :2]
 
@@ -192,7 +198,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
-        bfgs_steps = np.arange(len(list_of_losses), len(list_of_losses)+len(results[1].losses))
+        bfgs_steps = np.arange(len(list_of_losses), len(list_of_losses) + len(results[1].losses))
 
         steps = np.concatenate([adam_steps, bfgs_steps], axis=0)
         losses = np.concatenate([np.array(list_of_losses), np.array(results[1].losses)], axis=0)
@@ -204,7 +210,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         data = np.concatenate([fake_header, export_data], axis=0)
 
         np.savetxt(export_training_data_file_path + '/train_info.csv', data, delimiter=';')
-
 
     # Storing the final loss and the l2 and h1 errors
     with open('{}/loss.csv'.format(flags['name_storage']), 'w', newline='') as file:

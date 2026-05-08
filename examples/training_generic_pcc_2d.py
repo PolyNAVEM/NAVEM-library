@@ -42,6 +42,8 @@ def main():
                         help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygon(s)')
+    parser.add_argument('-mnp', '--max-num-polygons', dest='max_num_polygons', default=100000000, type=int,
+                        help='Maximum number of polygons used during training')
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12,
                         type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14,
@@ -69,7 +71,7 @@ def main():
     parser.add_argument('-rc', '--regularization-coefficient', dest='regularization_coefficient', default=1e-8,
                         type=float,
                         help='Regularization coefficient')
-    parser.add_argument('-usit', '--use-sqrt-in-train', dest='use_sqrt_in_train', default=0, type=int,
+    parser.add_argument('-usit', '--use-sqrt-in-train', dest='use_sqrt_in_train', default=1, type=int,
                         help='Flag to specify if the NNs are trained using also the sqrt in loss definition')
     parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=True, type=bool,
                         help='Flag to specify if I want to export info (loss, time,...) during training')
@@ -158,6 +160,7 @@ def main():
                                                   args.export_training_info,
                                                   args.use_sqrt_in_train,
                                                   element_type,
+                                                  args.max_num_polygons,
                                                   args.harmonic_degree,
                                                   args.normalization_diameter,
                                                   args.use_hanging_function)
@@ -183,6 +186,7 @@ def main():
                                                            args.copy_basis_in_train,
                                                            args.use_sqrt_in_train,
                                                            element_type,
+                                                           args.max_num_polygons,
                                                            BoundaryMethodType(args.boundary_method_type),
                                                            BubbleType(args.bubble_type))
         case _:

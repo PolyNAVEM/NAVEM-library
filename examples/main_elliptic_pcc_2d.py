@@ -42,7 +42,7 @@ def main():
     parser.add_argument('-export', '--export-path', dest='export_path', default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
     parser.add_argument('-df', '--dictionary-file', dest='dictionary_file',
-                        default=program_folder+'/../TrainedModels/H-NAVEM', type=str, help="Dictionary file")
+                        default=program_folder+'/../TrainedModels/B-NAVEM', type=str, help="Dictionary file")
     parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss',
                         default=False, type=bool, help="Evaluate polynomial loss", action=argparse.BooleanOptionalAction)
     parser.add_argument('-ebl', '--evaluate-boundary-loss', dest='evaluate_boundary_loss',
