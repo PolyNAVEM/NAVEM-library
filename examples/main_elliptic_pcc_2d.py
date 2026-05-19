@@ -12,7 +12,7 @@
 import argparse
 import os.path
 from pathlib import Path
-from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2, select_non_convex_elements
+from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 from Elliptic_PCC_2D.program_utilities import create_test, create_mesh, export_errors
 from Elliptic_PCC_2D.assembler import *
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
@@ -35,7 +35,9 @@ def main():
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int,
                         help="Test type: 1 - Polynomial")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int,
-                        help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 5 - Square")
+                        help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 3 - OFFImporter;"
+                             " 4 - CsvImporter; 5 - Square; 6 - RandomDistorted; 7 - TriangularSimpleImporter;"
+                             " 8 - StructuredTriangular")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")

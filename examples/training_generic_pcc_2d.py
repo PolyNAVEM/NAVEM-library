@@ -33,21 +33,24 @@ def main():
     program_folder = str(Path(__file__).resolve().parent)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
-    parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int, help="Method type")
+    parser.add_argument('-order', '--method-order', dest='method_order',
+                        default=1, type=int, help="Method order (Default: 1)")
+    parser.add_argument('-method', '--method-type', dest='method_type',
+                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
-                        type=int, help="Mesh generator type: 4 - CSV importer")
+                        type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
                         default=program_folder + '/../TrainingDataset/TrainingReferenceSquare', type=str,
                         help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
-                        help='Number of vertices of the polygon(s)')
+                        help='Number of vertices of the polygons (Default: 4)')
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12,
                         type=float, help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14,
                         type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-et', '--element-type', dest='element_type', default=1,
-                        type=int, help='Train the neural network using polygons that are: (1) generic convex (2) generic concave')
+                        type=int, help='Train the neural network using polygons that are: 1 - generic convex; '
+                                       '2 - generic concave')
 
     # Network
     parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
@@ -71,7 +74,8 @@ def main():
                         help='Regularization coefficient')
     parser.add_argument('-usit', '--use-sqrt-in-train', dest='use_sqrt_in_train', default=1, type=int,
                         help='Flag to specify if the NNs are trained using also the sqrt in loss definition')
-    parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=True, type=bool,
+    parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=False,
+                        type=bool, action=argparse.BooleanOptionalAction,
                         help='Flag to specify if I want to export info (loss, time,...) during training')
 
     # NAVEM
@@ -88,13 +92,14 @@ def main():
     parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=10, type=int,
                         help='Order of the quadrature rule to generate the training points')
     parser.add_argument('-pt', '--distribution-points-type', dest='distribution_points_type', type=int, default=3,
-                        help='Type of points: uniform (2), gauss (1) or accumulated (3)')
-    parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False, type=bool,
+                        help='Type of points: 1 - gauss; 2 - uniform; 3 - accumulated (Default: 3)')
+    parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False,
+                        type=bool, action=argparse.BooleanOptionalAction,
                         help='Flag to specify if distance from basis functions should be added to the loss')
     parser.add_argument('-bt', '--bubble-type', dest='bubble_type', type=int, default=1,
-                        help='Type of points: approximate_distance_function (1), product (2)')
+                        help='Type of points: 1 - approximate_distance_function; 2 - product (Default: 1)')
     parser.add_argument('-bmt', '--boundary-method-type', dest='boundary_method_type', default=2, type=int,
-                        help='Boundary method type: line (1), segment (2)')
+                        help='Boundary method type: 1 - line; 2 - segment (Default: 2)')
 
     args = parser.parse_args()
 
