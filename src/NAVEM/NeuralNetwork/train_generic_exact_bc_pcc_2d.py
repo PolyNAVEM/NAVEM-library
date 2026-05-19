@@ -43,13 +43,12 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    copy_basis_in_train: bool = False,
                                                    use_sqrt_in_train: bool = False,
                                                    element_type: NAVEMElementType = NAVEMElementType.generic_convex,
-                                                   max_num_polygons: int = 100000000,
                                                    boundary_method_type: BoundaryMethodType = BoundaryMethodType.segment,
                                                    bubble_type: BubbleType = BubbleType.approximate_distance_function, ):
     assert method_order == 1
 
     network_input_dimension = 2 + 2 * (num_vertices - 1)
-    num_training_polygons = np.minimum(mesh.cell2_d_total_number(), max_num_polygons)
+    num_training_polygons = mesh.cell2_d_total_number()
 
     flags: Flags = set_flags(network_input_dimension,
                              method_order,

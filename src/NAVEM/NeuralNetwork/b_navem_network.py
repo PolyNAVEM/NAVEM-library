@@ -56,14 +56,6 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         for layer in self.layers_list[1:]:
             layer.build((None, self.flags["num_neurons_per_layer"]))
 
-    ## @tf.function
-    # def internal_call(self, inputs: tf.Tensor) -> tf.Tensor:
-    #     u = self.layers_list[0](inputs)
-    #     for layer in self.layers_list[1:-1]:
-    #         u = layer(u) + u
-    #     return self.layers_list[-1](u)
-
-    # @tf.function
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         with tf.GradientTape(persistent=False) as tape2:
             tape2.watch(inputs)
@@ -81,54 +73,7 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
                      u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
         return laplacian
 
-    # def get_second_derivatives_u(self, inputs: tf.Tensor) -> tf.Tensor:
-    #
-    #     with tf.GradientTape(persistent=False) as tape2:
-    #         tape2.watch(inputs)
-    #         with tf.GradientTape() as tape1:
-    #             tape1.watch(inputs)
-    #             u0 = self.internal_call(inputs)
-    #         grad = tape1.gradient(u0, inputs, output_gradients=tf.ones_like(u0))
-    #     second_derivatives = tape2.batch_jacobian(grad, inputs)
-    #
-    #     u0_xx = second_derivatives[:, 0, 0:1]
-    #     u0_xy = second_derivatives[:, 0, 1:2]
-    #     u0_yy = second_derivatives[:, 1, 1:2]
-    #
-    #     u_xx = (u0_xx * self.var_phi + self.tf_two * (grad[:, 0:1] * self.var_phi_grad[:, 0:1])
-    #             + u0 * self.var_phi_second_derivatives[:, 0:1]
-    #             + self.var_g_second_derivatives[:, 0:1])
-    #
-    #     u_xy = (u0_xy * self.var_phi + grad[:, 0:1] * self.var_phi_grad[:, 1:2]
-    #             + grad[:, 1:2] * self.var_phi_grad[:, 0:1]
-    #             + u0 * self.var_phi_second_derivatives[:, 1:2]
-    #             + self.var_g_second_derivatives[:, 1:2])
-    #
-    #     u_yy = (u0_yy * self.var_phi + self.tf_two * (grad[:, 1:2] * self.var_phi_grad[:, 1:2])
-    #             + u0 * self.var_phi_second_derivatives[:, 2:3]
-    #             + self.var_g_second_derivatives[:, 2:3])
-    #
-    #     return tf.concat([u_xx, u_xy, u_yy], 1)
 
-    # def get_u0_phi_g_and_du0_d_phi_dg(self, inputs: tf.Tensor) -> tf.Tensor:
-    #     with tf.GradientTape() as t2:
-    #         t2.watch(inputs)
-    #         u0 = self.internal_call(inputs)
-    #     grad = t2.gradient(u0, inputs)
-    #
-    #     return tf.concat([u0, self.var_phi, self.var_g, grad[:, 0:1], grad[:, 1:2],
-    #                       self.var_phi_grad[:, 0:1], self.var_phi_grad[:, 1:2], self.var_g_grad[:, 0:1],
-    #                       self.var_g_grad[:, 1:2]], 1)
-
-    # def get_u(self, inputs: tf.Tensor) -> tf.Tensor:
-    #     u0 = self.internal_call(inputs)
-    #     return u0 * self.var_phi + self.var_g
-    #
-    # def get_u0_phi_g(self, inputs: tf.Tensor) -> tf.Tensor:
-    #     u0 = self.internal_call(inputs)
-    #     return tf.concat([u0, self.var_phi, self.var_g], 1)
-
-    # @tf.function
     def pinn_laplace_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
         integral_argument = tf.square(y_predicted)
         integrals = tf.reduce_sum(integral_argument) * self.one_over_n_funcs

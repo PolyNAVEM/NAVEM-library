@@ -189,22 +189,6 @@ class AbstractBPNAVEM(ABC):
 
         self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
-    # @abstractmethod
-    # def get_u(self, x: tf.Tensor):
-    #     pass
-
-    # @abstractmethod
-    # def get_u_and_du(self, x: tf.Tensor):
-    #     pass
-
-    # @abstractmethod
-    # def get_u0_phi_g(self, x: tf.Tensor):
-    #     pass
-
-    # @abstractmethod
-    # def get_u0_phi_g_and_du0_d_phi_dg(self, x: tf.Tensor):
-    #     pass
-
     @abstractmethod
     def load_model(self, name_storage: str):
         pass
@@ -212,10 +196,6 @@ class AbstractBPNAVEM(ABC):
     @abstractmethod
     def save_model(self):
         pass
-
-    # @abstractmethod
-    # def get_second_derivatives_u(self, inputs: tf.Tensor):
-    #     pass
 
     def internal_call(self, inputs: tf.Tensor) -> tf.Tensor:
         u = self.layers_list[0](inputs)
