@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 from matplotlib import use
 import importlib
 from NAVEM.geometry.polygon_generators import PolygonGenerator
-from pathlib import Path
 
 try:
     use("Qt5Agg")
