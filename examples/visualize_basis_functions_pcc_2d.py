@@ -29,7 +29,7 @@ def main():
     program_folder = str(Path(__file__).resolve().parent)
 
     # Reading from command line all required information
-    parser =argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
     parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
                         help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
@@ -57,7 +57,6 @@ def main():
     export_polygon_path = args.export_path + "/Polygons"
     if not os.path.exists(export_polygon_path):
         os.makedirs(export_polygon_path)
-
 
     mesh_type = polydim.pde_tools.mesh.pde_mesh_utilities.MeshGenerator_Types_2D(args.mesh_type)
     method_type = LocalSpace_PCC_2D.MethodTypes(args.method_type)

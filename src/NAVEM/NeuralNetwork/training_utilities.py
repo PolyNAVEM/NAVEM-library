@@ -17,6 +17,7 @@ import time
 
 tfp.optimizer.bfgs = rescaled_bfgs
 
+
 class PrintInfoCb(tf.keras.callbacks.Callback):
     def __init__(self, n_epochs, info_printer):
         super(PrintInfoCb, self).__init__()
@@ -27,7 +28,8 @@ class PrintInfoCb(tf.keras.callbacks.Callback):
         if epoch % 100 == 0:
             self.info_printer(self.model, epoch, self.n_epochs)
 
-    def on_train_end(self, logs=None):
+    @staticmethod
+    def on_train_end(logs=None):
         current = logs.get("loss")
         tf.print("Final loss: {:<.16e}".format(current))
 
@@ -117,23 +119,23 @@ def print_info_p_navem(model, iteration, total_iterations=None):
         if model.loss_x.read_value() == 0:
             if total_iterations is None:
                 loss_one_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dx,
-                                                                         scientific=True,
-                                                                         precision=16), '\"', '')
+                                                                            scientific=True,
+                                                                            precision=16), '\"', '')
                 loss_x_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dx,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 loss_y_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dx,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 loss_one_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dy,
-                                                                         scientific=True,
-                                                                         precision=16), '\"', '')
+                                                                            scientific=True,
+                                                                            precision=16), '\"', '')
                 loss_x_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dy,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 loss_y_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dy,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
                                           ". Current errors: ",
                                           loss_one_dx, "\t", loss_x_dx, "\t", loss_y_dx, "\t",
@@ -158,23 +160,23 @@ def print_info_p_navem(model, iteration, total_iterations=None):
                                                                        scientific=True,
                                                                        precision=16), '\"', '')
                 loss_one_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dx,
-                                                                         scientific=True,
-                                                                         precision=16), '\"', '')
+                                                                            scientific=True,
+                                                                            precision=16), '\"', '')
                 loss_x_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dx,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 loss_y_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dx,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 loss_one_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dy,
-                                                                         scientific=True,
-                                                                         precision=16), '\"', '')
+                                                                            scientific=True,
+                                                                            precision=16), '\"', '')
                 loss_x_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dy,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 loss_y_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dy,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                          scientific=True,
+                                                                          precision=16), '\"', '')
                 tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
                                           ". Current errors: ",
                                           loss_one, "\t", loss_x, "\t", loss_y, "\t",
@@ -323,4 +325,6 @@ def train_adam_bfgs(model, loss, inputs, labels, epochs_adam, epochs_bfgs, cb_li
     train_with_first_order(model, loss, inputs, labels, inputs.shape[0], epochs_adam, shuffle=False, cb_list=cb_list,
                            info_printer=info_printer)
     results = train_w_bfgs(model, loss, inputs, labels, epochs_bfgs, bfgs=use_bfgs, info_printer=info_printer)
+
+    assign_best(model)
     return results

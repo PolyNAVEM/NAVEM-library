@@ -23,9 +23,7 @@ from NAVEM.PCC_2D import LocalSpace_PCC_2D
 from NAVEM.PCC_2D.compute_losses_pcc_2d import compute_polynomial_loss, compute_boundary_loss, compute_laplacian_loss
 
 
-
 def main():
-
     program_folder = str(Path(__file__).resolve().parent)
 
     parser = argparse.ArgumentParser()
@@ -35,18 +33,21 @@ def main():
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int,
                         help="Test type: 1 - Polynomial")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int,
-                        help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 3 - OFFImporter;"
-                             " 4 - CsvImporter; 5 - Square; 6 - RandomDistorted; 7 - TriangularSimpleImporter;"
-                             " 8 - StructuredTriangular")
-    parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float, help="Geometric Tolerance 1D")
-    parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float, help="Geometric Tolerance 2D")
-    parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float, help="Mesh max relative area")
-    parser.add_argument('-export', '--export-path', dest='export_path', default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
+                        help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 5 - Square")
+    parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float,
+                        help="Geometric Tolerance 1D")
+    parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float,
+                        help="Geometric Tolerance 2D")
+    parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float,
+                        help="Mesh max relative area")
+    parser.add_argument('-export', '--export-path', dest='export_path',
+                        default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
     parser.add_argument('-df', '--dictionary-file', dest='dictionary_file',
-                        default=program_folder+'/../TrainedModels/B-NAVEM', type=str, help="Dictionary file")
+                        default=program_folder + '/../TrainedModels/B-NAVEM', type=str, help="Dictionary file")
     parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss',
-                        default=False, type=bool, help="Evaluate polynomial loss", action=argparse.BooleanOptionalAction)
+                        default=False, type=bool, help="Evaluate polynomial loss",
+                        action=argparse.BooleanOptionalAction)
     parser.add_argument('-ebl', '--evaluate-boundary-loss', dest='evaluate_boundary_loss',
                         default=False, type=bool, help="Evaluate boundary loss", action=argparse.BooleanOptionalAction)
     parser.add_argument('-ell', '--evaluate-laplacian-loss', dest='evaluate_laplacian_loss',
@@ -88,7 +89,8 @@ def main():
     mesh_data = gedim.MeshMatrices()
     mesh = gedim.MeshMatricesDAO(mesh_data)
 
-    create_mesh(geometry_utilities, mesh_utilities, mesh_type, args.max_relative_area, args.import_path, pde_domain, mesh)
+    create_mesh(geometry_utilities, mesh_utilities, mesh_type, args.max_relative_area, args.import_path, pde_domain,
+                mesh)
 
     print("Export Mesh...")
     vtk_utilities.export_mesh(export_mesh_path, mesh)
@@ -102,13 +104,15 @@ def main():
     mesh_connectivity_data = polydim.pde_tools.mesh.MeshMatricesDAO_mesh_connectivity_data(mesh)
 
     dof_manager = polydim.pde_tools.do_fs.DOFsManager()
-    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, mesh_geometric_data, boundary_info, args.dictionary_file)
+    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, mesh_geometric_data, boundary_info,
+                                                                 args.dictionary_file)
     do_fs_data = dof_manager.create_do_fs_2_d(mesh_do_fs_info, mesh_connectivity_data)
     assembler_utilities_obj = assembler_utilities()
     count_do_fs_data = assembler_utilities_obj.count_do_fs([do_fs_data])
     do_fs_data_indices = dof_manager.compute_cells_do_fs_indices(do_fs_data, 2)
 
-    print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ", do_fs_data.number_strongs, " STRONG" + '\x1b[0m')
+    print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ",
+          do_fs_data.number_strongs, " STRONG" + '\x1b[0m')
     print("Assemble...")
     local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     assembler_data = assemble(geometry_utilities_config,
@@ -136,7 +140,8 @@ def main():
                                               assembler_data,
                                               test)
 
-    export_errors(export_file_path, args.test_id, args.mesh_type, args.method_type, args.method_order, mesh, count_do_fs_data, post_process_data)
+    export_errors(export_file_path, args.test_id, args.mesh_type, args.method_type, args.method_order, mesh,
+                  count_do_fs_data, post_process_data)
 
     print("Export Solution...")
     vtk_utilities.export_solution_2(export_file_path + '/Solution_' + str(args.test_id) + '_' + str(args.method_type)
@@ -165,18 +170,18 @@ def main():
                                     method_type)
 
         print(test_l2_loss, test_h1_loss)
-        print("{:<10} {:<10}".format( 'l2 loss', 'h1 loss'))
+        print("{:<10} {:<10}".format('l2 loss', 'h1 loss'))
         print("{:<10.2e} {:<10.2e}".format(test_l2_loss, test_h1_loss))
 
     if args.evaluate_laplacian_loss:
         print("Compute laplacian loss...")
         test_laplacian_loss, test_laplacian_loss_cells \
             = compute_laplacian_loss(geometry_utilities,
-                                    mesh_geometric_data,
-                                    reference_element_data,
-                                    method_type)
+                                     mesh_geometric_data,
+                                     reference_element_data,
+                                     method_type)
 
-        print("{:<10}".format( 'laplacian loss'))
+        print("{:<10}".format('laplacian loss'))
         print("{:<10.2e}".format(test_laplacian_loss))
 
     print('\x1b[6;30;42m' + "Finish" + '\x1b[0m')
@@ -184,6 +189,6 @@ def main():
     pr.disable()
     pr.dump_stats(export_file_path + "/program.prof")
 
-if __name__=='__main__':
 
+if __name__ == '__main__':
     main()

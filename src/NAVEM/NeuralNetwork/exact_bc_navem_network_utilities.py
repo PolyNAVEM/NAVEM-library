@@ -186,7 +186,6 @@ class AbstractBPNAVEM(ABC):
                                        validate_shape=False, shape=(None, 1), dtype=tf.float64)
 
         self.exact_one = 0
-
         self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
     @abstractmethod
@@ -283,8 +282,6 @@ class AbstractBPNAVEM(ABC):
         xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
         num_of_functions = self.flags["num_vertices"] - self.exact_one
 
-        g = None
-        phi = None
         phi_grad = None
         g_grad = None
         phi_sec_ders = None

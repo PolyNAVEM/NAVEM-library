@@ -137,9 +137,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
             c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
 
-            inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon: (
-                                                                                                c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon,
-            :] = c_inputs
+            inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon:
+                   (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
             jac_per_pol[c, :, :, v_id] = jac[:2, :2]
             jac_inv_per_pol[c, :, :, v_id] = jac_inv[:2, :2]
 

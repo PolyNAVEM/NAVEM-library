@@ -60,9 +60,9 @@ def main():
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
                         help='Number of nodes per hidden layers for the polynomial neural network')
 
-    parser.add_argument('-neo1p', '--num-epoches-opt-order1', dest='num_epoches_opt_order1', default=100, type=int,
+    parser.add_argument('-neo1p', '--num-epochs-opt-order1', dest='num_epochs_opt_order1', default=100, type=int,
                         help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epoches-opt-order2', dest='num_epoches_opt_order2', default=50, type=int,
+    parser.add_argument('-neo2p', '--num-epochs-opt-order2', dest='num_epochs_opt_order2', default=50, type=int,
 
                         help='Number of training epochs with second order optimizer')
     parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-2, type=float,
@@ -138,7 +138,8 @@ def main():
 
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
-    full_export_training_data_file_path = (export_file_path+ "/num_vertices_" + str(args.num_vertices) + "_" + element_type.name + "/")
+    full_export_training_data_file_path = (export_file_path + "/num_vertices_" + str(args.num_vertices) + "_" +
+                                           element_type.name + "/")
     if not os.path.exists(full_export_training_data_file_path):
         os.makedirs(full_export_training_data_file_path)
 
@@ -153,8 +154,8 @@ def main():
                                                   args.import_path,
                                                   args.num_hidden_layers,
                                                   args.num_neurons_per_layer,
-                                                  args.num_epoches_opt_order1,
-                                                  args.num_epoches_opt_order2,
+                                                  args.num_epochs_opt_order1,
+                                                  args.num_epochs_opt_order2,
                                                   args.learning_rate_max,
                                                   args.learning_rate_min,
                                                   args.num_points_on_each_edge,
@@ -176,8 +177,8 @@ def main():
                                                            args.import_path,
                                                            args.num_hidden_layers,
                                                            args.num_neurons_per_layer,
-                                                           args.num_epoches_opt_order1,
-                                                           args.num_epoches_opt_order2,
+                                                           args.num_epochs_opt_order1,
+                                                           args.num_epochs_opt_order2,
                                                            args.learning_rate_max,
                                                            args.learning_rate_min,
                                                            args.quadrature_order,

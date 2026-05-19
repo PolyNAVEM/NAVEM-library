@@ -14,7 +14,6 @@ from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 import matplotlib.path as plt_path
 from pypolydim import gedim
-from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
 from enum import Enum
 
 import os
@@ -35,34 +34,6 @@ class BubbleType(Enum):
     product = 2
 
 
-def lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float64]) -> tf.Tensor:
-    p = tf.convert_to_tensor(1.0, dtype=tf.float64)
-    for i, xi in enumerate(vertices):
-        if i != basis_index:
-            p *= (x - vertices[i]) / (vertices[basis_index] - vertices[i])  # Lagrange representation
-    return p
-
-
-def filter_window_f(x: tf.Tensor) -> tf.Tensor:
-    return tf.where(x > tf.constant(0.0, dtype=x.dtype), tf.exp(tf.constant(-1.0, dtype=x.dtype) / x),
-                    tf.constant(0.0, dtype=x.dtype))
-
-
-def filter_window(x: tf.Tensor, margin: float) -> tf.Tensor:
-    z_left = (x + tf.constant(margin, dtype=x.dtype)) / tf.constant(margin, dtype=x.dtype)
-    one_side_window_left = filter_window_f(z_left) / (filter_window_f(z_left) + filter_window_f(1 - z_left))
-    z_right = (tf.constant(1.0 + margin, dtype=x.dtype) - x) / tf.constant(margin, dtype=x.dtype)
-    one_side_window_right = filter_window_f(z_right) / (filter_window_f(z_right) + filter_window_f(1 - z_right))
-    return 0.5 * (one_side_window_left + one_side_window_right)
-
-
-def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, vertices: NDArray[np.float64],
-                                margin: float) -> tf.Tensor:
-    lagrange_basis = lagrange_basis_1d(basis_index, x, vertices)
-    window = filter_window(x, margin)
-    return lagrange_basis * window
-
-
 class EnforcingBoundary:
     def __init__(self, geometry_utilities: gedim.GeometryUtilities,
                  method_order: int,
@@ -70,6 +41,8 @@ class EnforcingBoundary:
                  jac_per_pol: NDArray[np.float64],
                  method_type: BoundaryMethodType = BoundaryMethodType.segment,
                  bubble_type: BubbleType = BubbleType.approximate_distance_function):
+
+        assert method_order == 1
 
         self.geometry_utilities = geometry_utilities
         self.method_order = method_order
@@ -161,35 +134,10 @@ class EnforcingBoundary:
         # Compute the final ratio
         return numerator / denominator  # Shape: (num_points, num_vertices)
 
-    def compute_g(self, proj: tf.Tensor, dist: tf.Tensor, margin: float = np.inf) -> tf.Tensor:
-        transfinite_ws = self.transfinite_w(dist)
-        prev_transfinite_w = tf.roll(transfinite_ws, shift=1, axis=2)
-        prev_proj = tf.roll(proj, shift=1, axis=2)
-
-        nodes_1d = chebyshev_lobatto_nodes(0, 1, self.method_order + 1)
-
-        if margin == np.inf:
-            psi_0je = lagrange_basis_1d(self.method_order, proj, nodes_1d) * transfinite_ws
-            psi_m1je = lagrange_basis_1d(0, prev_proj, nodes_1d) * prev_transfinite_w
-            g = psi_0je + psi_m1je
-            for i in range(1, self.method_order):
-                psi_ije = lagrange_basis_1d(i, proj, nodes_1d) * transfinite_ws
-                g = tf.concat([g, psi_ije], axis=-1)
-        else:
-            psi_0je = localized_lagrange_basis_1d(self.method_order, proj, nodes_1d, margin) * transfinite_ws
-            psi_m1je = localized_lagrange_basis_1d(0, prev_proj, nodes_1d, margin) * prev_transfinite_w
-            g = psi_0je + psi_m1je
-            for i in range(1, self.method_order):
-                psi_ije = localized_lagrange_basis_1d(i, proj, nodes_1d, margin) * transfinite_ws
-                g = tf.concat([g, psi_ije], axis=-1)
-
-        return g
-
     def phi_and_g(self, xy: tf.Tensor) -> list[tf.Tensor]:
         proj = self.projection(xy)
 
         phi_k_line = self.compute_phi_k_line(xy)
-        dist = tf.constant([], tf.float64)
         match self.method_type:
             case BoundaryMethodType.line:
                 dist = phi_k_line
@@ -198,10 +146,12 @@ class EnforcingBoundary:
             case _:
                 raise ValueError("Unknown boundary method type")
 
-        margin = np.inf if self.method_order == 1 else 0.5
-        g = self.compute_g(proj, dist, margin)
+        transfinite_ws = self.transfinite_w(dist)
 
-        phi = None
+        prev_transfinite_w = tf.roll(transfinite_ws, shift=1, axis=2)
+        prev_proj = tf.roll(proj, shift=1, axis=2)
+        g = prev_transfinite_w * (1.0 - prev_proj) + transfinite_ws * proj
+
         match self.bubble_type:
             case BubbleType.approximate_distance_function:
                 m = 2
@@ -334,7 +284,6 @@ class EnforcingBoundary:
                                xy: tf.Tensor, pol_id: int, edge_id: int):
 
         phi_k_line = self.compute_phi_k_line(xy)
-        phi = np.zeros(0)
         match self.method_type:
             case BoundaryMethodType.line:
                 phi = phi_k_line
@@ -370,7 +319,7 @@ class EnforcingBoundary:
         plt.show()
 
     def draw_function(self, n: int, x: NDArray[np.float64], y: NDArray[np.float64],
-                               xy: tf.Tensor, pol_id: int, dof_id: int, draw_lifting: bool):
+                      xy: tf.Tensor, pol_id: int, dof_id: int, draw_lifting: bool):
 
         phi, g = self.phi_and_g(xy)
 

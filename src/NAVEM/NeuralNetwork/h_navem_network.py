@@ -16,11 +16,13 @@ from pypolydim import gedim, polydim
 from NAVEM.Utilities.points_generator import map_pts_from_1d_to_2d
 
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
+
 
 class Flags(TypedDict):
     input_dim: int
@@ -158,7 +160,6 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
 
 
 class BoundaryLoss:
-
     n_pts: int
     num_vertices: int
     reference_eval_points: NDArray[np.float64]
@@ -179,9 +180,8 @@ class BoundaryLoss:
         self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(
             self.references_do_fs_on_edge)
 
-
-    def initialize_basis_evaluations_on_boundary(self, reference_evaluation_points: NDArray[np.float64], num_vertices: int, v_id: int = 0) \
-            -> None:
+    def initialize_basis_evaluations_on_boundary(self, reference_evaluation_points: NDArray[np.float64],
+                                                 num_vertices: int, v_id: int = 0) -> None:
 
         assert reference_evaluation_points.ndim == 1
 
@@ -208,7 +208,7 @@ class BoundaryLoss:
         for e in range(self.num_vertices):
             if e == v:  # edge e after vertex v
                 self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 0]
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) *self. n_pts, 0] = lagrange_derivatives_values[:, 0]
+                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 0]
             elif e == prev_v:
                 self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 1]
                 self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 1]
@@ -216,8 +216,8 @@ class BoundaryLoss:
                 self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
                 self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
 
-    def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> Tuple[
-        NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> (
+            Tuple)[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
         nodes = np.zeros((2, self.num_vertices * self.n_pts))
         tangents = np.zeros((2, self.num_vertices * self.n_pts))
@@ -351,18 +351,18 @@ class HNAVEMNetworksContainer:
         self.flags: Flags = flags
 
         self.nn_basis_function = HNAVEMNeuralNetwork(self.flags['input_dim'] - 2,
-                                                    self.flags['num_generators'],
-                                                    self.flags['num_neurons_per_layer'],
-                                                    self.flags['num_hidden_layers'],
-                                                    self.flags['regularization_coefficient'],
-                                                    self.flags['use_sqrt_in_train'])
+                                                     self.flags['num_generators'],
+                                                     self.flags['num_neurons_per_layer'],
+                                                     self.flags['num_hidden_layers'],
+                                                     self.flags['regularization_coefficient'],
+                                                     self.flags['use_sqrt_in_train'])
 
         self.nn_basis_derivatives = HNAVEMNeuralNetwork(self.flags['input_dim'] - 2,
-                                                       self.flags['num_generators'],
-                                                       self.flags['num_neurons_per_layer'],
-                                                       self.flags['num_hidden_layers'],
-                                                       self.flags['regularization_coefficient'],
-                                                       self.flags['use_sqrt_in_train'])
+                                                        self.flags['num_generators'],
+                                                        self.flags['num_neurons_per_layer'],
+                                                        self.flags['num_hidden_layers'],
+                                                        self.flags['regularization_coefficient'],
+                                                        self.flags['use_sqrt_in_train'])
 
     def save_model(self):
         zero_1d = tf.convert_to_tensor([0.], dtype=tf.float64)
