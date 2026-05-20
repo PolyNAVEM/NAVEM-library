@@ -18,8 +18,12 @@ from enum import Enum
 from typing import Tuple, List
 from pypolydim import gedim
 
-use("Qt5Agg")
-importlib.reload(plt)
+try:
+    use("Qt5Agg")
+    importlib.reload(plt)
+except ImportError:
+    neglectingGraphicPackages = True
+
 
 class PointsSegmentDistributionType(Enum):
     uniform = 1
@@ -27,15 +31,18 @@ class PointsSegmentDistributionType(Enum):
     asymmetricChebyshevLobatto = 3
     exponential = 4
 
+
 class BorderType(Enum):
     all_borders = 1
     no_borders = 2
     only_accumulating_border = 3
 
+
 class PointsTriangleDistributionType(Enum):
     gauss = 1
     uniform = 2
     accumulated = 3
+
 
 def chebyshev_lobatto_nodes(a: float, b: float, n: int) -> NDArray[np.float64]:
     """
@@ -48,8 +55,8 @@ def chebyshev_lobatto_nodes(a: float, b: float, n: int) -> NDArray[np.float64]:
     return 0.5 * (b - a) * x + 0.5 * (b + a)  # map nodes [a,b]
 
 
-def reference_points_distribution(a: float, b: float, npts: int, distribution_type: PointsSegmentDistributionType) -> NDArray[np.float64]:
-
+def reference_points_distribution(a: float, b: float, npts: int, distribution_type: PointsSegmentDistributionType) -> \
+NDArray[np.float64]:
     match distribution_type:
         case PointsSegmentDistributionType.uniform:
             ref_xy_standard = np.linspace(0.0, 1.0, npts)
@@ -69,36 +76,20 @@ def reference_points_distribution(a: float, b: float, npts: int, distribution_ty
         case _:
             raise ValueError("Choose a valid distribution")
 
-def map_pts_from_1d_to_2d(abscissa: NDArray[np.float64], edge_start: NDArray[np.float64], edge_end: NDArray[np.float64]) -> NDArray[np.float64]:
 
+def map_pts_from_1d_to_2d(abscissa: NDArray[np.float64], edge_start: NDArray[np.float64],
+                          edge_end: NDArray[np.float64]) -> NDArray[np.float64]:
     mapped_points_2d = edge_start + abscissa * (edge_end - edge_start)
     return mapped_points_2d
 
+
 def dataset_on_polygonal_border(vertices: NDArray[np.float64], npts: int,
                                 distribution_type: PointsSegmentDistributionType) -> Tuple[NDArray[np.float64], int]:
-
     num_vertices = vertices.shape[1]
     n_pts_on_edge = int(np.ceil(npts / num_vertices))
 
     ref_xy_standard = chebyshev_lobatto_nodes(0.0, 1.0, n_pts_on_edge)
     ref_xy_near_singularity = reference_points_distribution(0.0, 1.0, n_pts_on_edge, distribution_type)
-
-    pts = np.zeros((3, n_pts_on_edge * num_vertices))
-
-    pts[:, :n_pts_on_edge] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, 1:2] - vertices[:, 0:1])
-    for v in range(1, num_vertices-1):
-        pts[:, v*n_pts_on_edge:(v+1)*n_pts_on_edge] = vertices[:, v:v+1] + ref_xy_standard * (vertices[:, v+1:v+2] - vertices[:, v:v+1])
-    pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
-
-    return pts, n_pts_on_edge
-
-def dataset_on_polygonal_border_not_including_vertices(vertices: NDArray[np.float64], npts: int,
-                                                       distribution_type: PointsSegmentDistributionType) -> Tuple[NDArray[np.float64], int]:
-    num_vertices = vertices.shape[1]
-    n_pts_on_edge = int(np.ceil(npts / num_vertices))
-
-    ref_xy_standard = chebyshev_lobatto_nodes(0.0, 1.0, n_pts_on_edge + 2)[1:-1]
-    ref_xy_near_singularity = reference_points_distribution(0.0, 1.0, n_pts_on_edge + 2, distribution_type)[1:-1]
 
     pts = np.zeros((3, n_pts_on_edge * num_vertices))
 
@@ -110,7 +101,29 @@ def dataset_on_polygonal_border_not_including_vertices(vertices: NDArray[np.floa
 
     return pts, n_pts_on_edge
 
-def plot_points_boundary_distributions(polygon_vertices, flat_poles: NDArray[np.float64], boundary_points: NDArray[np.float64]):
+
+def dataset_on_polygonal_border_not_including_vertices(vertices: NDArray[np.float64], npts: int,
+                                                       distribution_type: PointsSegmentDistributionType) -> Tuple[
+    NDArray[np.float64], int]:
+    num_vertices = vertices.shape[1]
+    n_pts_on_edge = int(np.ceil(npts / num_vertices))
+
+    ref_xy_standard = chebyshev_lobatto_nodes(0.0, 1.0, n_pts_on_edge + 2)[1:-1]
+    ref_xy_near_singularity = reference_points_distribution(0.0, 1.0, n_pts_on_edge + 2, distribution_type)[1:-1]
+
+    pts = np.zeros((3, n_pts_on_edge * num_vertices))
+
+    pts[:, :n_pts_on_edge] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, 1:2] - vertices[:, 0:1])
+    for v in range(1, num_vertices - 1):
+        pts[:, v * n_pts_on_edge:(v + 1) * n_pts_on_edge] = vertices[:, v:v + 1] + ref_xy_standard * (
+                vertices[:, v + 1:v + 2] - vertices[:, v:v + 1])
+    pts[:, -n_pts_on_edge:] = vertices[:, 0:1] + ref_xy_near_singularity * (vertices[:, -1:] - vertices[:, 0:1])
+
+    return pts, n_pts_on_edge
+
+
+def plot_points_boundary_distributions(polygon_vertices, flat_poles: NDArray[np.float64],
+                                       boundary_points: NDArray[np.float64]):
     ##################################################################
     fig = plt.figure(figsize=(12, 12))
     ax = fig.add_subplot()
@@ -137,7 +150,9 @@ def plot_points_boundary_distributions(polygon_vertices, flat_poles: NDArray[np.
     plt.show()
     ##################################################################
 
-def plot_grid_over_polygon(polygon_vertices: NDArray[np.float64], points: NDArray[np.float64], filename: str=None) -> None:
+
+def plot_grid_over_polygon(polygon_vertices: NDArray[np.float64], points: NDArray[np.float64],
+                           filename: str = None) -> None:
     ##################################################################
     if filename is None:
         fig = plt.figure(figsize=plt.figaspect(0.5))
@@ -153,7 +168,6 @@ def plot_grid_over_polygon(polygon_vertices: NDArray[np.float64], points: NDArra
     ax.plot(coord[0, :], coord[1, :])
     #################################################################
 
-
     #################################################################
     ax.scatter(points[0, :],
                points[1, :],
@@ -165,14 +179,15 @@ def plot_grid_over_polygon(polygon_vertices: NDArray[np.float64], points: NDArra
 
     if filename is not None:
         plt.axis('off')
-        plt.savefig(filename+".png", bbox_inches='tight', transparent=True, pad_inches=0)
+        plt.savefig(filename + ".png", bbox_inches='tight', transparent=True, pad_inches=0)
     # else:
     #     plt.axis('equal')
     plt.show()
     #################################################################
 
-def uniform_grid_over_triangle(m: int, boundary: bool = False, rescale: bool = False, polygon: bool = False) -> NDArray[np.float64]:
 
+def uniform_grid_over_triangle(m: int, boundary: bool = False, rescale: bool = False, polygon: bool = False) -> NDArray[
+    np.float64]:
     # polygon = True if and only if this function is called from "uniform_grid_over_polygon"
     if boundary:
         if polygon:
@@ -205,14 +220,13 @@ def uniform_grid_over_triangle(m: int, boundary: bool = False, rescale: bool = F
     return xy_points
 
 
-
 def concentrating_grid_over_triangle(n: int, power: float, border_type: BorderType) -> NDArray[np.float64]:
-
     """
 
     Args:
         n: number of points
-        power: how points are dense near accumulating edge: the gratest the more the points are accumulated
+        power: how points are dense near accumulating edge: larger values lead to distributions with higher
+                                                            densities near the boundary
         border_type:
 
     Returns: points (3 x num_points)
@@ -223,10 +237,6 @@ def concentrating_grid_over_triangle(n: int, power: float, border_type: BorderTy
 
     for i in range(n + 1):
         for j in range(n + 1 - i):
-
-            l1 = 0
-            l2 = 0
-            l3 = 0
 
             match border_type:
                 case BorderType.all_borders:
@@ -266,7 +276,6 @@ def grid_over_triangle(points_distribution_type: PointsTriangleDistributionType,
                        uniform_boundary: bool = False, uniform_rescale: bool = True,
                        accumulating_power: float = 1.0, accumulating_border: BorderType = BorderType.no_borders,
                        polygon: bool = True) -> NDArray[np.float64]:
-
     match points_distribution_type:
         case PointsTriangleDistributionType.gauss:
             quadrature = gedim.quadrature.Quadrature_Gauss2D_Triangle.fill_points_and_weights(quadrature_order)
@@ -280,10 +289,10 @@ def grid_over_triangle(points_distribution_type: PointsTriangleDistributionType,
         case _:
             raise ValueError("invalid points triangle distribution type")
 
+
 def uniform_grid_over_polygon(reference_points: NDArray[np.float64],
                               polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
                               boundary: bool = False) -> NDArray[np.float64]:
-
     # Triangulation by interior point
     num_triangles = len(polygon_triangulation_by_interior_points)
     polygon: bool = (num_triangles > 1)
@@ -310,7 +319,6 @@ def uniform_grid_over_polygon(reference_points: NDArray[np.float64],
 def concentrating_grid_over_polygon(reference_points: NDArray[np.float64],
                                     polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
                                     border_type: BorderType) -> NDArray[np.float64]:
-
     # Triangulation by interior point
     num_triangles = len(polygon_triangulation_by_interior_points)
 
@@ -332,7 +340,6 @@ def concentrating_grid_over_polygon(reference_points: NDArray[np.float64],
 
 def gauss_points_over_polygon(reference_points: NDArray[np.float64],
                               polygon_triangulation: List[NDArray[np.float64]]):
-
     num_quadrature = reference_points.shape[1]
     num_triangles = len(polygon_triangulation)
 
@@ -347,11 +354,12 @@ def gauss_points_over_polygon(reference_points: NDArray[np.float64],
 
     return nodes
 
+
 def grid_over_polygon(points_distribution_type: PointsTriangleDistributionType,
                       reference_points: NDArray[np.float64],
                       polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
-                      uniform_boundary: bool = False, accumulating_border: BorderType = BorderType.no_borders) -> NDArray[np.float64]:
-
+                      uniform_boundary: bool = False, accumulating_border: BorderType = BorderType.no_borders) -> \
+NDArray[np.float64]:
     match points_distribution_type:
         case PointsTriangleDistributionType.gauss:
             return gauss_points_over_polygon(reference_points, polygon_triangulation_by_interior_points)
@@ -360,6 +368,7 @@ def grid_over_polygon(points_distribution_type: PointsTriangleDistributionType,
                                              polygon_triangulation_by_interior_points,
                                              uniform_boundary)
         case PointsTriangleDistributionType.accumulated:
-            return concentrating_grid_over_polygon(reference_points, polygon_triangulation_by_interior_points, accumulating_border)
+            return concentrating_grid_over_polygon(reference_points, polygon_triangulation_by_interior_points,
+                                                   accumulating_border)
         case _:
             raise ValueError("invalid points triangle distribution type")
