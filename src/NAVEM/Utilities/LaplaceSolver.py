@@ -21,16 +21,17 @@ from matplotlib import use
 from typing import Tuple, Callable
 from NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
 
-use("Qt5Agg")
-importlib.reload(plt)
-
+try:
+    use("Qt5Agg")
+    importlib.reload(plt)
+except ImportError:
+    neglectingGraphicPackages = True
 
 
 class LaplaceProblem:
 
     def __init__(self, domain_vertices: NDArray[np.float64], domain_scale: float, internal_point: NDArray[np.float64],
                  boundary_dirichlet_conditions: Callable[[int, NDArray[np.float64]], NDArray[np.float64]]):
-
         self.domain_vertices = domain_vertices
         self.num_vertices = self.domain_vertices.shape[1]
         self.domain_scale = domain_scale
@@ -40,7 +41,7 @@ class LaplaceProblem:
 
 class LaplaceSolver(Function):
 
-    def __init__(self, geometry_utilities : gedim.GeometryUtilities, problem: LaplaceProblem,
+    def __init__(self, geometry_utilities: gedim.GeometryUtilities, problem: LaplaceProblem,
                  iterations: List[int], list_poles_vertices: List[int], error_tolerance=1.0e-6,
                  harmonic_type: HarmonicPolynomials.HarmonicType = HarmonicPolynomials.HarmonicType.total,
                  rational_type: RationalFunction.RationalType = RationalFunction.RationalType.total,
@@ -64,7 +65,8 @@ class LaplaceSolver(Function):
 
         self.polygon_interior_angles = compute_polygon_interior_angles(self.problem.domain_vertices)
         self.polygon_edge_normals = self.geometry_utilities.polygon_edge_normals(self.problem.domain_vertices)
-        self.polygon_vertex_bisectors = compute_polygon_external_bisectors(geometry_utilities, self.polygon_edge_normals)
+        self.polygon_vertex_bisectors = compute_polygon_external_bisectors(geometry_utilities,
+                                                                           self.polygon_edge_normals)
 
         self.flat_poles = np.zeros([3, 0])
         self.coefficients = np.zeros([0])
@@ -75,7 +77,6 @@ class LaplaceSolver(Function):
 
     def domain_vertices(self) -> NDArray[np.float64]:
         return self.problem.domain_vertices
-
 
     def vander(self, points: NDArray[np.float64]) -> NDArray[np.float64]:
 
@@ -92,12 +93,14 @@ class LaplaceSolver(Function):
 
     def vander_derivatives(self, points: NDArray[np.float64]) -> NDArray[np.float64]:
 
-        _, vandermonde_total_harm =  self.harmonic_polynomials.vander(points,
-                                                                      self.problem.domain_scale,
-                                                                      self.problem.internal_point)
+        _, vandermonde_total_harm = self.harmonic_polynomials.vander(points,
+                                                                     self.problem.domain_scale,
+                                                                     self.problem.internal_point)
 
-        grad_vandermonde_harm =  self.harmonic_polynomials.vander_derivatives(vandermonde_total_harm, self.problem.domain_scale)
-        grad_vandermonde_rat = self.rational_functions.vander_derivatives(points, self.flat_poles, self.distance_from_poles)
+        grad_vandermonde_harm = self.harmonic_polynomials.vander_derivatives(vandermonde_total_harm,
+                                                                             self.problem.domain_scale)
+        grad_vandermonde_rat = self.rational_functions.vander_derivatives(points, self.flat_poles,
+                                                                          self.distance_from_poles)
 
         grad_vandermonde = np.zeros([2, points.shape[1], 1])
         grad_vandermonde[0, :, :] = np.expand_dims(np.concatenate([grad_vandermonde_harm[0, :, :],
@@ -109,7 +112,8 @@ class LaplaceSolver(Function):
 
         return grad_vandermonde
 
-    def vander_and_vander_derivatives(self, points: NDArray[np.float64]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def vander_and_vander_derivatives(self, points: NDArray[np.float64]) -> Tuple[
+        NDArray[np.float64], NDArray[np.float64]]:
 
         vandermonde_harmonic, vandermonde_total_harm \
             = self.harmonic_polynomials.vander(points,
@@ -119,7 +123,8 @@ class LaplaceSolver(Function):
         grad_vandermonde_harm = self.harmonic_polynomials.vander_derivatives(vandermonde_total_harm,
                                                                              self.problem.domain_scale)
 
-        grad_vandermonde_rat = self.rational_functions.vander_derivatives(points, self.flat_poles, self.distance_from_poles)
+        grad_vandermonde_rat = self.rational_functions.vander_derivatives(points, self.flat_poles,
+                                                                          self.distance_from_poles)
         vandermonde_rational = self.rational_functions.vander(points, self.flat_poles, self.distance_from_poles)
 
         matrix_coefficients = np.concatenate([vandermonde_harmonic, vandermonde_rational], axis=1)
@@ -135,10 +140,10 @@ class LaplaceSolver(Function):
 
         return vandermonde, grad_vandermonde
 
-
     def compute_boundary_sample_points_and_right_term(self,
                                                       poles: List[NDArray[np.float64]],
-                                                      num_total_poles: int) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+                                                      num_total_poles: int) -> Tuple[
+        NDArray[np.float64], NDArray[np.float64]]:
 
         """
 
@@ -158,7 +163,8 @@ class LaplaceSolver(Function):
 
             prev_id = v - 1 if v > 0 else self.problem.num_vertices - 1
             previous_tangent_edge = self.problem.domain_vertices[:, prev_id] - self.problem.domain_vertices[:, v]
-            tangent_edge = self.problem.domain_vertices[:, (v + 1) % self.problem.num_vertices] - self.problem.domain_vertices[:, v]
+            tangent_edge = (self.problem.domain_vertices[:, (v + 1) % self.problem.num_vertices]
+                            - self.problem.domain_vertices[:, v])
             length_previous_edge = np.linalg.norm(previous_tangent_edge)
             length_edge = np.linalg.norm(tangent_edge)
 
@@ -174,29 +180,30 @@ class LaplaceSolver(Function):
                     for k in range(3):
                         t = (k + 1) / 3 * dist
                         if t < length_previous_edge:
-
                             bbd = (t * previous_tangent_edge / length_previous_edge
                                    + self.problem.domain_vertices[:, v])
 
                             boundary_points.append(bbd)
-                            right_term.append(self.problem.boundary_dirichlet_conditions(prev_id, np.expand_dims(bbd, axis=1))[0])
+                            right_term.append(
+                                self.problem.boundary_dirichlet_conditions(prev_id, np.expand_dims(bbd, axis=1))[0])
 
                         if t < length_edge:
-
-                            bbd = (t * tangent_edge/length_edge
+                            bbd = (t * tangent_edge / length_edge
                                    + self.problem.domain_vertices[:, v])
 
                             boundary_points.append(bbd)
-                            right_term.append(self.problem.boundary_dirichlet_conditions(v, np.expand_dims(bbd, axis=1))[0])
+                            right_term.append(
+                                self.problem.boundary_dirichlet_conditions(v, np.expand_dims(bbd, axis=1))[0])
 
             else:
                 num_points = int(num_total_poles / len(self.list_poles_vertices))
-                reference_points = reference_points_distribution(0.0, 0.5, num_points, PointsSegmentDistributionType.exponential)[1:-1]
+                reference_points = reference_points_distribution(0.0, 0.5, num_points,
+                                                                 PointsSegmentDistributionType.exponential)[1:-1]
                 for j in range(len(reference_points)):
-
                     bbd = self.problem.domain_vertices[:, v] + reference_points[j] * previous_tangent_edge
                     boundary_points.append(bbd)
-                    right_term.append(self.problem.boundary_dirichlet_conditions(prev_id, np.expand_dims(bbd, axis=1))[0])
+                    right_term.append(
+                        self.problem.boundary_dirichlet_conditions(prev_id, np.expand_dims(bbd, axis=1))[0])
 
                     bbd = self.problem.domain_vertices[:, v] + reference_points[j] * tangent_edge
                     boundary_points.append(bbd)
@@ -242,7 +249,8 @@ class LaplaceSolver(Function):
                                                                        self.problem.domain_scale,
                                                                        self.problem.internal_point)
 
-            vandermonde_rational = self.rational_functions.vander(self.boundary_points, self.flat_poles, self.distance_from_poles)
+            vandermonde_rational = self.rational_functions.vander(self.boundary_points, self.flat_poles,
+                                                                  self.distance_from_poles)
 
             matrix_coefficient = np.concatenate([vandermonde_harmonic, vandermonde_rational], axis=1)
 
@@ -251,21 +259,17 @@ class LaplaceSolver(Function):
                 weights = np.linalg.norm(self.boundary_points - self.problem.domain_vertices[:, 0:1], axis=0)
                 for v in range(self.problem.num_vertices - 1):
                     weights = np.minimum(weights, np.linalg.norm(self.boundary_points
-                                                                 - self.problem.domain_vertices[:, (v + 1):(v + 2)], axis=0))
+                                                                 - self.problem.domain_vertices[:, (v + 1):(v + 2)],
+                                                                 axis=0))
 
             weights = diags([weights], [0], shape=(num_functions, num_functions)).toarray()
 
-            self.coefficients = np.linalg.lstsq(matrix_coefficient, right_term,rcond=None)[0]
+            self.coefficients = np.linalg.lstsq(matrix_coefficient, right_term, rcond=None)[0]
             error_vec = weights @ (matrix_coefficient @ self.coefficients - right_term)
             self.error = np.linalg.norm(error_vec, ord=np.inf)
 
-            # print('n: ', n, ' NumFlatPoles: ', self.flat_poles.shape[1], ' N2: ', self.harm_deg, ' error: ', self.error)
-
             if self.error < self.error_tolerance:
                 break
-
-
-        # print('n: ', self.num_actual_iteration, ' NumFlatPoles: ', self.flat_poles.shape[1], ' N2: ', self.harm_deg, ' error: ', self.error)
 
 
 def hanging_function(geometry_utilities: gedim.GeometryUtilities) -> LaplaceSolver:
