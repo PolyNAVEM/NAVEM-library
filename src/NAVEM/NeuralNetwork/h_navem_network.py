@@ -216,8 +216,8 @@ class BoundaryLoss:
                 self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
                 self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
 
-    def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) -> (
-            Tuple)[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) \
+            -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
         nodes = np.zeros((2, self.num_vertices * self.n_pts))
         tangents = np.zeros((2, self.num_vertices * self.n_pts))
