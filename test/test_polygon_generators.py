@@ -126,6 +126,26 @@ class TestPolygonGenerators(unittest.TestCase):
 
         self.assertTrue(mesh.cell2_d_total_number() == n_training_polygons)
 
+    def test_concave_quadrilateral_generators(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+        mesh_utilities = gedim.MeshUtilities()
+
+        n_training_polygons = 1000
+        n_vertices = 4
+
+        polygon_generator = PolygonGenerator(geometry_utilities)
+        mesh_data, mesh \
+            = polygon_generator.generate_random_concave_polygon(num_polygons=n_training_polygons,
+                                                                num_vertices=n_vertices,
+                                                                num_reflex_angles=1,
+                                                                tolerance_hanging_nodes=NAVEM.PCC_2D.NAVEM_PCC_2D.NNCategory.tolerance_hanging_nodes,
+                                                                plot_generate_elements=plot_generate_elements)
+
+        _ = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
+
+        self.assertTrue(mesh.cell2_d_total_number() == n_training_polygons)
 
 if __name__ == '__main__':
 
