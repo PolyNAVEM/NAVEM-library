@@ -15,8 +15,8 @@ from pypolydim import gedim
 from typing import List, Tuple
 from numpy.typing import NDArray
 
-class RationalFunction:
 
+class RationalFunction:
     class RationalType(Enum):
         total = 1
         real = 2
@@ -34,7 +34,7 @@ class RationalFunction:
 
         """
 
-        The kth Pole is defined throughout the distance_fun_k = exp(-sigma * (\sqrt{num_poles} - \sart{k}))
+        The kth Pole is defined throughout the distance_fun_k = exp(-sigma * (\sqrt{num_poles} - \sqrt{k}))
         and they are distributed along the external bisector to the related vertex
 
         :param geometry_utilities:
@@ -92,9 +92,10 @@ class RationalFunction:
 
         return poles, flat_poles
 
-
     @staticmethod
-    def compute_distance_pole_vertex(list_pole_vertices: List[int], poles: List[NDArray[np.float64]], flat_poles: NDArray[np.float64], polygon_vertices: NDArray[np.float64]) -> NDArray[np.float64]:
+    def compute_distance_pole_vertex(list_pole_vertices: List[int], poles: List[NDArray[np.float64]],
+                                     flat_poles: NDArray[np.float64], polygon_vertices: NDArray[np.float64]) -> NDArray[
+        np.float64]:
 
         num_total_poles = flat_poles.shape[1]
         dist = np.zeros(num_total_poles)
@@ -112,7 +113,8 @@ class RationalFunction:
 
         return dist
 
-    def vander_total(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander_total(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                     distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
 
         """
         Compute rational function related to some polygon vertex, defined as (d_{v, k} / (z - z_{v,k})) where z_{v,k}
@@ -141,7 +143,8 @@ class RationalFunction:
 
         return vander_matrix
 
-    def vander_total_derivatives(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]):
+    def vander_total_derivatives(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                                 distance_pole_vertex: NDArray[np.float64]):
 
         assert points.shape[0] == 3
 
@@ -163,7 +166,8 @@ class RationalFunction:
         return vandermonde_derivatives
 
     @staticmethod
-    def vander_real(points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander_real(points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                    distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
 
         assert points.shape[0] == 3
 
@@ -177,7 +181,8 @@ class RationalFunction:
         return vander_matrix
 
     @staticmethod
-    def vander_real_derivatives(points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander_real_derivatives(points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                                distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
         assert points.shape[0] == 3
 
         num_quad_points = points.shape[1]
@@ -190,13 +195,17 @@ class RationalFunction:
         inv_complex_module_sq = inv_complex_module ** 2
 
         vandermonde_derivatives = np.zeros((2, num_quad_points, num_total_poles))
-        vandermonde_derivatives[0, :, :] = (inv_complex_module - 2.0 * inv_complex_module_sq * diff[0, :, :] ** 2) * distance_pole_vertex[np.newaxis, :]
-        vandermonde_derivatives[1, :, :] = -2.0 * distance_pole_vertex[np.newaxis, :] * diff[0, :, :] * diff[1, :, :] * inv_complex_module_sq
+        vandermonde_derivatives[0, :, :] = (inv_complex_module - 2.0 * inv_complex_module_sq * diff[0, :,
+                                                                                               :] ** 2) * distance_pole_vertex[
+                                                                                                          np.newaxis, :]
+        vandermonde_derivatives[1, :, :] = -2.0 * distance_pole_vertex[np.newaxis, :] * diff[0, :, :] * diff[1, :,
+                                                                                                        :] * inv_complex_module_sq
 
         return vandermonde_derivatives
 
     @staticmethod
-    def vander_imag(points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander_imag(points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                    distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
 
         assert points.shape[0] == 3
 
@@ -210,7 +219,8 @@ class RationalFunction:
         return vander_matrix
 
     @staticmethod
-    def vander_imag_derivatives(points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander_imag_derivatives(points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                                distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
         assert points.shape[0] == 3
 
         num_quad_points = points.shape[1]
@@ -223,8 +233,12 @@ class RationalFunction:
         inv_complex_module_sq = inv_complex_module ** 2
 
         vandermonde_derivatives = np.zeros((2, num_quad_points, num_total_poles))
-        vandermonde_derivatives[0, :, :] = 2.0 * distance_pole_vertex[np.newaxis, :] * diff[0, :, :] * diff[1, :, :] * inv_complex_module_sq
-        vandermonde_derivatives[1, :, :] = (-inv_complex_module + 2.0 * inv_complex_module_sq * diff[1, :, :] ** 2) * distance_pole_vertex[np.newaxis, :]
+        vandermonde_derivatives[0, :, :] = 2.0 * distance_pole_vertex[np.newaxis, :] * diff[0, :, :] * diff[1, :,
+                                                                                                       :] * inv_complex_module_sq
+        vandermonde_derivatives[1, :, :] = (-inv_complex_module + 2.0 * inv_complex_module_sq * diff[1, :,
+                                                                                                :] ** 2) * distance_pole_vertex[
+                                                                                                           np.newaxis,
+                                                                                                           :]
 
         return vandermonde_derivatives
 
@@ -241,7 +255,8 @@ class RationalFunction:
             case _:
                 raise ValueError('not valid vander type')
 
-    def vander(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+               distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
 
         match self.vander_type:
             case RationalFunction.RationalType.total:
@@ -253,7 +268,8 @@ class RationalFunction:
             case _:
                 raise ValueError('not valid vander type')
 
-    def vander_derivatives(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64], distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
+    def vander_derivatives(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64],
+                           distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
 
         match self.vander_type:
             case RationalFunction.RationalType.total:
