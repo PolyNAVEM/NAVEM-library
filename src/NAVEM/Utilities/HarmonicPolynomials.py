@@ -45,13 +45,14 @@ def change_basis_matrix(vander_matrix: NDArray[np.float64]) -> NDArray[np.float6
 
     change_basis = np.linalg.inv(r2_matrix @ r1_matrix)
 
-    #if np.linalg.norm(q2_matrix.T @ q2_matrix - np.identity(q2_matrix.shape[1])) >= 1.0e-10:
+    # if np.linalg.norm(q2_matrix.T @ q2_matrix - np.identity(q2_matrix.shape[1])) >= 1.0e-10:
     #    raise Exception("mgs factorization fail")
 
     # if np.linalg.norm(vander_matrix @ change_basis - q2_matrix) >= 1.0e-10:
     #     raise Exception("mgs factorization fail")
 
     return change_basis
+
 
 class HarmonicPolynomials:
 

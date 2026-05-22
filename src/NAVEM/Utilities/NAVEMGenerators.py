@@ -28,13 +28,12 @@ class NAVEMGenerators:
         self.num_vertices = num_vertices
 
         self.harmonic_degree = harmonic_degree
-        self.harmonic_polynomials = HarmonicPolynomials(self.harmonic_degree, HarmonicPolynomials.HarmonicType.real)
+        self.harmonic_polynomials = HarmonicPolynomials(self.harmonic_degree, HarmonicPolynomials.HarmonicType.total)
 
         self.use_hanging_function = use_hanging_function
         self.list_id_vertices_hanging: List[int] = []
         if use_hanging_function:
             self.list_id_vertices_hanging = [0, 1, num_vertices - 1]
-
 
         self.num_harmonic_polynomials = self.harmonic_polynomials.num_harmonic_polynomials
 
@@ -49,7 +48,7 @@ class NAVEMGenerators:
         change_basis_points = np.stack([change_basis_xs, change_basis_ys], axis=0)
 
         harmonic_vandermonde = self.harmonic_polynomials.vander(change_basis_points, self.normalization_diameter,
-                                                            self.normalization_centroid)[0]
+                                                                self.normalization_centroid)[0]
 
         self.change_basis_matrix = change_basis_matrix(harmonic_vandermonde)
         self.num_generators = self.num_harmonic_polynomials
@@ -59,10 +58,10 @@ class NAVEMGenerators:
             self.num_hanging_functions = len(self.list_id_vertices_hanging)
             self.num_generators += self.num_hanging_functions
 
-
     def vander_and_vander_derivatives(self, points: NDArray[np.float64], polygon_vertices: NDArray[np.float64],
-                                      internal_angles: NDArray[np.float64] =np.zeros(0),
-                                      vertex_distance: List[float] = None) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+                                      internal_angles: NDArray[np.float64] = np.zeros(0),
+                                      vertex_distance: List[float] = None) -> Tuple[
+        NDArray[np.float64], NDArray[np.float64]]:
 
         harm_vandermonde, total_harm_vandermonde = self.harmonic_polynomials.vander(points, self.normalization_diameter,
                                                                                     self.normalization_centroid)
@@ -72,11 +71,11 @@ class NAVEMGenerators:
 
         grad_vandermonde = np.zeros([2, points.shape[1], self.num_generators])
 
-
-        grad_vandermonde[0, :, 0:self.num_harmonic_polynomials] = grad_harm_vandermonde[0, :, :] @ self.change_basis_matrix
-        grad_vandermonde[1, :, 0:self.num_harmonic_polynomials] = grad_harm_vandermonde[1, :, :] @ self.change_basis_matrix
+        grad_vandermonde[0, :, 0:self.num_harmonic_polynomials] = grad_harm_vandermonde[0, :,
+                                                                  :] @ self.change_basis_matrix
+        grad_vandermonde[1, :, 0:self.num_harmonic_polynomials] = grad_harm_vandermonde[1, :,
+                                                                  :] @ self.change_basis_matrix
         vandermonde = harm_vandermonde @ self.change_basis_matrix
-
 
         if self.use_hanging_function:
 
@@ -86,18 +85,20 @@ class NAVEMGenerators:
                 translation_1, translation_2, b_matrix, b_matrix_inv = compute_map_f(self.geometry_utilities,
                                                                                      v_id, polygon_vertices,
                                                                                      self.hanging_function.domain_vertices(),
-                                                                                     np.squeeze(internal_angles).tolist(),
+                                                                                     np.squeeze(
+                                                                                         internal_angles).tolist(),
                                                                                      vertex_distance)
 
                 original_points, _ = map_f_inv(translation_1, translation_2, b_matrix, b_matrix_inv, points)
                 jac = b_matrix_inv.T
-                hang_vandermonde, grad_hang_vandermonde = self.hanging_function.vander_and_vander_derivatives(original_points)
+                hang_vandermonde, grad_hang_vandermonde = self.hanging_function.vander_and_vander_derivatives(
+                    original_points)
 
                 grad_hang_vandermonde = map_vander_derivatives(grad_hang_vandermonde, jac)
 
-                grad_vandermonde[0, :, (self.num_harmonic_polynomials+v):self.num_harmonic_polynomials+v+1] \
+                grad_vandermonde[0, :, (self.num_harmonic_polynomials + v):self.num_harmonic_polynomials + v + 1] \
                     = grad_hang_vandermonde[0, :, :]
-                grad_vandermonde[1, :, (self.num_harmonic_polynomials+v):self.num_harmonic_polynomials+v+1] \
+                grad_vandermonde[1, :, (self.num_harmonic_polynomials + v):self.num_harmonic_polynomials + v + 1] \
                     = grad_hang_vandermonde[1, :, :]
 
                 vandermonde = np.concatenate((vandermonde, hang_vandermonde), axis=1)
