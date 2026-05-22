@@ -23,16 +23,13 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 
-
 class BoundaryMethodType(Enum):
     line = 1
     segment = 2
 
-
 class BubbleType(Enum):
     approximate_distance_function = 1
     product = 2
-
 
 class EnforcingBoundary:
     def __init__(self, geometry_utilities: gedim.GeometryUtilities,

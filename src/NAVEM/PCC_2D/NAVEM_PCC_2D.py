@@ -9,68 +9,14 @@
 #
 # This file can be used citing references in CITATION.cff file.
 
-from enum import Enum
-from pypolydim import gedim
-from typing import List, Dict, Tuple
-import numpy as np
-from numpy.typing import NDArray
 from NAVEM.NeuralNetwork import h_navem_network, b_navem_network, p_navem_network
 from NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import SetupDerivatives, AbstractBPNAVEM
 from NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
 from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import *
 
-
-class NAVEMType(Enum):
-    H_NAVEM = 1
-    B_NAVEM = 2
-    P_NAVEM = 3
-
-class NAVEMMappingType(Enum):
-    standard = 1
-    inertia = 2
-    rotated_inertia = 3
-
-class NAVEMElementType(Enum):
-    generic_convex = 1
-    generic_concave = 2
-
-class NAVEMOutput:
-
-    def __init__(self):
-        self.basis_values: NDArray[np.float64] = np.zeros((0, 0))
-        self.basis_derivatives_values: List[NDArray[np.float64]] = [np.zeros((0, 0)) for _ in range(2)]
-        self.basis_laplacian_values: NDArray[np.float64] = np.zeros((0, 0))
-        self.internal_quadrature: gedim.quadrature.QuadratureData = gedim.quadrature.QuadratureData()
-        self.internal_quadrature_per_do_fs: List[gedim.quadrature.QuadratureData] = []
-
-class NNDictionary:
-
-    def __init__(self):
-        self.list_elements: List[int] = []
-        self.method_type: NAVEMType = NAVEMType.H_NAVEM
-        self.neural_network = None
-
-class NNCategory:
-
-    tolerance_hanging_nodes = 0.05
-
-    def __init__(self, num_vertices: int, element_type: NAVEMElementType):
-        self.num_vertices: int = num_vertices
-        self.element_type: NAVEMElementType = element_type
-
-
-    def __eq__(self, other):
-        if not isinstance(other, NNCategory):
-            return NotImplemented
-        return (
-            self.num_vertices == other.num_vertices and
-            self.element_type == other.element_type
-        )
-
-    def __hash__(self):
-        return hash((self.num_vertices, self.element_type))
 
 def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
                                          mesh_geometric_data: MeshGeometricData2D,
