@@ -30,6 +30,8 @@ class Flags(TypedDict):
     output_dim: int
     method_order: int
     method_type: int
+    basis_function_type: int
+    num_functions_per_polygon: int
     element_type: int
     num_vertices: int
     mesh_import_path: str
@@ -46,13 +48,16 @@ class Flags(TypedDict):
     copy_basis_in_train: bool
     quadrature_order: int
     distribution_points_type: int
-    boundary_method_type: int
+    boundary_method_type_g: int
+    boundary_method_type_adf: int
     bubble_type: int
 
 
 def set_flags(network_input_dimension: int,
               method_order: int,
               method_type: int,
+              basis_function_type: int,
+              num_functions_per_polygon: int,
               element_type: int,
               num_vertices: int,
               mesh_import_path: str,
@@ -69,13 +74,17 @@ def set_flags(network_input_dimension: int,
               copy_basis_in_train: bool,
               quadrature_order: int,
               distribution_points_type: int,
-              boundary_method_type: int,
+              boundary_method_type_g: int,
+              boundary_method_type_adf: int,
               bubble_type: int
               ) -> Flags:
+
     flags: Flags = {'input_dim': network_input_dimension,
                     'output_dim': 1,
                     'method_order': method_order,
                     'method_type': method_type,
+                    'basis_function_type': basis_function_type,
+                    'num_functions_per_polygon': num_functions_per_polygon,
                     'element_type': element_type,
                     'num_vertices': num_vertices,
                     'mesh_import_path': mesh_import_path,
@@ -92,7 +101,8 @@ def set_flags(network_input_dimension: int,
                     'copy_basis_in_train': copy_basis_in_train,
                     'quadrature_order': quadrature_order,
                     'distribution_points_type': distribution_points_type,
-                    'boundary_method_type': boundary_method_type,
+                    'boundary_method_type_g': boundary_method_type_g,
+                    'boundary_method_type_adf': boundary_method_type_adf,
                     'bubble_type': bubble_type}
 
     return flags
@@ -101,6 +111,8 @@ def set_flags(network_input_dimension: int,
 def write_flags_on_dictionary(flags: Flags) -> None:
     file = open('{}/dictionary.txt'.format(flags['name_storage']), 'w')
     file.write("method_type = {}\n".format(flags['method_type']))
+    file.write("basis_function_type = {}\n".format(flags['basis_function_type']))
+    file.write("num_functions_per_polygon = {}\n".format(flags['num_functions_per_polygon']))
     file.write("element_type = {}\n".format(flags['element_type']))
     file.write("method_order = {}\n".format(flags['method_order']))
     file.write("input_dim = {}\n".format(flags['input_dim']))
@@ -119,7 +131,8 @@ def write_flags_on_dictionary(flags: Flags) -> None:
     file.write("learning_rate_min = {}\n".format(flags['learning_rate_min']))
     file.write("use_sqrt_in_train = {}\n".format(flags['use_sqrt_in_train']))
     file.write("copy_basis_in_train = {}\n".format(flags['copy_basis_in_train']))
-    file.write("boundary_method_type = {}\n".format(flags['boundary_method_type']))
+    file.write("boundary_method_type_g = {}\n".format(flags['boundary_method_type_g']))
+    file.write("boundary_method_type_adf = {}\n".format(flags['boundary_method_type_adf']))
     file.write("bubble_type = {}\n".format(flags['bubble_type']))
 
     file.close()
@@ -130,6 +143,8 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
                     'output_dim': int(raw["output_dim"]),
                     'method_order': int(raw["method_order"]),
                     'method_type': int(raw["method_type"]),
+                    'basis_function_type': int(raw["basis_function_type"]),
+                    'num_functions_per_polygon': int(raw["num_functions_per_polygon"]),
                     'element_type': int(raw["element_type"]),
                     'num_vertices': int(raw["num_vertices"]),
                     'mesh_import_path': raw["mesh_import_path"],
@@ -146,16 +161,18 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
                     'copy_basis_in_train': bool(raw["copy_basis_in_train"]),
                     'quadrature_order': int(raw["quadrature_order"]),
                     'distribution_points_type': int(raw["distribution_points_type"]),
-                    'boundary_method_type': int(raw["boundary_method_type"]),
+                    'boundary_method_type_g': int(raw["boundary_method_type_g"]),
+                    'boundary_method_type_adf': int(raw["boundary_method_type_adf"]),
                     'bubble_type': int(raw["bubble_type"])}
 
     return flags
 
 
 class AbstractBPNAVEM(ABC):
-    n_pols: int
+
+    n_polygons: int
     n_local_pts: int
-    n_funcs_per_pol: int
+    n_funcs_per_polygon: int
     one_over_n_funcs: tf.Tensor
 
     def __init__(self, flags: Flags, in_training: bool = False):
@@ -272,39 +289,60 @@ class AbstractBPNAVEM(ABC):
                                  setup_n_derivatives: SetupDerivatives,
                                  geometry_utilities: gedim.GeometryUtilities):
 
-        eb = EnforcingBoundary(geometry_utilities,
-                               method_order=self.flags["method_order"],
-                               vertices=vertices,
-                               jac_per_pol=jac_per_pol,
-                               method_type=BoundaryMethodType(self.flags["boundary_method_type"]),
-                               bubble_type=BubbleType(self.flags["bubble_type"]))
 
-        xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
         num_of_functions = self.flags["num_vertices"] - self.exact_one
 
+        eb = EnforcingBoundary(geometry_utilities,
+                               method_order=self.flags["method_order"],
+                               boundary_method_type_adfs=BoundaryMethodType(self.flags["boundary_method_type_adf"]),
+                               boundary_method_type_g=BoundaryMethodType(self.flags["boundary_method_type_g"]),
+                               bubble_type=BubbleType(self.flags["bubble_type"]))
+
+        vertices = tf.transpose(tf.convert_to_tensor(vertices, dtype=tf.float64), perm=[0, 2, 1])
+        xy_per_pol = tf.convert_to_tensor(xy_per_pol, dtype=tf.float64)
+        jac_per_pol = tf.convert_to_tensor(jac_per_pol, dtype=tf.float64)
+
+        eb.initialize_boundary_properties(vertices)
+
+        g = tf.constant(0, dtype=tf.float64)
+        phi = None
         phi_grad = None
-        g_grad = None
+        g_grad = tf.constant(0, dtype=tf.float64)
         phi_sec_ders = None
-        g_sec_ders = None
+        g_sec_ders = tf.constant(0, dtype=tf.float64)
+
         match setup_n_derivatives:
             case SetupDerivatives.basis:
-                phi, g = eb.phi_and_g(xy_per_pol)
+                phi = eb.compute_adfs(xy_per_pol)
+                g = eb.compute_g(xy_per_pol)
+
             case SetupDerivatives.basis_and_derivatives:
-                phi, g, phi_grad, g_grad = eb.phi_and_g_and_grads(xy_per_pol)
-                g_grad = g_grad[:, :, :num_of_functions, :]
-                phi_grad, g_grad = eb.map_phi_and_g_grads(phi_grad, g_grad)
+
+                phi, phi_grad = eb.compute_adfs_and_grads(xy_per_pol)
+                phi_grad = eb.map_adf_grads(phi_grad, jac_per_pol)
+
+                g, g_grad = eb.compute_g_and_grads(xy_per_pol)
+                g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+
             case SetupDerivatives.basis_and_derivatives_and_laplacian:
-                phi, g, phi_grad, g_grad, phi_sec_ders, g_sec_ders = eb.phi_and_g_and_grads_and_second_derivatives(
-                    xy_per_pol)
+
+                g, g_grad, g_sec_ders = eb.compute_g_and_grads_and_second_derivatives(xy_per_pol)
+                g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+                g_sec_ders = eb.map_g_second_derivatives(g_sec_ders, jac_per_pol)
+
+                phi, phi_grad, phi_sec_ders = eb.compute_adfs_and_grads_and_second_derivatives(xy_per_pol)
+                phi_grad = eb.map_adf_grads(phi_grad, jac_per_pol)
+                phi_sec_ders = eb.map_adf_second_derivatives(phi_sec_ders, jac_per_pol)
+
             case _:
                 raise ValueError("not valid setup_n_derivatives.")
 
         g = g[:, :, :num_of_functions]
 
-        self.n_pols, self.n_local_pts, self.n_funcs_per_pol = g.shape
-        self.one_over_n_funcs = tf.convert_to_tensor(1.0 / (self.n_pols * self.n_funcs_per_pol), dtype=tf.float64)
+        self.n_polygons, self.n_local_pts, self.n_funcs_per_polygon = g.shape
+        self.one_over_n_funcs = tf.convert_to_tensor(1.0 / (self.n_polygons * self.n_funcs_per_polygon), dtype=tf.float64)
 
-        phi = tf.tile(phi, [1, 1, self.n_funcs_per_pol])
+        phi = tf.tile(phi, [1, 1, self.n_funcs_per_polygon])
         phi = tf.transpose(phi, [0, 2, 1])
         phi = tf.reshape(phi, [-1, 1])
         self.var_phi.assign(phi)

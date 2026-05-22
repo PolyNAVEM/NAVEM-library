@@ -16,13 +16,14 @@ from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
 from NAVEM.NeuralNetwork.training_utilities import *
-from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMElementType
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType, BasisFunctionType
 import csv
 from NAVEM.Utilities.points_generator import *
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
 
 
 def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
+                                                   basis_function_type: BasisFunctionType,
                                                    method_type: NAVEMType,
                                                    num_vertices: int,
                                                    geometry_utilities: gedim.GeometryUtilities,
@@ -43,16 +44,20 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    copy_basis_in_train: bool = False,
                                                    use_sqrt_in_train: bool = False,
                                                    element_type: NAVEMElementType = NAVEMElementType.generic_convex,
-                                                   boundary_method_type: BoundaryMethodType = BoundaryMethodType.segment,
-                                                   bubble_type: BubbleType = BubbleType.approximate_distance_function, ):
+                                                   boundary_method_type_g: BoundaryMethodType = BoundaryMethodType.segment,
+                                                   boundary_method_type_adf: BoundaryMethodType = BoundaryMethodType.segment,
+                                                   bubble_type: BubbleType = BubbleType.approximate_distance_function):
     assert method_order == 1
 
     network_input_dimension = 2 + 2 * (num_vertices - 1)
     num_training_polygons = mesh.cell2_d_total_number()
+    num_functions_per_polygon = num_vertices - (method_type == NAVEMType.P_NAVEM)
 
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
                              method_type.value,
+                             basis_function_type.value,
+                             num_functions_per_polygon,
                              element_type.value,
                              num_vertices,
                              mesh_import_path,
@@ -69,7 +74,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                              copy_basis_in_train,
                              quadrature_order,
                              distribution_points_type,
-                             boundary_method_type.value,
+                             boundary_method_type_g.value,
+                             boundary_method_type_adf.value,
                              bubble_type.value)
 
     write_flags_on_dictionary(flags)
@@ -94,7 +100,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     num_points_per_polygon = reference_nodes.shape[1] * num_vertices
 
-    num_functions_per_polygon = num_vertices - (method_type == NAVEMType.P_NAVEM)
+
 
     inputs = np.zeros(
         (num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))

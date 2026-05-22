@@ -119,17 +119,17 @@ class PNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
     # @tf.function
     def internal_pol_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
-        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 1])
+        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_polygons, self.n_funcs_per_polygon, self.n_local_pts, 1, 1])
         return self.copy_pols(y_predicted_reshaped)
 
     def internal_pol_and_grad_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
-        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 3])
+        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_polygons, self.n_funcs_per_polygon, self.n_local_pts, 1, 3])
         pol_loss = self.copy_pols(y_predicted_reshaped[:, :, :, :, :1])
         grad_loss = self.copy_grads(y_predicted_reshaped[:, :, :, :, 1:])
         return pol_loss + grad_loss
 
     def internal_grad_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
-        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_pols, self.n_funcs_per_pol, self.n_local_pts, 1, 2])
+        y_predicted_reshaped = tf.reshape(y_predicted, [self.n_polygons, self.n_funcs_per_polygon, self.n_local_pts, 1, 2])
         return self.copy_grads(y_predicted_reshaped)
 
     def copy_pols(self, bases: tf.Tensor) -> tf.Tensor:
