@@ -254,7 +254,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
     offset_point = 0
     offset_func = 0
-    for c in range(n_elements):
+    for c, _ in evaluation_points.items():
 
         output_values[c].basis_derivatives_values[0] = np.zeros([n_local_pts, num_vertices])
         output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])
@@ -390,7 +390,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
 
     offset_point = 0
     offset_func = 0
-    for c in range(n_elements):
+    for c, _ in evaluation_points.items():
 
         output_values[c].basis_derivatives_values[0] = np.zeros([n_local_pts, num_vertices])
         output_values[c].basis_derivatives_values[1] = np.zeros([n_local_pts, num_vertices])

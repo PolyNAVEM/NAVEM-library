@@ -32,7 +32,7 @@ def main():
                         help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int,
                         help="Test type: 1 - Polynomial")
-    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=5, type=int,
+    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=1, type=int,
                         help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 5 - Square")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float,
                         help="Geometric Tolerance 1D")
@@ -44,7 +44,7 @@ def main():
                         default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
     parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
     parser.add_argument('-df', '--dictionary-file', dest='dictionary_file',
-                        default=program_folder + '/../TrainedModels/B-NAVEM', type=str, help="Dictionary file")
+                        default=program_folder + '/../TrainedModels/P-NAVEM', type=str, help="Dictionary file")
     parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss',
                         default=False, type=bool, help="Evaluate polynomial loss",
                         action=argparse.BooleanOptionalAction)

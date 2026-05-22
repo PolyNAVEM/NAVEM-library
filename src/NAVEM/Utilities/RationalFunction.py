@@ -34,7 +34,7 @@ class RationalFunction:
 
         """
 
-        The kth Pole is defined throughout the distance_fun_k = exp(-sigma * (\sqrt{num_poles} - \sqrt{k}))
+        The kth Pole is defined throughout the distance_fun_k = exp(-sigma * (sqrt{num_poles} - sqrt{k}))
         and they are distributed along the external bisector to the related vertex
 
         :param geometry_utilities:
