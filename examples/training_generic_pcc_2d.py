@@ -16,6 +16,7 @@ import argparse
 from pypolydim import gedim, polydim
 from NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
 from NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
 from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
 
@@ -98,8 +99,10 @@ def main():
                         help='Flag to specify if distance from basis functions should be added to the loss')
     parser.add_argument('-bt', '--bubble-type', dest='bubble_type', type=int, default=1,
                         help='Type of points: 1 - approximate_distance_function; 2 - product (Default: 1)')
-    parser.add_argument('-bmt', '--boundary-method-type', dest='boundary_method_type', default=2, type=int,
-                        help='Boundary method type: 1 - line; 2 - segment (Default: 2)')
+    parser.add_argument('-bmtg', '--boundary-method-type-g', dest='boundary_method_type_g', default=1, type=int,
+                        help='Boundary method type for the lifting: 1 - segment; 2 - line; (Default: 1)')
+    parser.add_argument('-bmtadf', '--boundary-method-type-adf', dest='boundary_method_type_adf', default=1, type=int,
+                        help='Boundary method type: 1 - segment; 2 - line (Default: 1)')
 
     args = parser.parse_args()
 
@@ -169,6 +172,7 @@ def main():
                                                   args.use_hanging_function)
         case method_type.B_NAVEM | method_type.P_NAVEM:
             train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
+                                                           BasisFunctionType.vertex,
                                                            method_type,
                                                            args.num_vertices,
                                                            geometry_utilities,
@@ -189,7 +193,8 @@ def main():
                                                            args.copy_basis_in_train,
                                                            args.use_sqrt_in_train,
                                                            element_type,
-                                                           BoundaryMethodType(args.boundary_method_type),
+                                                           BoundaryMethodType(args.boundary_method_type_g),
+                                                           BoundaryMethodType(args.boundary_method_type_adf),
                                                            BubbleType(args.bubble_type))
         case _:
             raise ValueError("not valid method")

@@ -11,7 +11,7 @@
 
 from enum import Enum
 from pypolydim import gedim
-from typing import List, Dict, Tuple
+from typing import List
 import numpy as np
 from numpy.typing import NDArray
 
@@ -48,8 +48,9 @@ class NNDictionary:
 
     def __init__(self):
         self.list_elements: List[int] = []
+        self.method_order: int = 1
         self.method_type: NAVEMType = NAVEMType.H_NAVEM
-        self.neural_network = None
+        self.neural_network = {'1': None, '2': None, '3': None}
 
 class NNCategory:
 

@@ -1,4 +1,6 @@
 method_type = 3
+basis_function_type = 1
+num_functions_per_polygon = 5
 element_type = 1
 method_order = 1
 input_dim = 10
@@ -17,5 +19,6 @@ learning_rate_max = 0.01
 learning_rate_min = 0.001
 use_sqrt_in_train = 1
 copy_basis_in_train = False
-boundary_method_type = 2
+boundary_method_type_g = 1
+boundary_method_type_adf = 1
 bubble_type = 1

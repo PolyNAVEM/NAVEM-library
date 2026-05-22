@@ -10,6 +10,8 @@
 # This file can be used citing references in CITATION.cff file.
 
 from pypolydim import gedim
+
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 from NAVEM.Utilities.NAVEMGenerators import NAVEMGenerators
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
 from NAVEM.NeuralNetwork.training_utilities import *
@@ -60,6 +62,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
                              method_type.value,
+                             BasisFunctionType.vertex.value,
                              element_type.value,
                              num_vertices,
                              navem_generators.num_generators,

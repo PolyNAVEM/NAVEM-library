@@ -16,7 +16,7 @@ from NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
 from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import *
-
+from typing import Dict, Tuple
 
 def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
                                          mesh_geometric_data: MeshGeometricData2D,
@@ -53,20 +53,21 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
                     raw[key] = value
 
             categories[category].method_type = NAVEMType(int(raw["method_type"]))
+            categories[category].method_order = NAVEMType(int(raw["method_order"]))
 
             match categories[category].method_type:
                 case NAVEMType.H_NAVEM:
                     flags = h_navem_network.load_flags_from_dictionary(name_storage, raw)
-                    categories[category].neural_network = h_navem_network.HNAVEMNetworksContainer(flags)
-                    categories[category].neural_network.load_weights(name_storage)
+                    categories[category].neural_network[flags["basis_function_type"]] = h_navem_network.HNAVEMNetworksContainer(flags)
+                    categories[category].neural_network[flags["basis_function_type"]].load_weights(name_storage)
                 case NAVEMType.B_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
-                    categories[category].neural_network = b_navem_network.BNAVEMNetwork(flags)
-                    categories[category].neural_network.load_model(name_storage)
+                    categories[category].neural_network[flags["basis_function_type"]] = b_navem_network.BNAVEMNetwork(flags)
+                    categories[category].neural_network[flags["basis_function_type"]].load_model(name_storage)
                 case NAVEMType.P_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
-                    categories[category].neural_network = p_navem_network.PNAVEMNetwork(flags)
-                    categories[category].neural_network.load_model(name_storage)
+                    categories[category].neural_network[flags["basis_function_type"]] = p_navem_network.PNAVEMNetwork(flags)
+                    categories[category].neural_network[flags["basis_function_type"]].load_model(name_storage)
                 case _:
                     raise ValueError("Unknown method type")
 
@@ -103,7 +104,7 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
 
 def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                mesh_geometric_data: MeshGeometricData2D,
-                                               neural_network: h_navem_network.HNAVEMNetworksContainer,
+                                               neural_network: Dict[int, h_navem_network.HNAVEMNetworksContainer],
                                                evaluation_points: Dict[int, NDArray[np.float64]],
                                                evaluation_weights: Dict[int, NDArray[np.float64]],
                                                predict_laplacian: bool = False,
@@ -113,16 +114,16 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
         raise ValueError("not implemented method")
 
     navem_generators = NAVEMGenerators.NAVEMGenerators(geometry_utilities,
-                                                       neural_network.flags["num_vertices"],
-                                                       neural_network.flags["harmonic_degree"],
-                                                       neural_network.flags["use_hanging_function"],
-                                                       neural_network.flags["normalization_diameter"])
+                                                       neural_network[BasisFunctionType.vertex.value].flags["num_vertices"],
+                                                       neural_network[BasisFunctionType.vertex.value].flags["harmonic_degree"],
+                                                       neural_network[BasisFunctionType.vertex.value].flags["use_hanging_function"],
+                                                       neural_network[BasisFunctionType.vertex.value].flags["normalization_diameter"])
 
-    num_vertices = neural_network.flags["num_vertices"]
+    num_vertices = neural_network[BasisFunctionType.vertex.value].flags["num_vertices"]
     network_input_dimension = 2 + 2 * (num_vertices - 1)
 
     inputs = np.array([], dtype=np.float64).reshape(0, network_input_dimension - 2)
-    num_generators = neural_network.flags["num_generators"]
+    num_generators = neural_network[BasisFunctionType.vertex.value].flags["num_generators"]
 
     n_elements = len(evaluation_points)
     global_jac_inv = np.zeros([n_elements * num_vertices, 2, 2])
@@ -186,13 +187,13 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     super_vander_dx = tf.convert_to_tensor(super_vander_dx, dtype=tf.float64)
     super_vander_dy = tf.convert_to_tensor(super_vander_dy, dtype=tf.float64)
 
-    basis_coefficients = neural_network.nn_basis_function.call(inputs)
-    basis_values = neural_network.nn_basis_function.apply_vandermonde(basis_coefficients, super_vander)
+    basis_coefficients = neural_network[BasisFunctionType.vertex.value].nn_basis_function.call(inputs)
+    basis_values = neural_network[BasisFunctionType.vertex.value].nn_basis_function.apply_vandermonde(basis_coefficients, super_vander)
     basis_values = tf.reshape(basis_values, [-1]).numpy()
 
-    derivatives_coefficients = neural_network.nn_basis_derivatives.call(inputs)
-    dx_values = neural_network.nn_basis_derivatives.apply_vandermonde(derivatives_coefficients, super_vander_dx)
-    dy_values = neural_network.nn_basis_derivatives.apply_vandermonde(derivatives_coefficients, super_vander_dy)
+    derivatives_coefficients = neural_network[BasisFunctionType.vertex.value].nn_basis_derivatives.call(inputs)
+    dx_values = neural_network[BasisFunctionType.vertex.value].nn_basis_derivatives.apply_vandermonde(derivatives_coefficients, super_vander_dx)
+    dy_values = neural_network[BasisFunctionType.vertex.value].nn_basis_derivatives.apply_vandermonde(derivatives_coefficients, super_vander_dy)
     dx_values = tf.reshape(dx_values, [-1]).numpy()
     dy_values = tf.reshape(dy_values, [-1]).numpy()
 
@@ -228,13 +229,13 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
-                                                        neural_network: AbstractBPNAVEM,
+                                                        neural_network: Dict[int, AbstractBPNAVEM],
                                                         evaluation_points: Dict[int, NDArray[np.float64]],
                                                         evaluation_weights: Dict[int, NDArray[np.float64]],
                                                         predict_laplacian: bool = False,
                                                         navem_element_type: NAVEMMappingType = NAVEMMappingType.standard) -> Dict[int, NAVEMOutput]:
 
-    num_vertices = neural_network.flags["num_vertices"]
+    num_vertices = neural_network[BasisFunctionType.vertex.value].flags["num_vertices"]
     network_input_dimension = 2 * num_vertices
 
     n_elements = len(evaluation_points)
@@ -320,15 +321,15 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
     du_ref_dxy = None
     du_ref_dyy = None
     if predict_laplacian:
-        neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives_and_laplacian, geometry_utilities)
-        laplacian_output = neural_network.get_second_derivatives_u(inputs).numpy()
+        neural_network[BasisFunctionType.vertex.value].setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives_and_laplacian, geometry_utilities)
+        laplacian_output = neural_network[BasisFunctionType.vertex.value].get_second_derivatives_u(inputs).numpy()
         du_ref_dxx = laplacian_output[:, 0]
         du_ref_dxy = laplacian_output[:, 1]
         du_ref_dyy = laplacian_output[:, 2]
     else:
-        neural_network.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
+        neural_network[BasisFunctionType.vertex.value].setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
 
-    net_output = neural_network.get_u_and_du(inputs).numpy()
+    net_output = neural_network[BasisFunctionType.vertex.value].get_u_and_du(inputs).numpy()
 
     u = net_output[:, 0]
     du_ref_dx = net_output[:, 1]
