@@ -123,8 +123,10 @@ def main():
 
 
     method_types = [1]
-    method_types_name = ["h_navem", "p_navem"]
-    dictionary_files = [program_folder + '/../TrainedModels/H-NAVEM', program_folder + '/../TrainedModels/P-NAVEM']
+    method_types_name = [#"h_navem",
+                         "p_navem"]
+    dictionary_files = [#program_folder + '/../TrainedModels/H-NAVEM',
+                        program_folder + '/../TrainedModels/P-NAVEM']
     mesh_types = [2]
     for mesh_type in mesh_types:
         mt = 0
