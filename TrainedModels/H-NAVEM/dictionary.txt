@@ -1,1 +1,5 @@
-4, 1 = ./square
+4, 2, 1, 1 = ./num_vertices_4_generic_concave
+4, 1, 1, 1 = ./num_vertices_4_generic_convex
+5, 1, 1, 1 = ./num_vertices_5_generic_convex
+6, 1, 1, 1 = ./num_vertices_6_generic_convex
+7, 1, 1, 1 = ./num_vertices_7_generic_convex

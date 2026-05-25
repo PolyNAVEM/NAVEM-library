@@ -78,6 +78,7 @@ def main():
     tol = 1.0e-12
     test_type = 1
     method_orders = [1]
+
     method_types = [1, 1, 1, 2, 3]
     method_types_name = ["h_navem", "b_navem", "p_navem", "fem", "vem"]
     dictionary_files = [program_folder + '/../TrainedModels/H-NAVEM',
@@ -122,8 +123,8 @@ def main():
 
 
     method_types = [1]
-    method_types_name = ["p_navem"]
-    dictionary_files = [program_folder + '/../TrainedModels/P-NAVEM']
+    method_types_name = ["h_navem", "p_navem"]
+    dictionary_files = [program_folder + '/../TrainedModels/P-NAVEM', program_folder + '/../TrainedModels/H-NAVEM']
     mesh_types = [2]
     for mesh_type in mesh_types:
         mt = 0
