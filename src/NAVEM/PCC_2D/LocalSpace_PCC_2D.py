@@ -372,7 +372,7 @@ class LocalSpaceData:
                     self.standard_local_space_data,
                     edge_local_index)
                 else:
-                    reference_edge_do_fs_point = reference_element_data.standard_reference_element_data.vem_reference_element_data.Quadrature.ReferenceEdgeDOFsInternalPoints
+                    reference_edge_do_fs_point = reference_element_data.standard_reference_element_data.vem_reference_element_data.quadrature.reference_edge_do_fs_internal_points
                     num_edge_do_fs = reference_edge_do_fs_point.shape[1]
 
                     if num_edge_do_fs == 0:
