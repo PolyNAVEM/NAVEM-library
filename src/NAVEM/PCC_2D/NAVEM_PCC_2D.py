@@ -244,13 +244,13 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
 def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.GeometryUtilities,
                                                         mesh_geometric_data: MeshGeometricData2D,
-                                                        neural_network: Dict[int, AbstractBPNAVEM],
+                                                        neural_network: Dict[BasisFunctionType, AbstractBPNAVEM],
                                                         evaluation_points: Dict[int, NDArray[np.float64]],
                                                         evaluation_weights: Dict[int, NDArray[np.float64]],
                                                         predict_laplacian: bool = False,
                                                         navem_element_type: NAVEMMappingType = NAVEMMappingType.standard) -> Dict[int, NAVEMOutput]:
 
-    num_vertices = neural_network[BasisFunctionType.vertex.value].flags["num_vertices"]
+    num_vertices = neural_network[BasisFunctionType.vertex].flags["num_vertices"]
     network_input_dimension = 2 * num_vertices
 
     n_elements = len(evaluation_points)
@@ -336,15 +336,15 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
     du_ref_dxy = None
     du_ref_dyy = None
     if predict_laplacian:
-        neural_network[BasisFunctionType.vertex.value].setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives_and_laplacian, geometry_utilities)
-        laplacian_output = neural_network[BasisFunctionType.vertex.value].get_second_derivatives_u(inputs).numpy()
+        neural_network[BasisFunctionType.vertex].setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives_and_laplacian, geometry_utilities)
+        laplacian_output = neural_network[BasisFunctionType.vertex].get_second_derivatives_u(inputs).numpy()
         du_ref_dxx = laplacian_output[:, 0]
         du_ref_dxy = laplacian_output[:, 1]
         du_ref_dyy = laplacian_output[:, 2]
     else:
-        neural_network[BasisFunctionType.vertex.value].setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
+        neural_network[BasisFunctionType.vertex].setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, SetupDerivatives.basis_and_derivatives, geometry_utilities)
 
-    net_output = neural_network[BasisFunctionType.vertex.value].get_u_and_du(inputs).numpy()
+    net_output = neural_network[BasisFunctionType.vertex].get_u_and_du(inputs).numpy()
 
     u = net_output[:, 0]
     du_ref_dx = net_output[:, 1]
