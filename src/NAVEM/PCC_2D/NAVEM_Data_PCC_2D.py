@@ -50,7 +50,7 @@ class NNDictionary:
         self.list_elements: List[int] = []
         self.method_order: int = 1
         self.method_type: NAVEMType = NAVEMType.H_NAVEM
-        self.neural_network = {'1': None, '2': None, '3': None}
+        self.neural_network = {1: None, 2: None, 3: None}
 
 class NNCategory:
 

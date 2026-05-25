@@ -71,7 +71,7 @@ class ReferenceElementData:
         match self.method_type:
             case MethodTypes.NAVEM:
 
-                self.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(mesh, mesh_geometric_data, dictionary_file_name)
+                self.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(self.method_order, mesh, mesh_geometric_data, dictionary_file_name)
 
                 num_cell0_ds = mesh.cell0_d_total_number()
 

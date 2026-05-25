@@ -18,7 +18,8 @@ from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import *
 from typing import Dict, Tuple
 
-def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
+def categorize_elements_by_vertex_number(method_order: int,
+                                         mesh: gedim.MeshMatricesDAO,
                                          mesh_geometric_data: MeshGeometricData2D,
                                          dictionary_file_path: str) -> Dict[NNCategory, NNDictionary]:
 
@@ -30,14 +31,18 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
                 continue
 
             element_class, name_storage = line.split("=", 1)
-            num_vertices, element_type = element_class.split(",", 1)
+            num_vertices, element_type, order, basis_function_type = element_class.split(",", 4)
             num_vertices = int(num_vertices.strip())
             element_type = NAVEMElementType(int(element_type.strip()))
+            order = int(order.strip())
+            basis_function_type = int(basis_function_type.strip())
             category = NNCategory(num_vertices, element_type)
 
             name_storage = name_storage.strip()
             name_storage = dictionary_file_path + "/" + name_storage
-            categories[category] = NNDictionary()
+
+            if category not in categories:
+                categories[category] = NNDictionary()
 
             raw: Dict[str, str] = {}
             with open(name_storage + "/dictionary.txt", "r") as dictionary_file:
@@ -52,22 +57,29 @@ def categorize_elements_by_vertex_number(mesh: gedim.MeshMatricesDAO,
 
                     raw[key] = value
 
+            if method_order != order:
+                continue
+
             categories[category].method_type = NAVEMType(int(raw["method_type"]))
-            categories[category].method_order = NAVEMType(int(raw["method_order"]))
+
+            assert basis_function_type == int(raw["basis_function_type"])
+            assert order == int(raw["method_order"])
+            assert num_vertices == int(raw["num_vertices"])
+            assert element_type.value == int(raw["element_type"])
 
             match categories[category].method_type:
                 case NAVEMType.H_NAVEM:
                     flags = h_navem_network.load_flags_from_dictionary(name_storage, raw)
-                    categories[category].neural_network[flags["basis_function_type"]] = h_navem_network.HNAVEMNetworksContainer(flags)
-                    categories[category].neural_network[flags["basis_function_type"]].load_weights(name_storage)
+                    categories[category].neural_network[basis_function_type] = h_navem_network.HNAVEMNetworksContainer(flags)
+                    categories[category].neural_network[basis_function_type].load_weights(name_storage)
                 case NAVEMType.B_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
-                    categories[category].neural_network[flags["basis_function_type"]] = b_navem_network.BNAVEMNetwork(flags)
-                    categories[category].neural_network[flags["basis_function_type"]].load_model(name_storage)
+                    categories[category].neural_network[basis_function_type] = b_navem_network.BNAVEMNetwork(flags)
+                    categories[category].neural_network[basis_function_type].load_model(name_storage)
                 case NAVEMType.P_NAVEM:
                     flags = exact_bc_navem_network_utilities.load_flags_from_dictionary(name_storage, raw)
-                    categories[category].neural_network[flags["basis_function_type"]] = p_navem_network.PNAVEMNetwork(flags)
-                    categories[category].neural_network[flags["basis_function_type"]].load_model(name_storage)
+                    categories[category].neural_network[basis_function_type] = p_navem_network.PNAVEMNetwork(flags)
+                    categories[category].neural_network[basis_function_type].load_model(name_storage)
                 case _:
                     raise ValueError("Unknown method type")
 
