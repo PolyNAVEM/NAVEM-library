@@ -150,6 +150,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     super_vander_dy = np.zeros((n_elements * num_vertices, n_local_pts, num_generators))
 
     output_values: Dict[int, NAVEMOutput] = {}
+    c_pol = 0
     for c, internal_nodes in evaluation_points.items():
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
@@ -174,7 +175,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
 
             match navem_element_type:
                 case NAVEMMappingType.standard:
-                    global_jac_inv[c * num_vertices + v_id, :, :] = jac_inv[:2, :2]
+                    global_jac_inv[c_pol * num_vertices + v_id, :, :] = jac_inv[:2, :2]
                 case _:
                     raise ValueError("not valid navem element type")
 
@@ -188,9 +189,11 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
                                                                internal_angles=internal_angles,
                                                                vertex_distance=vertex_distance))
 
-            super_vander[c * num_vertices + v_id, :, :] = local_vandermonde
-            super_vander_dx[c * num_vertices + v_id, :, :] = local_vandermonde_grads[0, :, :]
-            super_vander_dy[c * num_vertices + v_id, :, :] = local_vandermonde_grads[1, :, :]
+            super_vander[c_pol * num_vertices + v_id, :, :] = local_vandermonde
+            super_vander_dx[c_pol * num_vertices + v_id, :, :] = local_vandermonde_grads[0, :, :]
+            super_vander_dy[c_pol * num_vertices + v_id, :, :] = local_vandermonde_grads[1, :, :]
+
+        c_pol += 1
 
 
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
