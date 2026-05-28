@@ -23,14 +23,17 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 
+
 class BoundaryMethodType(Enum):
     segment = 1
     line = 2
     wachspress = 3
 
+
 class BubbleType(Enum):
     approximate_distance_function = 1
     product = 2
+
 
 class EnforcingBoundary:
 
@@ -56,7 +59,6 @@ class EnforcingBoundary:
         self.boundary_method_type_adfs = boundary_method_type_adfs
         self.boundary_method_type_g = boundary_method_type_g
         self.bubble_type = bubble_type
-
 
     def initialize_boundary_properties(self, vertices: tf.Tensor):
 
@@ -184,7 +186,6 @@ class EnforcingBoundary:
 
         return g
 
-
     def compute_g_and_grads(self, xy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
 
         with tf.GradientTape(persistent=True) as tape:
@@ -254,7 +255,6 @@ class EnforcingBoundary:
 
         return g, g_grad, g_sec_ders
 
-
     def compute_adfs(self, xy: tf.Tensor) -> tf.Tensor:
 
         phi_k_line = self.compute_phi_k_line(xy)
@@ -323,7 +323,6 @@ class EnforcingBoundary:
         del tape
 
         return phi, phi_grad
-
 
     def compute_adfs_and_grads_and_second_derivatives(self, xy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
 
@@ -451,4 +450,3 @@ class EnforcingBoundary:
         plt.axis("equal")
         plt.axis("off")
         plt.show()
-

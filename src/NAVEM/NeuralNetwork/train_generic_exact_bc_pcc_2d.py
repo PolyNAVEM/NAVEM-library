@@ -20,6 +20,7 @@ from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType, BasisFunctionType
 import csv
 from NAVEM.Utilities.points_generator import *
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
+from NAVEM.Utilities.PrintInformation import print_training_information
 
 
 def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
@@ -79,7 +80,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                              bubble_type.value)
 
     write_flags_on_dictionary(flags)
-    nn = None
+    print_training_information(flags)
+
     match method_type:
         case NAVEMType.P_NAVEM:
             nn = PNAVEMNetwork(flags, in_training=True)
@@ -100,10 +102,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     num_points_per_polygon = reference_nodes.shape[1] * num_vertices
 
-
-
-    inputs = np.zeros(
-        (num_training_polygons * num_points_per_polygon * num_functions_per_polygon, network_input_dimension))
+    inputs = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon,
+                       network_input_dimension))
 
     xy_per_pol = np.zeros(shape=(num_training_polygons, num_points_per_polygon, 2))
     vertices_per_pol = np.zeros(shape=(num_training_polygons, 2, num_vertices))
@@ -151,8 +151,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
     labels = 0 * inputs[:, 0:1]
 
-    considered_loss = None
-    setup_n_derivatives = SetupDerivatives.basis
     match method_type:
         case NAVEMType.B_NAVEM:
             setup_n_derivatives = SetupDerivatives.basis_and_derivatives_and_laplacian
@@ -182,7 +180,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     tf.print("\n---------- Start training ----------\n")
 
-    results = None
     match method_type:
         case NAVEMType.B_NAVEM:
             del vertices_per_pol

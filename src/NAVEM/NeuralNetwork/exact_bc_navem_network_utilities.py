@@ -289,7 +289,6 @@ class AbstractBPNAVEM(ABC):
                                  setup_n_derivatives: SetupDerivatives,
                                  geometry_utilities: gedim.GeometryUtilities):
 
-
         num_of_functions = self.flags["num_vertices"] - self.exact_one
 
         eb = EnforcingBoundary(geometry_utilities,
@@ -304,8 +303,6 @@ class AbstractBPNAVEM(ABC):
 
         eb.initialize_boundary_properties(vertices)
 
-        g = tf.constant(0, dtype=tf.float64)
-        phi = None
         phi_grad = None
         g_grad = tf.constant(0, dtype=tf.float64)
         phi_sec_ders = None
@@ -322,6 +319,7 @@ class AbstractBPNAVEM(ABC):
                 phi_grad = eb.map_adf_grads(phi_grad, jac_per_pol)
 
                 g, g_grad = eb.compute_g_and_grads(xy_per_pol)
+                g_grad = g_grad[:, :, :num_of_functions, :]
                 g_grad = eb.map_g_grads(g_grad, jac_per_pol)
 
             case SetupDerivatives.basis_and_derivatives_and_laplacian:
@@ -340,7 +338,7 @@ class AbstractBPNAVEM(ABC):
         g = g[:, :, :num_of_functions]
 
         self.n_polygons, self.n_local_pts, self.n_funcs_per_polygon = g.shape
-        self.one_over_n_funcs = tf.convert_to_tensor(1.0 / (self.n_polygons * self.n_funcs_per_polygon), dtype=tf.float64)
+        self.one_over_n_funcs = tf.convert_to_tensor(1.0/(self.n_polygons*self.n_funcs_per_polygon), dtype=tf.float64)
 
         phi = tf.tile(phi, [1, 1, self.n_funcs_per_polygon])
         phi = tf.transpose(phi, [0, 2, 1])

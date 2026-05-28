@@ -22,6 +22,7 @@ import tensorflow as tf
 from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
 import csv
 from NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
+from NAVEM.Utilities.PrintInformation import print_training_information
 
 
 def train_navem_pcc_2d_on_generic_polygon(method_order: int,
@@ -84,6 +85,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                              export_training_data_file_path)
 
     write_flags_on_dictionary(flags)
+    print_training_information(flags)
 
     nn = HNAVEMNetworksContainer(flags)
 
@@ -100,12 +102,12 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
     labels_derivatives = np.array([], dtype=np.float64)
     vertex_filter = np.array([], dtype=np.float64).reshape(0)
 
-    super_vandermonde = np.zeros(
-        (num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
-    super_vander_dx = np.zeros(
-        (num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
-    super_vander_dy = np.zeros(
-        (num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices, navem_generators.num_generators))
+    super_vandermonde = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices,
+                                  navem_generators.num_generators))
+    super_vander_dx = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices,
+                                navem_generators.num_generators))
+    super_vander_dy = np.zeros((num_training_polygons * num_vertices, num_points_on_each_edge * num_vertices,
+                                navem_generators.num_generators))
     input_network = np.zeros((num_training_polygons * num_vertices, network_input_dimension - 2))
 
     exact_bfgs = True
