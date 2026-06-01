@@ -114,9 +114,9 @@ class NAVEMPolygon:
     #
     #     return mass_matrix
 
-    def compute_inertia_matrix(self, points: np.ndarray, internal_point, list_triangles: List[int]):
+    def compute_inertia_matrix(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]):
 
-        list_triangles_points = self.geometry_utilities.extract_triangulation_points_by_internal_point(points, internal_point, list_triangles)
+        list_triangles_points = self.geometry_utilities.extract_triangulation_points_by_internal_point(points, centroid, list_triangles)
 
         monomials = polydim.utilities.Monomials_2D()
         monomials_data = monomials.compute(1)
@@ -127,10 +127,10 @@ class NAVEMPolygon:
         vem_quadrature_data = vem_quadrature.polygon_internal_quadrature(quadrature_data, list_triangles_points)
         internal_nodes = vem_quadrature_data.points
         internal_weights = vem_quadrature_data.weights
-        vandermonde = monomials.vander(monomials_data, internal_nodes, internal_point, 1.0)
+        vandermonde = monomials.vander(monomials_data, internal_nodes, centroid, 1.0)
         internal_weights_sqrt = np.sqrt(internal_weights)
         temp = np.diag(internal_weights_sqrt) @ vandermonde
-        mass_matrix = (temp.T @ temp)[1:, 1:]
+        # mass_matrix = (temp.T @ temp)[1:, 1:]
 
         # M = V.T @ W @ V
         # M = Q.T @ D @ Q
@@ -150,7 +150,7 @@ class NAVEMPolygon:
         #eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
         u, s, vh = np.linalg.svd(mass_matrix)
         eigenvalues = s**2
-        eigenvectors = vh
+        eigenvectors = vh.T
         det_q = np.linalg.det(eigenvectors)
         b_matrix = np.identity(3)
         b_matrix[0:2, 0:2] = np.sqrt(max(eigenvalues)) * np.sqrt(np.diag(np.reciprocal(eigenvalues))) @ eigenvectors.T
