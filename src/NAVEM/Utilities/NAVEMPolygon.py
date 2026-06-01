@@ -10,7 +10,7 @@
 # This file can be used citing references in CITATION.cff file.
 
 import numpy as np
-from pypolydim import gedim
+from pypolydim import gedim, polydim
 from numpy.typing import NDArray
 from typing import Tuple, List
 from NAVEM.geometry.geometry_utilities import compute_polygon_kernel
@@ -107,12 +107,39 @@ class NAVEMPolygon:
             self.map_f_matrix = self.inv_diameter * s_in_inv_diameter * s_map_inertia_matrix @ map_inertia_matrix
 
 
-    def compute_inertia_matrix(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> NDArray[np.float64]:
+    # def compute_inertia_matrix(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> NDArray[np.float64]:
+    #
+    #     list_triangles_points = self.geometry_utilities.extract_triangulation_points_by_internal_point(points, centroid, list_triangles)
+    #     mass_matrix = self.geometry_utilities.polygon_mass(np.squeeze(centroid, axis=1), list_triangles_points)
+    #
+    #     return mass_matrix
 
-        list_triangles_points = self.geometry_utilities.extract_triangulation_points_by_internal_point(points, centroid, list_triangles)
-        mass_matrix = self.geometry_utilities.polygon_mass(np.squeeze(centroid, axis=1), list_triangles_points)
+    def compute_inertia_matrix(self, points: np.ndarray, internal_point, list_triangles: List[int]):
 
-        return mass_matrix
+        list_triangles_points = self.geometry_utilities.extract_triangulation_points_by_internal_point(points, internal_point, list_triangles)
+
+        monomials = polydim.utilities.Monomials_2D()
+        monomials_data = monomials.compute(1)
+        quadrature = gedim.quadrature.Quadrature_Gauss2D_Triangle()
+        quadrature_data = quadrature.fill_points_and_weights(2)
+
+        vem_quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
+        vem_quadrature_data = vem_quadrature.polygon_internal_quadrature(quadrature_data, list_triangles_points)
+        internal_nodes = vem_quadrature_data.points
+        internal_weights = vem_quadrature_data.weights
+        vandermonde = monomials.vander(monomials_data, internal_nodes, internal_point, 1.0)
+        internal_weights_sqrt = np.sqrt(internal_weights)
+        temp = np.diag(internal_weights_sqrt) @ vandermonde
+        mass_matrix = (temp.T @ temp)[1:, 1:]
+
+        # M = V.T @ W @ V
+        # M = Q.T @ D @ Q
+
+        # SM = sqrt(W) @ V
+        # SM = U @ S @ V.T
+        # M = SM.T @ SM = V @ S @ U.T @ U @ S @ V.T = V @ S @ S @ V.T
+
+        return temp[1:, 1:]
 
     def compute_map_inertia(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
 
@@ -120,7 +147,10 @@ class NAVEMPolygon:
 
         # inertia mapping
         mass_matrix = self.compute_inertia_matrix(points, centroid, list_triangles)
-        eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
+        #eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
+        u, s, vh = np.linalg.svd(mass_matrix)
+        eigenvalues = s**2
+        eigenvectors = vh
         det_q = np.linalg.det(eigenvectors)
         b_matrix = np.identity(3)
         b_matrix[0:2, 0:2] = np.sqrt(max(eigenvalues)) * np.sqrt(np.diag(np.reciprocal(eigenvalues))) @ eigenvectors.T
