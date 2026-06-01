@@ -79,10 +79,10 @@ def print_info_h_navem(model, iteration, total_iterations=None):
     if total_iterations is None:
         l2 = tf.strings.regex_replace(tf.strings.as_string(model.curr_distance_l2,
                                                            scientific=True,
-                                                           precision=16), '\"', '')
+                                                           precision=16), r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
         h1 = tf.strings.regex_replace(tf.strings.as_string(model.curr_distance_h1,
                                                            scientific=True,
-                                                           precision=16), '\"', '')
+                                                           precision=16), r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
         tf.print(tf.strings.join(["Iter: ",
                                   tf.strings.as_string(iteration),
                                   ". Current distance L2 and H1: ",
