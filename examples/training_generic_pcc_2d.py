@@ -14,12 +14,11 @@ import os.path
 from pathlib import Path
 import argparse
 from pypolydim import gedim, polydim
-from NAVEM.NeuralNetwork.train_generic_pcc_2d import train_navem_pcc_2d_on_generic_polygon
+from NAVEM.NeuralNetwork.train_generic_h_navem_pcc_2d import train_h_navem_pcc_2d_on_generic_polygon
 from NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
-from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
-
+from NAVEM.geometry.mesh_utilities import compute_geometric_properties_mesh_2
 import os
 
 from NAVEM.Utilities.enforcing_boundary_functions import BoundaryMethodType, BubbleType
@@ -41,7 +40,7 @@ def main():
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
-                        default=program_folder + '/../TrainingDataset/TrainingReferenceSquare', type=str,
+                        default=program_folder + '/../TrainingDataset/Square', type=str,
                         help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygons (Default: 4)')
@@ -61,12 +60,12 @@ def main():
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
                         help='Number of nodes per hidden layers for the polynomial neural network')
 
-    parser.add_argument('-neo1p', '--num-epochs-opt-order1', dest='num_epochs_opt_order1', default=100, type=int,
+    parser.add_argument('-neo1p', '--num-epochs-opt-order1', dest='num_epochs_opt_order1', default=1000, type=int,
                         help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epochs-opt-order2', dest='num_epochs_opt_order2', default=50, type=int,
+    parser.add_argument('-neo2p', '--num-epochs-opt-order2', dest='num_epochs_opt_order2', default=500, type=int,
 
                         help='Number of training epochs with second order optimizer')
-    parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-2, type=float,
+    parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-3, type=float,
                         help='Maximum value of the learning rate')
     parser.add_argument('-lr_min', '--lr-min', dest='learning_rate_min', default=1e-3, type=float,
                         help='Minimum value of the learning rate')
@@ -82,7 +81,7 @@ def main():
     # NAVEM
     parser.add_argument('-np', '--num-points-on-edges', dest='num_points_on_each_edge', default=50, type=int,
                         help='Number of points on each edge')
-    parser.add_argument('-nsd', '--normalization-diameter', dest='normalization_diameter', default=5.0,
+    parser.add_argument('-nsd', '--normalization-diameter', dest='normalization_diameter', default=3.0,
                         type=float, help='Edge of the normalization square')
     parser.add_argument('-hd', '--harmonic-degree', dest='harmonic_degree', default=10, type=int,
                         help='Degree of the considered harmonic polynomials')
@@ -148,7 +147,7 @@ def main():
 
     match method_type:
         case method_type.H_NAVEM:
-            train_navem_pcc_2d_on_generic_polygon(args.method_order,
+            train_h_navem_pcc_2d_on_generic_polygon(args.method_order,
                                                   method_type,
                                                   args.num_vertices,
                                                   geometry_utilities,

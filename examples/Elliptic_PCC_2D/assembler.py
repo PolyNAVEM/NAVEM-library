@@ -16,7 +16,7 @@ import scipy.sparse.linalg as sla
 from pypolydim.assembler_utilities import assembler_utilities
 from scipy.sparse import coo_array
 from NAVEM.PCC_2D import LocalSpace_PCC_2D
-from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 
 
 class EllipticPCC2DProblemData:

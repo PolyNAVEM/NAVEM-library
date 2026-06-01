@@ -14,6 +14,7 @@ from NAVEM.geometry.geometry_utilities import *
 import matplotlib.pyplot as plt
 from matplotlib import use
 import importlib
+from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 
 try:
     use("Qt5Agg")
@@ -81,14 +82,14 @@ class TestPolygonUtilities(unittest.TestCase):
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
-        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
+        internal_angles = compute_polygon_interior_angles(vertex_points)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid, list_triangles)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid, internal_angles)
         inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
         _, mapped_vertices, _, _= polygon.map_f_inv(vertex_points, 0)
 
         if plot_mapped:
-            plot_mapped_polygon( [vertex_points],
+            plot_mapped_polygon( [vertex_points, polygon.kernel],
                                  [inertia_mapped_points],
                                  [mapped_vertices])
 
@@ -107,9 +108,8 @@ class TestPolygonUtilities(unittest.TestCase):
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
-        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid, list_triangles)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid)
 
         inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
         _, mapped_vertices, _, _ = polygon.map_f_inv(vertex_points, 0)
@@ -122,9 +122,8 @@ class TestPolygonUtilities(unittest.TestCase):
         other_area = geometry_utilities.polygon_area(other_vertex_points)
         other_centroid = geometry_utilities.polygon_centroid(other_vertex_points, other_area)
         other_diameter = geometry_utilities.polygon_diameter(other_vertex_points)
-        other_list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(other_vertex_points)
 
-        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_diameter, other_centroid, other_list_triangles)
+        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_diameter, other_centroid)
 
         other_inertia_mapped_points, _ = other_polygon.map_inertia_inv(other_vertex_points)
         _, other_mapped_vertices, _, _ = other_polygon.map_f_inv(other_vertex_points, 0)
@@ -152,9 +151,8 @@ class TestPolygonUtilities(unittest.TestCase):
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
-        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid, list_triangles)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid)
 
         inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
         _, mapped_vertices, _, _ = polygon.map_f_inv(vertex_points, 0)
@@ -167,9 +165,8 @@ class TestPolygonUtilities(unittest.TestCase):
         other_area = geometry_utilities.polygon_area(other_vertex_points)
         other_centroid = geometry_utilities.polygon_centroid(other_vertex_points, other_area)
         other_diameter = geometry_utilities.polygon_diameter(other_vertex_points)
-        other_list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(other_vertex_points)
 
-        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_diameter, other_centroid, other_list_triangles)
+        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_diameter, other_centroid)
 
         other_inertia_mapped_points, _ = other_polygon.map_inertia_inv(other_vertex_points)
         _, other_mapped_vertices, _, _ = other_polygon.map_f_inv(other_vertex_points, 0)
@@ -187,26 +184,28 @@ class TestPolygonUtilities(unittest.TestCase):
         # Polygon mapped as standard
         num_vertices = 4
         vertex_points = np.zeros([3, num_vertices])
-        vertex_points[0, :] = [9.91463, 1.93238, -12.832, 1]
-        vertex_points[1, :] = [-14.0879, 11.3091, -9.16793, 0]
+        # vertex_points[0, :] = [9.91463, 1.93238, -12.832, 1]
+        # vertex_points[1, :] = [-14.0879, 11.3091, -9.16793, 0]
 
-        # vertex_points[0, :] = [1., 0.13868399, 0., 0.30197903]
-        # vertex_points[1, :] = [1., 0.72279196, 0.90146038, 0.]
+        vertex_points[0, :] = [1., 0.13868399, 0., 0.30197903]
+        vertex_points[1, :] = [1., 0.72279196, 0.90146038, 0.]
 
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
-        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
+        polygon_internal_angles = compute_polygon_interior_angles(vertex_points)
+        kernel = compute_polygon_kernel(geometry_utilities, vertex_points, polygon_internal_angles)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid, list_triangles)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid)
 
-        inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
-        _, mapped_vertices, _, _ = polygon.map_f_inv(vertex_points, 3)
+        inertia_mapped_points, _ = polygon.map_inertia_inv(kernel)
+        _, mapped_vertices, _, _ = polygon.map_f_inv(kernel, 3)
+
+        inertia_mapped_kernel, _ = polygon.map_inertia_inv(kernel)
+        _, mapped_kernel, _, _ = polygon.map_f_inv(kernel, 3)
 
 
         # Polygon mapped by applying the maps to its kernel
-        polygon_internal_angles = compute_polygon_interior_angles(vertex_points)
-        kernel = compute_polygon_kernel(geometry_utilities, vertex_points, polygon_internal_angles)
         kernel_area = geometry_utilities.polygon_area(kernel)
 
         if kernel_area < geometry_utilities.tolerance2_d() or kernel_area < area * 0.2:
@@ -215,17 +214,19 @@ class TestPolygonUtilities(unittest.TestCase):
         kernel_centroid = geometry_utilities.polygon_centroid(kernel, kernel_area)
         other_centroid = kernel_centroid
         other_diameter = geometry_utilities.polygon_diameter(kernel)
-        other_list_triangles =  geometry_utilities.polygon_triangulation_by_ear_clipping(kernel)
 
-        other_polygon = NAVEMPolygon(geometry_utilities, vertex_points, other_diameter, other_centroid, other_list_triangles,True, kernel)
+        other_polygon = NAVEMPolygon(geometry_utilities, vertex_points, other_diameter, other_centroid, polygon_internal_angles)
 
         other_inertia_mapped_points, _ = other_polygon.map_inertia_inv(vertex_points)
         _, other_mapped_vertices, _, _ = other_polygon.map_f_inv(vertex_points, 3)
 
+        other_inertia_mapped_kernel, _ = other_polygon.map_inertia_inv(kernel)
+        _, other_mapped_kernel, _, _ = other_polygon.map_f_inv(kernel, 3)
+
         if plot_mapped:
-            plot_mapped_polygon([vertex_points, vertex_points],
-                                [inertia_mapped_points, other_inertia_mapped_points],
-                                [mapped_vertices, other_mapped_vertices])
+            plot_mapped_polygon([vertex_points, vertex_points, kernel, kernel],
+                                [inertia_mapped_points, other_inertia_mapped_points, inertia_mapped_kernel, other_inertia_mapped_kernel],
+                                [mapped_vertices, other_mapped_vertices, mapped_kernel, other_mapped_kernel])
 
 
 if __name__ == '__main__':

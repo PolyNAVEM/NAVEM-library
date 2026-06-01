@@ -303,6 +303,8 @@ class AbstractBPNAVEM(ABC):
 
         eb.initialize_boundary_properties(vertices)
 
+        g = None
+        phi = None
         phi_grad = None
         g_grad = tf.constant(0, dtype=tf.float64)
         phi_sec_ders = None

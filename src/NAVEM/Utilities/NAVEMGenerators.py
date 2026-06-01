@@ -12,6 +12,7 @@
 from NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials, change_basis_matrix
 from NAVEM.Utilities.LaplaceSolver import hanging_function
 from NAVEM.Utilities.FunctionUtilities import *
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType
 
 
 class NAVEMGenerators:
@@ -20,7 +21,8 @@ class NAVEMGenerators:
                  num_vertices: int,
                  harmonic_degree: int,
                  use_hanging_function: bool,
-                 normalization_diameter: float):
+                 normalization_diameter: float,
+                 element_type: NAVEMElementType):
 
         self.normalization_diameter = normalization_diameter
         self.normalization_centroid = np.zeros([3, 1])
@@ -33,7 +35,13 @@ class NAVEMGenerators:
         self.use_hanging_function = use_hanging_function
         self.list_id_vertices_hanging: List[int] = []
         if use_hanging_function:
-            self.list_id_vertices_hanging = [0, 1, num_vertices - 1]
+            match element_type:
+                case NAVEMElementType.generic_convex:
+                    self.list_id_vertices_hanging = [0, 1, num_vertices - 1]
+                case NAVEMElementType.generic_concave:
+                    self.list_id_vertices_hanging = [i for i in range(num_vertices)]
+                case _:
+                    raise ValueError("Not valid element type")
 
         self.num_harmonic_polynomials = self.harmonic_polynomials.num_harmonic_polynomials
 

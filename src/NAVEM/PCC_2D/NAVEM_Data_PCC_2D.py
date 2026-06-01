@@ -71,3 +71,7 @@ class NNCategory:
 
     def __hash__(self):
         return hash((self.num_vertices, self.element_type))
+
+    @staticmethod
+    def is_concave(internal_angles: List[float]):
+        return any(a > np.pi * (1.0 + NNCategory.tolerance_hanging_nodes) for a in internal_angles)

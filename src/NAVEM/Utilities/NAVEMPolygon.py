@@ -13,25 +13,37 @@ import numpy as np
 from pypolydim import gedim
 from numpy.typing import NDArray
 from typing import Tuple, List
+from NAVEM.geometry.geometry_utilities import compute_polygon_kernel
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
 
 # Map the points to the similar polygon with centroid=(0,0) and diameter=1
 class NAVEMPolygon:
 
     def __init__(self, geometry_utilities: gedim.GeometryUtilities, vertex_points: NDArray[np.float64], diameter: float,
-                 centroid: NDArray[np.float64], list_triangles: List[int], use_kernel: bool = False, kernel: NDArray[np.float64] = None):
+                 centroid: NDArray[np.float64], internal_angles: List[float] = None):
 
         self.geometry_utilities = geometry_utilities
-        self.list_triangles = list_triangles
-        self.diameter = diameter
-        self.inv_diameter = 1.0 / diameter
-        self.centroid = np.expand_dims(centroid, axis=1)
         self.num_vertices: int = vertex_points.shape[1]
 
-        if use_kernel:
-            num_vertices: int = vertex_points.shape[1]
-            num_kernel_vertices: int = kernel.shape[1]
+        if internal_angles is not None:
+            use_kernel = NNCategory.is_concave(internal_angles)
+        else:
+            use_kernel = False
 
-            self.vertices = kernel
+        if use_kernel:
+            self.kernel = compute_polygon_kernel(geometry_utilities, vertex_points, internal_angles)
+
+            self.diameter = geometry_utilities.polygon_diameter(self.kernel)
+            self.inv_diameter = 1.0 / self.diameter
+            kernal_area = geometry_utilities.polygon_area(self.kernel)
+            self.centroid = geometry_utilities.polygon_centroid(self.kernel, kernal_area)
+            self.list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(self.kernel, self.centroid)
+            self.centroid = np.expand_dims(self.centroid, axis=1)
+
+            num_vertices: int = vertex_points.shape[1]
+            num_kernel_vertices: int = self.kernel.shape[1]
+
+            self.vertices = self.kernel
             self.mapped_max_vertex_distance = []
 
             # first re-scaling
@@ -63,6 +75,13 @@ class NAVEMPolygon:
         else:
 
             self.vertices = vertex_points
+            self.list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(self.vertices, centroid)
+            # self.list_triangles = list_triangles
+            self.diameter = diameter
+            self.inv_diameter = 1.0 / diameter
+            self.centroid = np.expand_dims(centroid, axis=1)
+
+
             self.mapped_max_vertex_distance = []
 
             # first re-scaling
@@ -90,7 +109,7 @@ class NAVEMPolygon:
 
     def compute_inertia_matrix(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> NDArray[np.float64]:
 
-        list_triangles_points = self.geometry_utilities.extract_triangulation_points(points, list_triangles)
+        list_triangles_points = self.geometry_utilities.extract_triangulation_points_by_internal_point(points, centroid, list_triangles)
         mass_matrix = self.geometry_utilities.polygon_mass(np.squeeze(centroid, axis=1), list_triangles_points)
 
         return mass_matrix

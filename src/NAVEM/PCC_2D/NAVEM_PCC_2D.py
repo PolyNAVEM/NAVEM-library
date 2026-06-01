@@ -14,7 +14,7 @@ from NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import SetupDerivatives, AbstractBPNAVEM
 from NAVEM.Utilities import NAVEMGenerators
 import tensorflow as tf
-from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import *
 from typing import Dict, Tuple
 
@@ -99,7 +99,7 @@ def categorize_elements_by_vertex_number(method_order: int,
         if abs(sum_internal_angles - (num_vertices - 2) * np.pi) > np.pi * NNCategory.tolerance_hanging_nodes:
             raise ValueError("polygon is not simple")
 
-        is_concave = any(a > np.pi * (1.0 + NNCategory.tolerance_hanging_nodes) for a in internal_angles)
+        is_concave = NNCategory.is_concave(internal_angles)
 
         if is_concave:
             element_type = NAVEMElementType.generic_concave
@@ -131,7 +131,8 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
                                                        neural_network[BasisFunctionType.vertex].flags["num_vertices"],
                                                        neural_network[BasisFunctionType.vertex].flags["harmonic_degree"],
                                                        neural_network[BasisFunctionType.vertex].flags["use_hanging_function"],
-                                                       neural_network[BasisFunctionType.vertex].flags["normalization_diameter"])
+                                                       neural_network[BasisFunctionType.vertex].flags["normalization_diameter"],
+                                                       NAVEMElementType(neural_network[BasisFunctionType.vertex].flags["element_type"]))
 
     num_vertices = neural_network[BasisFunctionType.vertex].flags["num_vertices"]
     network_input_dimension = 2 + 2 * (num_vertices - 1)
@@ -156,7 +157,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     for c, internal_nodes in evaluation_points.items():
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
-        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1)
+        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1).T
 
         output_values[c] = NAVEMOutput()
 

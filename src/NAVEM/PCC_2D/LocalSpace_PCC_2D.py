@@ -18,7 +18,7 @@ from numpy.typing import NDArray
 import numpy as np
 
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
-from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 
 
 class MethodTypes(Enum):

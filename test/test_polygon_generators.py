@@ -11,7 +11,7 @@
 
 import unittest
 import NAVEM.PCC_2D.NAVEM_PCC_2D
-from NAVEM.geometry.geometry_utilities import *
+from NAVEM.geometry.mesh_utilities import *
 import matplotlib.pyplot as plt
 from matplotlib import use
 import importlib

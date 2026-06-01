@@ -238,6 +238,9 @@ def concentrating_grid_over_triangle(n: int, power: float, border_type: BorderTy
     for i in range(n + 1):
         for j in range(n + 1 - i):
 
+            l1 = 0
+            l2 = 0
+            l3 = 0
             match border_type:
                 case BorderType.all_borders:
                     k = n - i - j

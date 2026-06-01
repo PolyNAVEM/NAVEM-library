@@ -10,7 +10,7 @@
 # This file can be used citing references in CITATION.cff file.
 
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
-from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
@@ -82,6 +82,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     write_flags_on_dictionary(flags)
     print_training_information(flags)
 
+    nn = None
     match method_type:
         case NAVEMType.P_NAVEM:
             nn = PNAVEMNetwork(flags, in_training=True)
@@ -151,6 +152,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
     labels = 0 * inputs[:, 0:1]
 
+    setup_n_derivatives = SetupDerivatives.basis
+    considered_loss = None
     match method_type:
         case NAVEMType.B_NAVEM:
             setup_n_derivatives = SetupDerivatives.basis_and_derivatives_and_laplacian
@@ -180,6 +183,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     tf.print("\n---------- Start training ----------\n")
 
+    results = None
     match method_type:
         case NAVEMType.B_NAVEM:
             del vertices_per_pol

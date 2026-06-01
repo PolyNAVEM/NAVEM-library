@@ -19,34 +19,34 @@ from NAVEM.NeuralNetwork.h_navem_network import Flags, set_flags, HNAVEMNetworks
     write_flags_on_dictionary
 import numpy as np
 import tensorflow as tf
-from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 import csv
 from NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
 from NAVEM.Utilities.PrintInformation import print_training_information
 
 
-def train_navem_pcc_2d_on_generic_polygon(method_order: int,
-                                          method_type: NAVEMType,
-                                          num_vertices: int,
-                                          geometry_utilities: gedim.GeometryUtilities,
-                                          mesh: gedim.MeshMatricesDAO,
-                                          mesh_geometric_data: MeshGeometricData2D,
-                                          mesh_import_path: str,
-                                          num_hidden_layers: int,
-                                          num_neurons_per_layer: int,
-                                          num_epoches_opt_order1: int,
-                                          num_epoches_opt_order2: int,
-                                          learning_rate_max: float,
-                                          learning_rate_min: float,
-                                          num_points_on_each_edge: int,
-                                          regularization_coefficient: float,
-                                          export_training_data_file_path: str,
-                                          export_training_info: bool = False,
-                                          use_sqrt_in_train: bool = False,
-                                          element_type: NAVEMElementType = NAVEMElementType.generic_convex,
-                                          harmonic_degree: int = 20,
-                                          normalization_diameter: float = 3.0,
-                                          use_hanging_function: bool = True):
+def train_h_navem_pcc_2d_on_generic_polygon(method_order: int,
+                                              method_type: NAVEMType,
+                                              num_vertices: int,
+                                              geometry_utilities: gedim.GeometryUtilities,
+                                              mesh: gedim.MeshMatricesDAO,
+                                              mesh_geometric_data: MeshGeometricData2D,
+                                              mesh_import_path: str,
+                                              num_hidden_layers: int,
+                                              num_neurons_per_layer: int,
+                                              num_epoches_opt_order1: int,
+                                              num_epoches_opt_order2: int,
+                                              learning_rate_max: float,
+                                              learning_rate_min: float,
+                                              num_points_on_each_edge: int,
+                                              regularization_coefficient: float,
+                                              export_training_data_file_path: str,
+                                              export_training_info: bool = False,
+                                              use_sqrt_in_train: bool = False,
+                                              element_type: NAVEMElementType = NAVEMElementType.generic_convex,
+                                              harmonic_degree: int = 20,
+                                              normalization_diameter: float = 3.0,
+                                              use_hanging_function: bool = True):
     assert method_order == 1
     assert method_type == NAVEMType.H_NAVEM
 
@@ -56,7 +56,8 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
                                        num_vertices,
                                        harmonic_degree,
                                        use_hanging_function,
-                                       normalization_diameter)
+                                       normalization_diameter,
+                                       element_type)
 
     num_training_polygons = mesh.cell2_d_total_number()
 
@@ -114,7 +115,7 @@ def train_navem_pcc_2d_on_generic_polygon(method_order: int,
     for c in range(num_training_polygons):
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
-        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1)
+        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1).T
 
         for v_id in range(num_vertices):
 

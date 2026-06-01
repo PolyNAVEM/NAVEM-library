@@ -13,7 +13,7 @@ import numpy as np
 from NAVEM.NeuralNetwork.h_navem_network import BoundaryLoss
 from NAVEM.PCC_2D import NAVEM_PCC_2D, LocalSpace_PCC_2D
 from pypolydim import gedim, polydim
-from NAVEM.geometry.geometry_utilities import MeshGeometricData2D
+from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 from typing import Dict, Tuple
 from numpy.typing import NDArray
 

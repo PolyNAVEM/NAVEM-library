@@ -14,7 +14,7 @@ import tensorflow as tf
 import os
 from pypolydim.export_vtk_utilities import ExportVTKUtilities
 from NAVEM.PCC_2D import LocalSpace_PCC_2D
-from NAVEM.geometry.geometry_utilities import compute_geometric_properties_mesh_2
+from NAVEM.geometry.mesh_utilities import compute_geometric_properties_mesh_2
 import argparse
 from pypolydim import gedim, polydim
 from Elliptic_PCC_2D.program_utilities import create_mesh
@@ -88,7 +88,7 @@ def main():
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     reference_element_data = LocalSpace_PCC_2D.ReferenceElementData(method_type, method_order)
-    reference_element_data.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(mesh, mesh_geometric_data, args.dictionary_file)
+    reference_element_data.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(method_order, mesh, mesh_geometric_data, args.dictionary_file)
 
     print("Compute Evaluation Points...")
     num_cell_2 = mesh.cell2_d_total_number()
