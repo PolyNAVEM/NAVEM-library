@@ -11,7 +11,7 @@
 
 import numpy as np
 from pypolydim import polydim, gedim
-from Elliptic_PCC_2D.test_definition import ITest
+from examples.Elliptic_PCC_2D.test_definition import ITest
 import scipy.sparse.linalg as sla
 from pypolydim.assembler_utilities import assembler_utilities
 from scipy.sparse import coo_array
@@ -102,7 +102,7 @@ def compute_strong_term(cell2_d_index: int,
                 or len(local_do_fs) == 0):
             continue
 
-        edge_do_fs_coordinates = local_space_data.edge_dofs_coordinates(ed, reference_element_data)
+        edge_do_fs_coordinates = local_space_data.edge_do_fs_coordinates(ed, reference_element_data)
 
         strong_boundary_values = test.strong_boundary_condition(boundary_info.marker, edge_do_fs_coordinates)
 

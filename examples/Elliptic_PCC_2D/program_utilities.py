@@ -9,9 +9,11 @@
 #
 # This file can be used citing references in CITATION.cff file.
 
-from Elliptic_PCC_2D.test_definition import EllipticPolynomialProblem
-from Elliptic_PCC_2D.assembler import *
+from examples.Elliptic_PCC_2D.test_definition import EllipticPolynomialProblem
+from examples.Elliptic_PCC_2D.assembler import *
 import os
+from pypolydim import gedim, polydim
+from pypolydim.assembler_utilities import assembler_utilities
 
 def create_test(test_id: int) -> ITest:
 
