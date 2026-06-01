@@ -36,11 +36,11 @@ def main():
     parser.add_argument('-order', '--method-order', dest='method_order',
                         default=1, type=int, help="Method order (Default: 1)")
     parser.add_argument('-method', '--method-type', dest='method_type',
-                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
+                        default=3, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
-                        default=program_folder + '/../TrainingDataset/TrainingReferenceSquare', type=str,
+                        default=program_folder + '/../TrainingDataset/RandomConvexQuadrilateral', type=str,
                         help="Mesh Import Path")
     parser.add_argument('-e', '--num-vertices', dest='num_vertices', default=4, type=int,
                         help='Number of vertices of the polygons (Default: 4)')
@@ -49,22 +49,21 @@ def main():
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14,
                         type=float, help="Geometric Tolerance 2D")
     parser.add_argument('-et', '--element-type', dest='element_type', default=1,
-                        type=int, help='Train the neural network using polygons that are: 1 - generic convex; '
-                                       '2 - generic concave')
+                        type=int, help='Train the neural network using polygons that are: '
+                                       '1 - generic convex; 2 - generic concave (Default: 1)')
 
     # Network
     parser.add_argument('-n', '--export-training-data-file-path', dest='export_training_data_file_path',
                         default=program_folder + '/../Export/TrainedModels/', help='Storage path of the outputs')
     parser.add_argument('-nhl', '--num-hidden-layers', dest='num_hidden_layers', default=3, type=int,
-                        help='Number of hidden layers for the polynomial neural network')
+                        help='Number of hidden layers for the polynomial neural network (Default: 3)')
     parser.add_argument('-nnl', '--num-neurons-per-layer', dest='num_neurons_per_layer', default=30, type=int,
-                        help='Number of nodes per hidden layers for the polynomial neural network')
+                        help='Number of nodes per hidden layers for the polynomial neural network (Default: 30)')
 
-    parser.add_argument('-neo1p', '--num-epochs-opt-order1', dest='num_epochs_opt_order1', default=300, type=int,
-                        help='Number of training epochs with first order optimizer')
-    parser.add_argument('-neo2p', '--num-epochs-opt-order2', dest='num_epochs_opt_order2', default=100, type=int,
-
-                        help='Number of training epochs with second order optimizer')
+    parser.add_argument('-neo1p', '--num-epochs-opt-order1', dest='num_epochs_opt_order1', default=100, type=int,
+                        help='Number of training epochs with first order optimizer (Default: 100)')
+    parser.add_argument('-neo2p', '--num-epochs-opt-order2', dest='num_epochs_opt_order2', default=50, type=int,
+                        help='Number of training epochs with second order optimizer (Default: 50)')
     parser.add_argument('-lr_max', '--lr-max', dest='learning_rate_max', default=1e-3, type=float,
                         help='Maximum value of the learning rate')
     parser.add_argument('-lr_min', '--lr-min', dest='learning_rate_min', default=1e-3, type=float,
@@ -78,7 +77,7 @@ def main():
                         type=bool, action=argparse.BooleanOptionalAction,
                         help='Flag to specify if I want to export info (loss, time,...) during training')
 
-    # NAVEM
+    # H-NAVEM
     parser.add_argument('-np', '--num-points-on-edges', dest='num_points_on_each_edge', default=50, type=int,
                         help='Number of points on each edge')
     parser.add_argument('-nsd', '--normalization-diameter', dest='normalization_diameter', default=3.0,

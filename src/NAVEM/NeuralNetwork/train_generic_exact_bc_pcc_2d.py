@@ -152,6 +152,15 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
     labels = 0 * inputs[:, 0:1]
 
+    tf.print(xy_per_pol.shape)
+    tf.print(xy_per_pol)
+
+    tf.print(vertices_per_pol.shape)
+    tf.print(vertices_per_pol)
+
+    tf.print(inputs.shape)
+    tf.print(inputs)
+
     setup_n_derivatives = SetupDerivatives.basis
     considered_loss = None
     match method_type:
