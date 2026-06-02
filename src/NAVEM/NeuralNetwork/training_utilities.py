@@ -98,15 +98,12 @@ def print_info_h_navem(model, iteration, total_iterations=None):
 def print_info_p_navem(model, iteration, total_iterations=None):
     if model.loss_x_dx.read_value() == 0:
         if total_iterations is None:
-            loss_one = tf.strings.regex_replace(tf.strings.as_string(model.loss_one,
-                                                                     scientific=True,
-                                                                     precision=16), '\"', '')
-            loss_x = tf.strings.regex_replace(tf.strings.as_string(model.loss_x,
-                                                                   scientific=True,
-                                                                   precision=16), '\"', '')
-            loss_y = tf.strings.regex_replace(tf.strings.as_string(model.loss_y,
-                                                                   scientific=True,
-                                                                   precision=16), '\"', '')
+            loss_one = tf.strings.regex_replace(tf.strings.as_string(model.loss_one, scientific=True, precision=16),
+                                                r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
+            loss_x = tf.strings.regex_replace(tf.strings.as_string(model.loss_x, scientific=True, precision=16),
+                                              r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
+            loss_y = tf.strings.regex_replace(tf.strings.as_string(model.loss_y, scientific=True, precision=16),
+                                              r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
             tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
                                       ". Current error for 1, x and y: ",
                                       loss_one, "\t", loss_x, "\t", loss_y]))
@@ -119,23 +116,23 @@ def print_info_p_navem(model, iteration, total_iterations=None):
         if model.loss_x.read_value() == 0:
             if total_iterations is None:
                 loss_one_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dx,
-                                                                            scientific=True,
-                                                                            precision=16), '\"', '')
+                                                                            scientific=True, precision=16),
+                                                       r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_x_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dx,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_y_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dx,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_one_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dy,
-                                                                            scientific=True,
-                                                                            precision=16), '\"', '')
+                                                                            scientific=True, precision=16),
+                                                       r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_x_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dy,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_y_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dy,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
                                           ". Current errors: ",
                                           loss_one_dx, "\t", loss_x_dx, "\t", loss_y_dx, "\t",
@@ -151,32 +148,32 @@ def print_info_p_navem(model, iteration, total_iterations=None):
         else:
             if total_iterations is None:
                 loss_one = tf.strings.regex_replace(tf.strings.as_string(model.loss_one,
-                                                                         scientific=True,
-                                                                         precision=16), '\"', '')
+                                                                         scientific=True, precision=16),
+                                                    r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_x = tf.strings.regex_replace(tf.strings.as_string(model.loss_x,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                       scientific=True, precision=16),
+                                                  r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_y = tf.strings.regex_replace(tf.strings.as_string(model.loss_y,
-                                                                       scientific=True,
-                                                                       precision=16), '\"', '')
+                                                                       scientific=True, precision=16),
+                                                  r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_one_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dx,
-                                                                            scientific=True,
-                                                                            precision=16), '\"', '')
+                                                                            scientific=True, precision=16),
+                                                       r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_x_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dx,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_y_dx = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dx,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_one_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_one_dy,
-                                                                            scientific=True,
-                                                                            precision=16), '\"', '')
+                                                                            scientific=True, precision=16),
+                                                       r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_x_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_x_dy,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 loss_y_dy = tf.strings.regex_replace(tf.strings.as_string(model.loss_y_dy,
-                                                                          scientific=True,
-                                                                          precision=16), '\"', '')
+                                                                          scientific=True, precision=16),
+                                                     r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
                 tf.print(tf.strings.join(["Iter: ", tf.strings.as_string(iteration),
                                           ". Current errors: ",
                                           loss_one, "\t", loss_x, "\t", loss_y, "\t",
@@ -195,9 +192,8 @@ def print_info_p_navem(model, iteration, total_iterations=None):
 
 def print_info_b_navem(model, iteration, total_iterations=None):
     if total_iterations is None:
-        laplacian = tf.strings.regex_replace(tf.strings.as_string(model.curr_laplacian,
-                                                                  scientific=True,
-                                                                  precision=16), '\"', '')
+        laplacian = tf.strings.regex_replace(tf.strings.as_string(model.curr_laplacian, scientific=True,
+                                                                  precision=16), r'"?([0-9])(,|\.)([0-9])"?', r'\1.\3')
         tf.print(tf.strings.join(["Iter: ",
                                   tf.strings.as_string(iteration),
                                   ". Current Laplacian: ",
