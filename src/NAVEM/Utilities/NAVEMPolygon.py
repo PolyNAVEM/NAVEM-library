@@ -129,7 +129,7 @@ class NAVEMPolygon:
         internal_weights = vem_quadrature_data.weights
         vandermonde = monomials.vander(monomials_data, internal_nodes, centroid, 1.0)
         internal_weights_sqrt = np.sqrt(internal_weights)
-        temp = np.diag(internal_weights_sqrt) @ vandermonde
+        temp = np.diag(internal_weights_sqrt) @ vandermonde[:, 1:]
         # mass_matrix = (temp.T @ temp)[1:, 1:]
 
         # M = V.T @ W @ V
@@ -139,7 +139,7 @@ class NAVEMPolygon:
         # SM = U @ S @ V.T
         # M = SM.T @ SM = V @ S @ U.T @ U @ S @ V.T = V @ S @ S @ V.T
 
-        return temp[1:, 1:]
+        return temp
 
     def compute_map_inertia(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
 

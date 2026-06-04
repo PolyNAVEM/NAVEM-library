@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib import use
 import importlib
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
+from pypolydim import polydim
 
 try:
     use("Qt5Agg")
@@ -92,6 +93,93 @@ class TestPolygonUtilities(unittest.TestCase):
             plot_mapped_polygon( [vertex_points, polygon.kernel],
                                  [inertia_mapped_points],
                                  [mapped_vertices])
+
+    def test_eig_matrix(self):
+        mass_matrix = np.zeros([3, 3])
+        mass_matrix[0, :] = [2.0, 1.0, 1.0]
+        mass_matrix[1, :] = [1.0, 2.0, 1.0]
+        mass_matrix[2, :] = [1.0, 1.0, 2.0]
+
+        eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
+        u, s, vh = np.linalg.svd(mass_matrix)
+
+        print(np.linalg.norm(eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T - mass_matrix))
+        print(np.linalg.norm(u @ np.diag(s) @ vh - mass_matrix))
+
+
+
+    def test_inertia_mapping_on_parallelograms(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
+        # First polygon
+        num_vertices = 4
+        vertices = np.zeros([3, num_vertices])
+        vertices[0, :] = [0.0, 1.0, 0.8, 0.4]
+        vertices[1, :] = [0.0, 0.0, 1.0, 0.9]
+
+
+        area = geometry_utilities.polygon_area(vertices)
+        centroid = geometry_utilities.polygon_centroid(vertices, area)
+        diameter = geometry_utilities.polygon_diameter(vertices)
+        inv_diameter = 1.0 / diameter
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertices, centroid)
+
+        # first re-scaling
+        fr_vertex_points = inv_diameter * vertices
+
+        # first inertia mapping
+        fr_centroid = inv_diameter * centroid
+        list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(fr_vertex_points, fr_centroid, list_triangles)
+        gedim_mass_matrix = geometry_utilities.polygon_mass(centroid, list_triangles_points)
+
+        monomials = polydim.utilities.Monomials_2D()
+        monomials_data = monomials.compute(1)
+        quadrature = gedim.quadrature.Quadrature_Gauss2D_Triangle()
+        quadrature_data = quadrature.fill_points_and_weights(2)
+
+        vem_quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
+        vem_quadrature_data = vem_quadrature.polygon_internal_quadrature(quadrature_data, list_triangles_points)
+        internal_nodes = vem_quadrature_data.points
+        internal_weights = vem_quadrature_data.weights
+        vandermonde = monomials.vander(monomials_data, internal_nodes, centroid, 1.0)
+        internal_weights_sqrt = np.sqrt(internal_weights)
+        temp = np.diag(internal_weights_sqrt) @ vandermonde
+        mass_matrix = (temp.T @ temp)[1:, 1:]
+
+        temp_1 = np.diag(internal_weights_sqrt) @ vandermonde[:, 1:]
+        mass_matrix_1 = (temp_1.T @ temp_1)
+
+        # C = U @ S @ VH
+        u, s, vh = np.linalg.svd(temp_1)
+
+        # M = V @ D @ V.T = C.T @ C = VH.T @ S @ U.T @ U @ S @ VH = VH.T @ S @ S @ VH
+        eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
+
+        det_q = np.linalg.det(eigenvectors)
+        b_matrix = np.identity(3)
+        b_matrix[0:2, 0:2] = np.sqrt(max(eigenvalues)) * np.sqrt(np.diag(np.reciprocal(eigenvalues))) @ eigenvectors.T
+
+        eigenvalues_1 = s**2
+        eigenvectors_1 = vh.T
+        det_q_1 = np.linalg.det(eigenvectors_1)
+        b_matrix_1 = np.identity(3)
+        b_matrix_1[0:2, 0:2] = np.sqrt(max(eigenvalues_1)) * np.sqrt(np.diag(np.reciprocal(eigenvalues_1))) @ eigenvectors_1.T
+
+
+        print(np.linalg.norm(gedim_mass_matrix - mass_matrix))
+        print(np.linalg.norm(gedim_mass_matrix - mass_matrix_1))
+        print(np.linalg.norm(eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T - mass_matrix))
+        print(np.linalg.norm(vh.T @ np.diag(s) @ np.diag(s) @ vh - mass_matrix))
+        print(np.linalg.norm(np.diag(s) @ np.diag(s) - np.diag(eigenvalues)))
+        print(np.linalg.norm(vh - eigenvectors.T))
+        print(np.linalg.norm(b_matrix_1 - b_matrix))
+        print(np.linalg.norm(det_q_1 - det_q))
+        print(s ** 2)
+        print(eigenvalues)
+
+
 
     def test_polygon_mapping_on_parallelograms(self):
 
