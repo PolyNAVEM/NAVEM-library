@@ -115,8 +115,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     for c in range(num_training_polygons):
 
-        internal_point = mesh_geometric_data.mesh_geometric_data.cell2_ds_centroids[c]
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
+        internal_point = np.squeeze(polygon.centroid)
 
         inertia_mapped_internal_point, _ = polygon.map_inertia_inv(np.expand_dims(internal_point, axis=1))
         inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(
@@ -129,6 +129,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                           reference_nodes,
                                                           inertia_mapped_list_triangles_points,
                                                           uniform_boundary, accumulating_border)
+
+        plot_grid_over_polygon(polygon.mapped_vertices, inertia_mapped_internal_nodes)
 
         xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T  # points over the inertia polygon
         vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]  # vertices are set up over the inertia polygon
