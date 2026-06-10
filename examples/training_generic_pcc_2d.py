@@ -9,7 +9,6 @@
 #
 # This file can be used citing references in CITATION.cff file.
 
-import cProfile
 import os.path
 from pathlib import Path
 import argparse
@@ -20,7 +19,6 @@ from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
 from NAVEM.geometry.mesh_utilities import compute_geometric_properties_mesh_2
 import os
-
 from NAVEM.Utilities.enforcing_boundary_functions import BoundaryMethodType, BubbleType
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -118,9 +116,6 @@ def main():
     tf.keras.backend.set_floatx('float64')
     tf.keras.backend.set_epsilon(args.tolerance1_d)
 
-    pr = cProfile.Profile()
-    pr.enable()
-
     geometry_utilities_config = gedim.GeometryUtilitiesConfig()
     geometry_utilities_config.tolerance1_d = args.tolerance1_d
     geometry_utilities_config.tolerance2_d = args.tolerance2_d
@@ -196,9 +191,6 @@ def main():
                                                            BubbleType(args.bubble_type))
         case _:
             raise ValueError("not valid method")
-
-    pr.disable()
-    pr.dump_stats(full_export_training_data_file_path + "/program.prof")
 
 
 if __name__ == '__main__':
