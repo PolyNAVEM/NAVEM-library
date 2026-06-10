@@ -32,8 +32,8 @@ def main():
                         help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int,
                         help="Test type: 1 - Polynomial")
-    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=1, type=int,
-                        help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 5 - Square")
+    parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=0, type=int,
+                        help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 4 - CSV Importer; 5 - Square; (Default : 0)")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float,
                         help="Geometric Tolerance 1D")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float,
