@@ -304,10 +304,10 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
 
         num_boundary_do_fs = method_order * vertices.shape[1]
         for pol_id in range(vertices.shape[0]):
-            eb.draw_adf(xy, phi, pol_id, scatter_plot=False, contour_plot=True)
+            eb.draw_adf(xy, phi, pol_id, scatter_plot=True, contour_plot=True)
 
             for dof_id in range(num_boundary_do_fs):
-                eb.draw_g(xy, g, pol_id, dof_id, scatter_plot=False, contour_plot=True)
+                eb.draw_g(xy, g, pol_id, dof_id, scatter_plot=True, contour_plot=True)
                 eb.draw_g_on_one_edge(xy, pol_id, dof_id)
 
 

@@ -42,7 +42,7 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
         quadrature_data = quadrature.polygon_edges_quadrature(reference_quadrature_data,
                                                               vertices,
                                                               mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[c],
-                                                              [True, True, True, True],
+                                                              [True for _ in range(vertices.shape[1])],
                                                               mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[c],
                                                               mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_normals[c])
 
@@ -101,7 +101,6 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
                 basis_tangent_derivatives[e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] \
                     = (basis_functions_derivatives_values[0][e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * edge_tangents[0, e]
                        + basis_functions_derivatives_values[1][e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * edge_tangents[1, e]) / edge_lengths[e]
-
 
         test_l2_loss_cells[c] = np.sum((evaluation_weights[c] @
                                         (basis_functions_values - labels) ** 2),axis=0)
