@@ -156,7 +156,7 @@ def main():
             = compute_polynomial_loss(geometry_utilities,
                                       mesh_geometric_data,
                                       reference_element_data,
-                                      method_type)
+                                      local_space_data)
 
         print("{:<10} {:<10}".format('l2 loss', 'h1 loss'))
         print("{:<10.2e} {:<10.2e}".format(np.mean(test_l2_loss[1:]), np.mean(test_h1_loss[1:])))
@@ -167,7 +167,7 @@ def main():
             = compute_boundary_loss(geometry_utilities,
                                     mesh_geometric_data,
                                     reference_element_data,
-                                    method_type)
+                                    local_space_data)
 
         print(test_l2_loss, test_h1_loss)
         print("{:<10} {:<10}".format('l2 loss', 'h1 loss'))
@@ -179,7 +179,7 @@ def main():
             = compute_laplacian_loss(geometry_utilities,
                                      mesh_geometric_data,
                                      reference_element_data,
-                                     method_type)
+                                     local_space_data)
 
         print("{:<10}".format('laplacian loss'))
         print("{:<10.2e}".format(test_laplacian_loss))

@@ -21,7 +21,7 @@ from numpy.typing import NDArray
 def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
                           mesh_geometric_data: MeshGeometricData2D,
                           reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
-                          method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[float, float, NDArray[np.float64], NDArray[np.float64]]:
+                          local_space_data: LocalSpace_PCC_2D.LocalSpaceData) -> Tuple[float, float, NDArray[np.float64], NDArray[np.float64]]:
 
     assert reference_element_data.method_order == 1
 
@@ -50,9 +50,8 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
         evaluation_weights[c] = quadrature_data.quadrature.weights
 
 
-    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     evaluation_navem_input_output = None
-    match method_type:
+    match reference_element_data.method_type:
         case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
@@ -118,7 +117,7 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
 def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
                             mesh_geometric_data: MeshGeometricData2D,
                             reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
-                            method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+                            local_space_data: LocalSpace_PCC_2D.LocalSpaceData) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
     num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
 
@@ -143,9 +142,8 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
 
         assert geometry_utilities.is_value_zero(abs(np.sum(internal_quadrature.weights) - mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c]), geometry_utilities.tolerance2_d())
 
-    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     evaluation_navem_input_output = None
-    match method_type:
+    match reference_element_data.method_type:
         case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
@@ -194,7 +192,7 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
 def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
                            mesh_geometric_data: MeshGeometricData2D,
                            reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
-                           method_type: LocalSpace_PCC_2D.MethodTypes) -> Tuple[float, NDArray[np.float64]]:
+                           local_space_data: LocalSpace_PCC_2D.LocalSpaceData) -> Tuple[float, NDArray[np.float64]]:
 
 
     """
@@ -221,9 +219,8 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
 
         assert geometry_utilities.is_value_zero(abs(np.sum(internal_quadrature.weights) - mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c]), geometry_utilities.tolerance2_d())
 
-    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
     evaluation_navem_input_output = None
-    match method_type:
+    match reference_element_data.method_type:
         case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
