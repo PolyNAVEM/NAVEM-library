@@ -130,8 +130,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                           inertia_mapped_list_triangles_points,
                                                           uniform_boundary, accumulating_border)
 
-        plot_grid_over_polygon(polygon.mapped_vertices, inertia_mapped_internal_nodes)
-
         xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T  # points over the inertia polygon
         vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]  # vertices are set up over the inertia polygon
 
