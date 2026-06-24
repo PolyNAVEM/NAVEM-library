@@ -32,7 +32,7 @@ polygenerator==0.2.0
 protobuf==7.34.1
 Pygments==2.20.0
 pyparsing==3.3.2
-pypolydim==2.0.17
+pypolydim==3.0.3
 PyQt5==5.15.11
 PyQt5-Qt5==5.15.18
 PyQt5_sip==12.18.0

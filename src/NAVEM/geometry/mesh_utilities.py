@@ -15,7 +15,7 @@ from pypolydim import gedim, polydim
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from typing import Dict
 from NAVEM.geometry.geometry_utilities import compute_polygon_interior_angles
-
+import time
 class MeshGeometricData2D:
 
     def __init__(self, mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
@@ -24,10 +24,19 @@ class MeshGeometricData2D:
                  cell2_ds_polygon_internal_angles: List[List[float]]):
 
         self.mesh_geometric_data = mesh_geometric_data
+        self.cell2_ds_vertices = mesh_geometric_data.cell2_ds_vertices
         self.cell2_ds_list_triangles = cell2_ds_list_triangles
         self.cell2_ds_polygon = cell2_ds_polygon
         self.cell2_ds_mapped_polygon_internal_angles = cell2_ds_mapped_polygon_internal_angles
         self.cell2_ds_polygon_internal_angles = cell2_ds_polygon_internal_angles
+        self.cell2_ds_centroids = mesh_geometric_data.cell2_ds_centroids
+        self.cell2_ds_areas = mesh_geometric_data.cell2_ds_areas
+        self.cell2_ds_diameters = mesh_geometric_data.cell2_ds_diameters
+        self.cell2_ds_triangulations = mesh_geometric_data.cell2_ds_triangulations
+        self.cell2_ds_edge_lengths = mesh_geometric_data.cell2_ds_edge_lengths
+        self.cell2_ds_edge_directions = mesh_geometric_data.cell2_ds_edge_directions
+        self.cell2_ds_edge_tangents = mesh_geometric_data.cell2_ds_edge_tangents
+        self.cell2_ds_edge_normals = mesh_geometric_data.cell2_ds_edge_normals
 
 def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilities,
                                         mesh_utilities: gedim.MeshUtilities,
@@ -45,6 +54,7 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
     for c in range(mesh.cell2_d_total_number()):
 
         vertex_points = mesh_geometric_data.cell2_ds_vertices[c]
+
         polygon_internal_angles = compute_polygon_interior_angles(vertex_points)
         cell2_ds_polygon_internal_angles.append(polygon_internal_angles)
 

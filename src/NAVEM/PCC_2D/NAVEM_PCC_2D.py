@@ -293,7 +293,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
                 output_values[c].internal_quadrature.points = inertia_mapped_internal_nodes
                 output_values[c].internal_quadrature.weights = (evaluation_weights[c]
                                                                 * geometry_utilities.polygon_area(mesh_geometric_data.cell2_ds_polygon[c].mapped_vertices)
-                                                                / mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c])
+                                                                / mesh_geometric_data.cell2_ds_areas[c])
             case NAVEMMappingType.rotated_inertia:
                 output_values[c].internal_quadrature_per_do_fs = [gedim.quadrature.QuadratureData() for _ in range(num_vertices)]
             case _:
@@ -318,7 +318,7 @@ def exact_bc_navem_predict_basis_values_and_derivatives(geometry_utilities: gedi
                     output_values[c].internal_quadrature_per_do_fs[v_id].points = rotated_mapped_points
                     output_values[c].internal_quadrature_per_do_fs[v_id].weights = (evaluation_weights[c]
                                                                 * abs(geometry_utilities.polygon_area(rotated_vertices))
-                                                                / mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c])
+                                                                / mesh_geometric_data.cell2_ds_areas[c])
                 case _:
                     raise ValueError("not valid navem element type")
 
@@ -460,7 +460,7 @@ def create_navem_input_output(geometry_utilities: gedim.GeometryUtilities,
             for c in dictionary.list_elements:
                 outputs[c].basis_values, outputs[c].basis_derivatives_values, outputs[c].basis_laplacian_values \
                     = reproduce_polynomials(
-                    mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c],
+                    mesh_geometric_data.cell2_ds_vertices[c],
                     dictionary_outputs[c].basis_values,
                     dictionary_outputs[c].basis_derivatives_values,
                     dictionary_outputs[c].basis_laplacian_values)

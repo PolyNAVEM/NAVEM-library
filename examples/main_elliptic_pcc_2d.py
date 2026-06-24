@@ -169,7 +169,6 @@ def main():
                                     reference_element_data,
                                     local_space_data)
 
-        print(test_l2_loss, test_h1_loss)
         print("{:<10} {:<10}".format('l2 loss', 'h1 loss'))
         print("{:<10.2e} {:<10.2e}".format(test_l2_loss, test_h1_loss))
 

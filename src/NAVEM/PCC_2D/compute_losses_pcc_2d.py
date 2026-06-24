@@ -25,7 +25,7 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
 
     assert reference_element_data.method_order == 1
 
-    num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
+    num_cell_2 = len(mesh_geometric_data.cell2_ds_vertices)
 
     test_l2_loss_cells = np.zeros([num_cell_2])
     test_h1_loss_cells = np.zeros([num_cell_2])
@@ -38,13 +38,13 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
     evaluation_weights: Dict[int, NDArray[np.float64]] = {}
     for c in range(num_cell_2):
 
-        vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
+        vertices = mesh_geometric_data.cell2_ds_vertices[c]
         quadrature_data = quadrature.polygon_edges_quadrature(reference_quadrature_data,
                                                               vertices,
-                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[c],
+                                                              mesh_geometric_data.cell2_ds_edge_lengths[c],
                                                               [True for _ in range(vertices.shape[1])],
-                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[c],
-                                                              mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_normals[c])
+                                                              mesh_geometric_data.cell2_ds_edge_tangents[c],
+                                                              mesh_geometric_data.cell2_ds_edge_normals[c])
 
         evaluation_points[c] = quadrature_data.quadrature.points
         evaluation_weights[c] = quadrature_data.quadrature.weights
@@ -82,9 +82,9 @@ def compute_boundary_loss(geometry_utilities: gedim.GeometryUtilities,
                                                                  evaluation_points[c],
                                                                  evaluation_navem_input_output)
 
-        polygon_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
-        edge_tangents = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[c]
-        edge_lengths = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[c]
+        polygon_vertices = mesh_geometric_data.cell2_ds_vertices[c]
+        edge_tangents = mesh_geometric_data.cell2_ds_edge_tangents[c]
+        edge_lengths = mesh_geometric_data.cell2_ds_edge_lengths[c]
         num_vertices = polygon_vertices.shape[1]
 
         labels = np.zeros([evaluation_points[c].shape[1], num_vertices])
@@ -119,7 +119,7 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
                             reference_element_data: LocalSpace_PCC_2D.ReferenceElementData,
                             local_space_data: LocalSpace_PCC_2D.LocalSpaceData) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
 
-    num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
+    num_cell_2 = len(mesh_geometric_data.cell2_ds_vertices)
 
     monomials = polydim.utilities.Monomials_2D()
     monomials_data = monomials.compute(reference_element_data.method_order)
@@ -134,13 +134,13 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
     evaluation_weights: Dict[int, NDArray[np.float64]] = {}
     for c in range(num_cell_2):
         internal_quadrature = quadrature.polygon_internal_quadrature(reference_quadrature_data,
-                                                                     mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[
+                                                                     mesh_geometric_data.cell2_ds_triangulations[
                                                                          c])
 
         evaluation_points[c] = internal_quadrature.points
         evaluation_weights[c] = internal_quadrature.weights
 
-        assert geometry_utilities.is_value_zero(abs(np.sum(internal_quadrature.weights) - mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c]), geometry_utilities.tolerance2_d())
+        assert geometry_utilities.is_value_zero(abs(np.sum(internal_quadrature.weights) - mesh_geometric_data.cell2_ds_areas[c]), geometry_utilities.tolerance2_d())
 
     evaluation_navem_input_output = None
     match reference_element_data.method_type:
@@ -160,7 +160,7 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
                                             c,
                                             reference_element_data)
 
-        polygon_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[c]
+        polygon_vertices = mesh_geometric_data.cell2_ds_vertices[c]
         basis_functions_values = local_space_data.basis_functions_values(reference_element_data,
                                                                          polydim.vem.pcc.ProjectionTypes.pi0k,
                                                                          evaluation_points[c],
@@ -200,7 +200,7 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
     this loss should be computed over the rotated inertia polygon
     """
 
-    num_cell_2 = len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)
+    num_cell_2 = len(mesh_geometric_data.cell2_ds_vertices)
     test_laplacian_loss_cells = np.zeros([num_cell_2])
 
     quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
@@ -211,13 +211,13 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
     for c in range(num_cell_2):
 
         internal_quadrature = quadrature.polygon_internal_quadrature(reference_quadrature_data,
-                                                                     mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[
+                                                                     mesh_geometric_data.cell2_ds_triangulations[
                                                                          c])
 
         evaluation_points[c] = internal_quadrature.points
         evaluation_weights[c] = internal_quadrature.weights
 
-        assert geometry_utilities.is_value_zero(abs(np.sum(internal_quadrature.weights) - mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[c]), geometry_utilities.tolerance2_d())
+        assert geometry_utilities.is_value_zero(abs(np.sum(internal_quadrature.weights) - mesh_geometric_data.cell2_ds_areas[c]), geometry_utilities.tolerance2_d())
 
     evaluation_navem_input_output = None
     match reference_element_data.method_type:

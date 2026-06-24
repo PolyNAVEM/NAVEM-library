@@ -60,6 +60,9 @@ def compute_strong_term(cell2_d_index: int,
                         test: ITest,
                         assembler_data: EllipticPCC2DProblemData) -> None:
 
+    if do_fs_data.cells_global_number_strongs[2][cell2_d_index] == 0:
+        return
+
     # Assemble strong boundary condition on Cell0Ds
     for v in range(mesh.cell2_d_number_vertices(cell2_d_index)):
 
@@ -259,11 +262,7 @@ def assemble(geometry_utilities_config: gedim.GeometryUtilitiesConfig,
 
         assert local_space_data.size(reference_element_data) == len(global_do_fs)
 
-        local_to_global_data = assembler_utilities.LocalMatrixToGlobalMatrixDOFsData()
-        local_to_global_data.do_fs_data_indices = [do_fs_data_indices]
-        local_to_global_data.local_offsets = [0]
-        local_to_global_data.global_offsets_do_fs = [0]
-        local_to_global_data.global_offsets_strongs = [0]
+        local_to_global_data = assembler_utilities.LocalMatrixToGlobalMatrixDOFsData([do_fs_data_indices], [0], [0], [0])
 
         assembler_utilities.assemble_local_matrix_to_global_matrix(2,
                                                                    c,

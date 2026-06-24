@@ -16,6 +16,7 @@ from pypolydim import polydim
 from NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray
 import numpy as np
+import time
 
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
 from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
@@ -123,6 +124,20 @@ class ReferenceElementData:
             case _:
                 raise ValueError("Not valid method type")
 
+class VEMGeometry:
+
+    def __init__(self, tolerance_1_d, tolerance_2_d, cell_2_d_index, mesh_geometric_data) -> None:
+        self.tolerance1_d = tolerance_1_d
+        self.tolerance2_d = tolerance_2_d
+        self.vertices = mesh_geometric_data.cell2_ds_vertices[cell_2_d_index]
+        self.centroid = mesh_geometric_data.cell2_ds_centroids[cell_2_d_index]
+        self.measure = mesh_geometric_data.cell2_ds_areas[cell_2_d_index]
+        self.diameter = mesh_geometric_data.cell2_ds_diameters[cell_2_d_index]
+        self.triangulation_vertices = mesh_geometric_data.cell2_ds_triangulations[cell_2_d_index]
+        self.edges_length = mesh_geometric_data.cell2_ds_edge_lengths[cell_2_d_index]
+        self.edges_direction = mesh_geometric_data.cell2_ds_edge_directions[cell_2_d_index]
+        self.edges_tangent = mesh_geometric_data.cell2_ds_edge_tangents[cell_2_d_index]
+        self.edges_normal = mesh_geometric_data.cell2_ds_edge_normals[cell_2_d_index]
 
 class LocalSpaceData:
 
@@ -130,25 +145,27 @@ class LocalSpaceData:
     num_vertices: int
     num_do_fs: int
     standard_local_space_data: polydim.pde_tools.local_space_pcc_2_d.LocalSpace_Data
+    vem_geometry: VEMGeometry
 
     def __init__(self, geometry_utilities: gedim.GeometryUtilities,
                  mesh_geometric_data: MeshGeometricData2D,
                  reference_element_data: ReferenceElementData):
 
+
         match reference_element_data.method_type:
             case MethodTypes.NAVEM:
-                self.vem_geometry = polydim.vem.pcc.VEM_PCC_2D_Polygon_Geometry()
+
 
                 quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
 
                 evaluation_points: Dict[int, NDArray[np.float64]] = {}
                 quadrature_weights: Dict[int, NDArray[np.float64]] = {}
-                for c in range(len(mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices)):
+                for c in range(len(mesh_geometric_data.cell2_ds_vertices)):
 
                     internal_quadrature \
                         = quadrature.polygon_internal_quadrature(
                         reference_element_data.standard_reference_element_data.vem_reference_element_data.quadrature.reference_triangle_quadrature,
-                        mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[c])
+                        mesh_geometric_data.cell2_ds_triangulations[c])
 
                     evaluation_points[c] = internal_quadrature.points
                     quadrature_weights[c] = internal_quadrature.weights
@@ -176,7 +193,7 @@ class LocalSpaceData:
         match reference_element_data.method_type:
             case MethodTypes.NAVEM:
                 self.cell_2_d_index = cell_2_d_index
-                self.num_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[cell_2_d_index].shape[1]
+                self.num_vertices = mesh_geometric_data.cell2_ds_vertices[cell_2_d_index].shape[1]
                 if self.num_vertices == 3:
                     self.standard_local_space_data: polydim.pde_tools.local_space_pcc_2_d.LocalSpace_Data \
                         = polydim.pde_tools.local_space_pcc_2_d.create_local_space(tolerance_1_d, tolerance_2_d,
@@ -190,17 +207,8 @@ class LocalSpaceData:
                                       + reference_element_data.standard_reference_element_data.vem_reference_element_data.num_dofs1_d * self.num_vertices
                                       + reference_element_data.standard_reference_element_data.vem_reference_element_data.num_dofs0_d * self.num_vertices)
 
-                    self.vem_geometry.tolerance1_d = tolerance_1_d
-                    self.vem_geometry.tolerance1_d = tolerance_2_d
-                    self.vem_geometry.vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_vertices[cell_2_d_index]
-                    self.vem_geometry.centroid = mesh_geometric_data.mesh_geometric_data.cell2_ds_centroids[cell_2_d_index]
-                    self.vem_geometry.measure = mesh_geometric_data.mesh_geometric_data.cell2_ds_areas[cell_2_d_index]
-                    self.vem_geometry.diameter = mesh_geometric_data.mesh_geometric_data.cell2_ds_diameters[cell_2_d_index]
-                    self.vem_geometry.triangulation_vertices = mesh_geometric_data.mesh_geometric_data.cell2_ds_triangulations[cell_2_d_index]
-                    self.vem_geometry.edges_length = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_lengths[cell_2_d_index]
-                    self.vem_geometry.edges_direction = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_directions[cell_2_d_index]
-                    self.vem_geometry.edges_tangent = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_tangents[cell_2_d_index]
-                    self.vem_geometry.edges_normal = mesh_geometric_data.mesh_geometric_data.cell2_ds_edge_normals[cell_2_d_index]
+                    self.vem_geometry = VEMGeometry(tolerance_1_d, tolerance_2_d, cell_2_d_index, mesh_geometric_data)
+
 
             case MethodTypes.VEM | MethodTypes.FEM:
                 self.standard_local_space_data: polydim.pde_tools.local_space_pcc_2_d.LocalSpace_Data \
