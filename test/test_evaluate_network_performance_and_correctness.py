@@ -86,6 +86,35 @@ def laplacian_call_v3_forward_over_backward(model, inputs):
     u_yy = jvp_y[:, 1:2]
     return u0, grad, u_xx, u_yy
 
+def laplacian_call_v4_forward_over_backward(model, inputs):
+    """
+    Versione efficiente: calcola SOLO le 2 derivate seconde che servono (u_xx, u_yy)
+    usando forward-over-backward (tf.autodiff.ForwardAccumulator + GradientTape),
+    evitando di calcolare l'intero jacobiano 8x8.
+
+    Rispetto alla versione "naive", qui i due ForwardAccumulator (per x e per y)
+    sono annidati attorno allo STESSO GradientTape, quindi internal_call() e
+    tape.gradient() vengono eseguiti una sola volta in totale (non due),
+    dimezzando il costo del backward pass.
+    """
+    n_features = inputs.shape[-1]
+
+    e_x = tf.constant([1.0, 0.0] + [0.0] * (n_features - 2), dtype=inputs.dtype)
+    e_y = tf.constant([0.0, 1.0] + [0.0] * (n_features - 2), dtype=inputs.dtype)
+
+    with tf.autodiff.ForwardAccumulator(inputs, tf.ones_like(inputs) * e_x) as acc_x:
+        with tf.autodiff.ForwardAccumulator(inputs, tf.ones_like(inputs) * e_y) as acc_y:
+            with tf.GradientTape() as tape1:
+                tape1.watch(inputs)
+                u0 = model.internal_call(inputs)
+            grad = tape1.gradient(u0, inputs)
+        # acc_y va "interrogato" con jvp prima che il suo blocco with si chiuda
+        jvp_y = acc_y.jvp(grad)
+    jvp_x = acc_x.jvp(grad)
+
+    u_xx = jvp_x[:, 0:1]
+    u_yy = jvp_y[:, 1:2]
+    return u0, grad, u_xx, u_yy
 
 def main():
     tf.random.set_seed(0)
@@ -148,6 +177,22 @@ def main():
     except Exception as e:
         print("exception:", repr(e))
 
+
+    print("\n=== TEST 6.5: forward-over-backward (ForwardAccumulator), SOLO u_xx e u_yy, no full jacobian ===")
+    try:
+        u0, grad, u_xx, u_yy = laplacian_call_v4_forward_over_backward(model, inputs)
+        print("  u_xx is None?", u_xx is None, " shape:", None if u_xx is None else u_xx.shape)
+        print("  u_yy is None?", u_yy is None, " shape:", None if u_yy is None else u_yy.shape)
+        # Comparison with batch_jacobian (Test 3) to evaluate correctness
+        jac = laplacian_call_v2_single_tape_jacobian(model, inputs)
+        u_xx_ref = jac[:, 0, 0:1]
+        u_yy_ref = jac[:, 1, 1:2]
+        print("  max abs diff u_xx vs batch_jacobian:", tf.reduce_max(tf.abs(u_xx - u_xx_ref)).numpy())
+        print("  max abs diff u_yy vs batch_jacobian:", tf.reduce_max(tf.abs(u_yy - u_yy_ref)).numpy())
+        print("Results:", "OK" if u_xx is not None and u_yy is not None else "fail (None)")
+    except Exception as e:
+        print("exception:", repr(e))
+
     print("\n=== TEST 7: timing comparison (batch_jacobian vs forward-over-backward) ===")
 
     import time
@@ -161,9 +206,15 @@ def main():
         _, _, u_xx, u_yy = laplacian_call_v3_forward_over_backward(model, x)
         return u_xx, u_yy
 
+    @tf.function
+    def fwd_over_bwd_fn_4(x):
+        _, _, u_xx, u_yy = laplacian_call_v4_forward_over_backward(model, x)
+        return u_xx, u_yy
+
     # warmup (per il tracing di @tf.function)
     _ = full_jacobian_fn(big_inputs)
     _ = fwd_over_bwd_fn(big_inputs)
+    _ = fwd_over_bwd_fn_4(big_inputs)
 
     n_iter = 50
 
@@ -178,6 +229,12 @@ def main():
         _ = fwd_over_bwd_fn(big_inputs)
     t1 = time.time()
     print(f"  forward-over-backward (solo u_xx,u_yy): {(t1 - t0) / n_iter * 1000:.3f} ms/iter")
+
+    t0 = time.time()
+    for _ in range(n_iter):
+        _ = fwd_over_bwd_fn_4(big_inputs)
+    t1 = time.time()
+    print(f"  forward-over-backward (solo u_xx,u_yy) - uno: {(t1 - t0) / n_iter * 1000:.3f} ms/iter")
 
 
 if __name__ == "__main__":

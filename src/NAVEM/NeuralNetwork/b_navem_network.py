@@ -73,6 +73,36 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
     #                  u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
     #     return laplacian
 
+    # @tf.function
+    # def call(self, inputs: tf.Tensor) -> tf.Tensor:
+    #
+    #     e_x = tf.concat([tf.ones_like(inputs[:, 0:1]), tf.zeros_like(inputs[:, 1:])], axis=1)
+    #     e_y = tf.concat([tf.zeros_like(inputs[:, 0:1]), tf.ones_like(inputs[:, 0:1]),
+    #                      tf.zeros_like(inputs[:, 2:])], axis=1)
+    #
+    #     with tf.autodiff.ForwardAccumulator(inputs, e_x) as acc_x:
+    #         with tf.GradientTape() as tape1:
+    #             tape1.watch(inputs)
+    #             u0 = self.internal_call(inputs)
+    #         grad = tape1.gradient(u0, inputs)
+    #     u_xx = acc_x.jvp(grad)[:, 0:1]
+    #
+    #     with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
+    #         with tf.GradientTape() as tape1b:
+    #             tape1b.watch(inputs)
+    #             u0b = self.internal_call(inputs)
+    #         grad_b = tape1b.gradient(u0b, inputs)
+    #     u_yy = acc_y.jvp(grad_b)[:, 1:2]
+    #
+    #     laplacian_u0 = u_xx + u_yy
+    #
+    #     laplacian = (laplacian_u0 * self.var_phi +
+    #                  self.tf_two * (
+    #                          grad[:, 0:1] * self.var_phi_grad[:, 0:1] +
+    #                          grad[:, 1:2] * self.var_phi_grad[:, 1:2]) +
+    #                  u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
+    #     return laplacian
+
     @tf.function
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
 
@@ -81,18 +111,16 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
                          tf.zeros_like(inputs[:, 2:])], axis=1)
 
         with tf.autodiff.ForwardAccumulator(inputs, e_x) as acc_x:
-            with tf.GradientTape() as tape1:
-                tape1.watch(inputs)
-                u0 = self.internal_call(inputs)
-            grad = tape1.gradient(u0, inputs)
-        u_xx = acc_x.jvp(grad)[:, 0:1]
+            with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
+                with tf.GradientTape() as tape1:
+                    tape1.watch(inputs)
+                    u0 = self.internal_call(inputs)
+                grad = tape1.gradient(u0, inputs)
+            grad_jvp_y = acc_y.jvp(grad)
+        grad_jvp_x = acc_x.jvp(grad)
 
-        with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
-            with tf.GradientTape() as tape1b:
-                tape1b.watch(inputs)
-                u0b = self.internal_call(inputs)
-            grad_b = tape1b.gradient(u0b, inputs)
-        u_yy = acc_y.jvp(grad_b)[:, 1:2]
+        u_xx = grad_jvp_x[:, 0:1]
+        u_yy = grad_jvp_y[:, 1:2]
 
         laplacian_u0 = u_xx + u_yy
 
