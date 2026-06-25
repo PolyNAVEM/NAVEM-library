@@ -34,7 +34,7 @@ def main():
     parser.add_argument('-order', '--method-order', dest='method_order',
                         default=1, type=int, help="Method order (Default: 1)")
     parser.add_argument('-method', '--method-type', dest='method_type',
-                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
+                        default=2, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
@@ -71,7 +71,7 @@ def main():
                         help='Regularization coefficient')
     parser.add_argument('-usit', '--use-sqrt-in-train', dest='use_sqrt_in_train', default=1, type=int,
                         help='Flag to specify if the NNs are trained using also the sqrt in loss definition')
-    parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=False,
+    parser.add_argument('-eti', '--export-train-info', dest='export_training_info', default=True,
                         type=bool, action=argparse.BooleanOptionalAction,
                         help='Flag to specify if I want to export info (loss, time,...) during training')
 
