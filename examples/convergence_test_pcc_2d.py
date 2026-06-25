@@ -106,54 +106,54 @@ def main():
     test_type = 1
     method_orders = [1]
 
-    # method_types = [1, 1, 1, 2, 3]
-    # method_types_name = ["h_navem", "b_navem", "p_navem", "fem", "vem"]
-    #
-    # dictionary_files = [program_folder + '/../TrainedModels/H-NAVEM',
-    #                     program_folder + '/../TrainedModels/B-NAVEM',
-    #                     program_folder + '/../TrainedModels/P-NAVEM',
-    #                     '', '']
-    #
-    # mesh_types = [5, 0]
-    # for mesh_type in mesh_types:
-    #     mt = 0
-    #     list_errors = []
-    #     for method_type in method_types:
-    #         print('\x1b[6;30;41m' + "Begin of convergence test with method_type =", method_types_name[mt] + '\x1b[0m')
-    #         dictionary_file = dictionary_files[mt]
-    #         for order in method_orders:
-    #             export_path = dirpath_pcc_2d + "/Export_" + method_types_name[mt] + "_" + str(order) + "_" + str(
-    #                 mesh_type)
-    #             os.system(
-    #                 "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1"
-    #                 " --mesh-type={3} --mesh-max-relative-area=0.1 --export-path={2} --dictionary-file={4} "
-    #                 "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
-    #                     order, method_type, export_path, mesh_type, dictionary_file))
-    #             os.system(
-    #                 "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 "
-    #                 "--mesh-type={3} --mesh-max-relative-area=0.05 --export-path={2} --dictionary-file={4} "
-    #                 "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
-    #                     order, method_type, export_path, mesh_type, dictionary_file))
-    #             os.system(
-    #                 "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 "
-    #                 "--mesh-type={3} --mesh-max-relative-area=0.01 --export-path={2} --dictionary-file={4} "
-    #                 "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
-    #                     order, method_type, export_path, mesh_type, dictionary_file))
-    #             os.system(
-    #                 "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 "
-    #                 "--mesh-type={3} --mesh-max-relative-area=0.005 --export-path={2} --dictionary-file={4} "
-    #                 "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
-    #                     order, method_type, export_path, mesh_type, dictionary_file))
-    #
-    #             errors = import_errors_pcc(export_path, method_type, order, test_type)
-    #             test_errors_pcc(errors, order, tol)
-    #             list_errors.append(errors)
-    #
-    #
-    #         print("End of convergence test with method_type =", method_types_name[mt], "\n")
-    #         mt += 1
-    #
-    #     plot_errors(list_errors, method_types_name)
+    method_types = [1, 1, 1, 2, 3]
+    method_types_name = ["h_navem", "b_navem", "p_navem", "fem", "vem"]
+
+    dictionary_files = [program_folder + '/../TrainedModels/H-NAVEM',
+                        program_folder + '/../TrainedModels/B-NAVEM',
+                        program_folder + '/../TrainedModels/P-NAVEM',
+                        '', '']
+
+    mesh_types = [5, 0]
+    for mesh_type in mesh_types:
+        mt = 0
+        list_errors = []
+        for method_type in method_types:
+            print('\x1b[6;30;41m' + "Begin of convergence test with method_type =", method_types_name[mt] + '\x1b[0m')
+            dictionary_file = dictionary_files[mt]
+            for order in method_orders:
+                export_path = dirpath_pcc_2d + "/Export_" + method_types_name[mt] + "_" + str(order) + "_" + str(
+                    mesh_type)
+                os.system(
+                    "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1"
+                    " --mesh-type={3} --mesh-max-relative-area=0.1 --export-path={2} --dictionary-file={4} "
+                    "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
+                        order, method_type, export_path, mesh_type, dictionary_file))
+                os.system(
+                    "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 "
+                    "--mesh-type={3} --mesh-max-relative-area=0.05 --export-path={2} --dictionary-file={4} "
+                    "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
+                        order, method_type, export_path, mesh_type, dictionary_file))
+                os.system(
+                    "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 "
+                    "--mesh-type={3} --mesh-max-relative-area=0.01 --export-path={2} --dictionary-file={4} "
+                    "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
+                        order, method_type, export_path, mesh_type, dictionary_file))
+                os.system(
+                    "python " + program_folder + "/main_elliptic_pcc_2d.py --method-order={0} --method-type={1} --test-id=1 "
+                    "--mesh-type={3} --mesh-max-relative-area=0.005 --export-path={2} --dictionary-file={4} "
+                    "--no-evaluate-polynomial-loss --no-evaluate-laplacian-loss --no-evaluate-boundary-loss".format(
+                        order, method_type, export_path, mesh_type, dictionary_file))
+
+                errors = import_errors_pcc(export_path, method_type, order, test_type)
+                test_errors_pcc(errors, order, tol)
+                list_errors.append(errors)
+
+
+            print("End of convergence test with method_type =", method_types_name[mt], "\n")
+            mt += 1
+
+        plot_errors(list_errors, method_types_name)
 
     method_types = [1, 1, 1, 3]
     method_types_name = ["h_navem", "b_navem", "p_navem", "vem"]
@@ -201,6 +201,7 @@ def main():
 
     mesh_type = 4
     mesh_names = [program_folder + '/../Mesh/RandomConcaveMesh/RCV_4',
+                  program_folder + '/../Mesh/RandomConcaveMesh/RCV_8',
                   program_folder + '/../Mesh/RandomConcaveMesh/RCV_16',
                   program_folder + '/../Mesh/RandomConcaveMesh/RCV_32']
 
@@ -226,7 +227,7 @@ def main():
 
 
             errors = import_errors_pcc(export_path, method_type, order, test_type)
-            # test_errors_pcc(errors, order, tol)
+            test_errors_pcc(errors, order, tol)
             list_errors.append(errors)
 
         print("End of convergence test with method_type =", method_types_name[mt], "\n")
