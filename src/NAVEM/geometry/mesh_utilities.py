@@ -79,18 +79,14 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
             diameter = mesh_geometric_data.cell2_ds_diameters[c]
             inertia_vertices = vertex_points
 
-        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, internal_point)
-        cell2_ds_list_triangles.append(list_triangles)
-
-        triangulation_points = geometry_utilities.extract_triangulation_points_by_internal_point(vertex_points, internal_point, list_triangles)
-        cell2_ds_triangulations.append(triangulation_points)
+        list_triangles_by_internal_point = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, internal_point)
 
         polygon = NAVEMPolygon(geometry_utilities,
                                vertex_points,
                                inertia_vertices,
                                internal_point,
                                diameter,
-                               list_triangles)
+                               list_triangles_by_internal_point)
 
         cell2_ds_polygon.append(polygon)
 
@@ -111,6 +107,12 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
 
         mapped_polygon_internal_angles = compute_polygon_interior_angles(polygon.mapped_vertices)
         cell2_ds_mapped_polygon_internal_angles.append(mapped_polygon_internal_angles)
+
+        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
+        cell2_ds_list_triangles.append(list_triangles)
+
+        triangulation_points = geometry_utilities.extract_triangulation_points(vertex_points, list_triangles)
+        cell2_ds_triangulations.append(triangulation_points)
 
     return MeshGeometricData2D(mesh_geometric_data, cell2_ds_list_triangles, cell2_ds_polygon, cell2_ds_mapped_polygon_internal_angles, cell2_ds_polygon_internal_angles, cell2_ds_triangulations)
 

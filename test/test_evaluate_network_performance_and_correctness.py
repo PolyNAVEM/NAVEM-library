@@ -234,7 +234,7 @@ def main():
     for _ in range(n_iter):
         _ = fwd_over_bwd_fn_4(big_inputs)
     t1 = time.time()
-    print(f"  forward-over-backward (solo u_xx,u_yy) - uno: {(t1 - t0) / n_iter * 1000:.3f} ms/iter")
+    print(f"  forward-over-backward (solo u_xx,u_yy) - gradient: {(t1 - t0) / n_iter * 1000:.3f} ms/iter")
 
 
 if __name__ == "__main__":
