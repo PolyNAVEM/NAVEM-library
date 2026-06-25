@@ -14,25 +14,29 @@ from typing import List, Tuple
 from pypolydim import gedim, polydim
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from typing import Dict
-from NAVEM.geometry.geometry_utilities import compute_polygon_interior_angles
-import time
+from NAVEM.geometry.geometry_utilities import compute_polygon_interior_angles, compute_polygon_kernel
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
+from numpy.typing import NDArray
+
+
 class MeshGeometricData2D:
 
     def __init__(self, mesh_geometric_data: gedim.MeshUtilities.MeshGeometricData2D,
                  cell2_ds_list_triangles: List[List[int]], cell2_ds_polygon: List[NAVEMPolygon],
                  cell2_ds_mapped_polygon_internal_angles: List[List[float]],
-                 cell2_ds_polygon_internal_angles: List[List[float]]):
+                 cell2_ds_polygon_internal_angles: List[List[float]],
+                 cell2_ds_triangulations: List[List[NDArray[np.float64]]]):
 
         self.mesh_geometric_data = mesh_geometric_data
         self.cell2_ds_vertices = mesh_geometric_data.cell2_ds_vertices
         self.cell2_ds_list_triangles = cell2_ds_list_triangles
+        self.cell2_ds_triangulations: List[List[NDArray[np.float64]]] = cell2_ds_triangulations
         self.cell2_ds_polygon = cell2_ds_polygon
         self.cell2_ds_mapped_polygon_internal_angles = cell2_ds_mapped_polygon_internal_angles
         self.cell2_ds_polygon_internal_angles = cell2_ds_polygon_internal_angles
         self.cell2_ds_centroids = mesh_geometric_data.cell2_ds_centroids
         self.cell2_ds_areas = mesh_geometric_data.cell2_ds_areas
         self.cell2_ds_diameters = mesh_geometric_data.cell2_ds_diameters
-        self.cell2_ds_triangulations = mesh_geometric_data.cell2_ds_triangulations
         self.cell2_ds_edge_lengths = mesh_geometric_data.cell2_ds_edge_lengths
         self.cell2_ds_edge_directions = mesh_geometric_data.cell2_ds_edge_directions
         self.cell2_ds_edge_tangents = mesh_geometric_data.cell2_ds_edge_tangents
@@ -49,6 +53,7 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
     cell2_ds_list_triangles = []
     cell2_ds_polygon = []
     cell2_ds_mapped_polygon_internal_angles = []
+    cell2_ds_triangulations = []
     cell2_ds_polygon_internal_angles = []
 
     for c in range(mesh.cell2_d_total_number()):
@@ -58,14 +63,34 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
         polygon_internal_angles = compute_polygon_interior_angles(vertex_points)
         cell2_ds_polygon_internal_angles.append(polygon_internal_angles)
 
-        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
+
+        if polygon_internal_angles is not None:
+            use_kernel = NNCategory.is_concave(polygon_internal_angles)
+        else:
+            use_kernel = False
+
+        if use_kernel:
+            inertia_vertices = compute_polygon_kernel(geometry_utilities, vertex_points, polygon_internal_angles)
+            kernal_area = geometry_utilities.polygon_area(inertia_vertices)
+            internal_point = geometry_utilities.polygon_centroid(inertia_vertices, kernal_area)
+            diameter = geometry_utilities.polygon_diameter(inertia_vertices)
+        else:
+            internal_point = mesh_geometric_data.cell2_ds_centroids[c]
+            diameter = mesh_geometric_data.cell2_ds_diameters[c]
+            inertia_vertices = vertex_points
+
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, internal_point)
         cell2_ds_list_triangles.append(list_triangles)
 
+        triangulation_points = geometry_utilities.extract_triangulation_points_by_internal_point(vertex_points, internal_point, list_triangles)
+        cell2_ds_triangulations.append(triangulation_points)
+
         polygon = NAVEMPolygon(geometry_utilities,
-                               mesh_geometric_data.cell2_ds_vertices[c],
-                               mesh_geometric_data.cell2_ds_diameters[c],
-                               mesh_geometric_data.cell2_ds_centroids[c],
-                               polygon_internal_angles)
+                               vertex_points,
+                               inertia_vertices,
+                               internal_point,
+                               diameter,
+                               list_triangles)
 
         cell2_ds_polygon.append(polygon)
 
@@ -87,7 +112,7 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
         mapped_polygon_internal_angles = compute_polygon_interior_angles(polygon.mapped_vertices)
         cell2_ds_mapped_polygon_internal_angles.append(mapped_polygon_internal_angles)
 
-    return MeshGeometricData2D(mesh_geometric_data, cell2_ds_list_triangles, cell2_ds_polygon, cell2_ds_mapped_polygon_internal_angles, cell2_ds_polygon_internal_angles)
+    return MeshGeometricData2D(mesh_geometric_data, cell2_ds_list_triangles, cell2_ds_polygon, cell2_ds_mapped_polygon_internal_angles, cell2_ds_polygon_internal_angles, cell2_ds_triangulations)
 
 
 def select_non_convex_elements(mesh: gedim.MeshMatricesDAO,

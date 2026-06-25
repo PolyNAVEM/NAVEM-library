@@ -239,21 +239,19 @@ def assemble(geometry_utilities_config: gedim.GeometryUtilitiesConfig,
         basis_functions_values = local_space_data.basis_functions_values(reference_element_data)
         basis_functions_derivative_values = local_space_data.basis_functions_derivative_values(reference_element_data)
 
-        cell2_d_internal_quadrature = local_space_data.internal_quadrature(reference_element_data)
+        internal_quadrature_points, internal_quadrature_weights = local_space_data.internal_quadrature(reference_element_data)
 
-        diffusion_term_values = test.diffusion_term(cell2_d_internal_quadrature.points)
-        source_term_values = test.source_term(cell2_d_internal_quadrature.points)
-        weights = cell2_d_internal_quadrature.weights
-
+        diffusion_term_values = test.diffusion_term(internal_quadrature_points)
+        source_term_values = test.source_term(internal_quadrature_points)
 
         equation = polydim.pde_tools.equations.EllipticEquation()
         local_a = equation.compute_cell_diffusion_matrix(diffusion_term_values,
                                                          basis_functions_derivative_values,
-                                                         weights)
+                                                         internal_quadrature_weights)
 
         local_rhs = equation.compute_cell_forcing_term(source_term_values,
                                                        basis_functions_values,
-                                                       weights)
+                                                       internal_quadrature_weights)
 
         k_max = float(np.max(abs(diffusion_term_values)))
         local_a_stab = k_max * local_space_data.stabilization_matrix(reference_element_data)
@@ -351,11 +349,11 @@ def post_process_solution(geometry_utilities_config: gedim.GeometryUtilitiesConf
 
         basis_functions_derivative_values = local_space_data.basis_functions_derivative_values(reference_element_data)
 
-        cell2_d_internal_quadrature = local_space_data.internal_quadrature(reference_element_data)
+        internal_quadrature_points, internal_quadrature_weights = local_space_data.internal_quadrature(reference_element_data)
 
 
-        exact_solution_values = test.exact_solution(cell2_d_internal_quadrature.points)
-        exact_derivative_solution_values = test.exact_derivative_solution(cell2_d_internal_quadrature.points)
+        exact_solution_values = test.exact_solution(internal_quadrature_points)
+        exact_derivative_solution_values = test.exact_derivative_solution(internal_quadrature_points)
 
         local_count_do_fs = assembler_utilities_obj.local_count_do_fs(2, c, [do_fs_data])
 
@@ -370,8 +368,8 @@ def post_process_solution(geometry_utilities_config: gedim.GeometryUtilitiesConf
         local_error_l2 = (basis_functions_values @ do_fs_values - exact_solution_values)**2
         local_norm_l2 = (basis_functions_values @ do_fs_values)**2
 
-        result.cell2_ds_error_l2[c] = np.sum(cell2_d_internal_quadrature.weights * local_error_l2)
-        result.cell2_ds_norm_l2[c] = np.sum(cell2_d_internal_quadrature.weights * local_norm_l2)
+        result.cell2_ds_error_l2[c] = np.sum(internal_quadrature_weights * local_error_l2)
+        result.cell2_ds_norm_l2[c] = np.sum(internal_quadrature_weights * local_norm_l2)
 
         local_error_h1 = ((basis_functions_derivative_values[0] @ do_fs_values - exact_derivative_solution_values[0])**2
                           + (basis_functions_derivative_values[1] @ do_fs_values - exact_derivative_solution_values[1])**2)
@@ -379,8 +377,8 @@ def post_process_solution(geometry_utilities_config: gedim.GeometryUtilitiesConf
         local_norm_h1 = ((basis_functions_derivative_values[0] @ do_fs_values)**2 +
                          (basis_functions_derivative_values[1] @ do_fs_values)**2)
 
-        result.cell2_ds_error_h1[c] = np.sum(cell2_d_internal_quadrature.weights * local_error_h1)
-        result.cell2_ds_norm_h1[c] = np.sum(cell2_d_internal_quadrature.weights * local_norm_h1)
+        result.cell2_ds_error_h1[c] = np.sum(internal_quadrature_weights * local_error_h1)
+        result.cell2_ds_norm_h1[c] = np.sum(internal_quadrature_weights * local_norm_h1)
 
         if mesh_geometric_data.mesh_geometric_data.cell2_ds_diameters[c] > result.mesh_size:
             result.mesh_size = mesh_geometric_data.mesh_geometric_data.cell2_ds_diameters[c]

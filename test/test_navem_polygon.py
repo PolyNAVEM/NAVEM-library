@@ -83,9 +83,9 @@ class TestPolygonUtilities(unittest.TestCase):
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
-        internal_angles = compute_polygon_interior_angles(vertex_points)
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, centroid)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid, internal_angles)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, vertex_points, centroid, diameter, list_triangles)
         inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
         _, mapped_vertices, _, _= polygon.map_f_inv(vertex_points, 0)
 
@@ -103,8 +103,8 @@ class TestPolygonUtilities(unittest.TestCase):
         eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
         u, s, vh = np.linalg.svd(mass_matrix)
 
-        print(np.linalg.norm(eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T - mass_matrix))
-        print(np.linalg.norm(u @ np.diag(s) @ vh - mass_matrix))
+        self.assertLess(np.linalg.norm(eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T - mass_matrix), 1.0e-12)
+        self.assertLess(np.linalg.norm(u @ np.diag(s) @ vh - mass_matrix), 1.0e-12)
 
 
 
@@ -157,28 +157,19 @@ class TestPolygonUtilities(unittest.TestCase):
         # M = V @ D @ V.T = C.T @ C = VH.T @ S @ U.T @ U @ S @ VH = VH.T @ S @ S @ VH
         eigenvalues, eigenvectors = np.linalg.eigh(mass_matrix)
 
-        det_q = np.linalg.det(eigenvectors)
         b_matrix = np.identity(3)
         b_matrix[0:2, 0:2] = np.sqrt(max(eigenvalues)) * np.sqrt(np.diag(np.reciprocal(eigenvalues))) @ eigenvectors.T
 
         eigenvalues_1 = s**2
         eigenvectors_1 = vh.T
-        det_q_1 = np.linalg.det(eigenvectors_1)
         b_matrix_1 = np.identity(3)
         b_matrix_1[0:2, 0:2] = np.sqrt(max(eigenvalues_1)) * np.sqrt(np.diag(np.reciprocal(eigenvalues_1))) @ eigenvectors_1.T
 
 
-        print(np.linalg.norm(gedim_mass_matrix - mass_matrix))
-        print(np.linalg.norm(gedim_mass_matrix - mass_matrix_1))
-        print(np.linalg.norm(eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T - mass_matrix))
-        print(np.linalg.norm(vh.T @ np.diag(s) @ np.diag(s) @ vh - mass_matrix))
-        print(np.linalg.norm(np.diag(s) @ np.diag(s) - np.diag(eigenvalues)))
-        print(np.linalg.norm(vh - eigenvectors.T))
-        print(np.linalg.norm(b_matrix_1 - b_matrix))
-        print(np.linalg.norm(det_q_1 - det_q))
-        print(s ** 2)
-        print(eigenvalues)
-
+        self.assertLess(np.linalg.norm(gedim_mass_matrix - mass_matrix), 1.0e-12)
+        self.assertLess(np.linalg.norm(gedim_mass_matrix - mass_matrix_1), 1.0e-12)
+        self.assertLess(np.linalg.norm(eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T - mass_matrix), 1.0e-12)
+        self.assertLess(np.linalg.norm(vh.T @ np.diag(s) @ np.diag(s) @ vh - mass_matrix), 1.0e-12)
 
 
     def test_polygon_mapping_on_parallelograms(self):
@@ -196,8 +187,9 @@ class TestPolygonUtilities(unittest.TestCase):
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, centroid)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, vertex_points, centroid, diameter, list_triangles)
 
         inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
         _, mapped_vertices, _, _ = polygon.map_f_inv(vertex_points, 0)
@@ -210,8 +202,9 @@ class TestPolygonUtilities(unittest.TestCase):
         other_area = geometry_utilities.polygon_area(other_vertex_points)
         other_centroid = geometry_utilities.polygon_centroid(other_vertex_points, other_area)
         other_diameter = geometry_utilities.polygon_diameter(other_vertex_points)
+        other_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(other_vertex_points, other_centroid)
 
-        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_diameter, other_centroid)
+        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_vertex_points, other_centroid, other_diameter, other_list_triangles)
 
         other_inertia_mapped_points, _ = other_polygon.map_inertia_inv(other_vertex_points)
         _, other_mapped_vertices, _, _ = other_polygon.map_f_inv(other_vertex_points, 0)
@@ -239,8 +232,9 @@ class TestPolygonUtilities(unittest.TestCase):
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
         diameter = geometry_utilities.polygon_diameter(vertex_points)
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, centroid)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, vertex_points, centroid, diameter, list_triangles)
 
         inertia_mapped_points, _ = polygon.map_inertia_inv(vertex_points)
         _, mapped_vertices, _, _ = polygon.map_f_inv(vertex_points, 0)
@@ -253,8 +247,9 @@ class TestPolygonUtilities(unittest.TestCase):
         other_area = geometry_utilities.polygon_area(other_vertex_points)
         other_centroid = geometry_utilities.polygon_centroid(other_vertex_points, other_area)
         other_diameter = geometry_utilities.polygon_diameter(other_vertex_points)
+        other_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(other_vertex_points, other_centroid)
 
-        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_diameter, other_centroid)
+        other_polygon = NAVEMPolygon(geometry_utilities, other_vertex_points, other_vertex_points, other_centroid, other_diameter, other_list_triangles)
 
         other_inertia_mapped_points, _ = other_polygon.map_inertia_inv(other_vertex_points)
         _, other_mapped_vertices, _, _ = other_polygon.map_f_inv(other_vertex_points, 0)
@@ -280,11 +275,12 @@ class TestPolygonUtilities(unittest.TestCase):
 
         area = geometry_utilities.polygon_area(vertex_points)
         centroid = geometry_utilities.polygon_centroid(vertex_points, area)
-        diameter = geometry_utilities.polygon_diameter(vertex_points)
         polygon_internal_angles = compute_polygon_interior_angles(vertex_points)
         kernel = compute_polygon_kernel(geometry_utilities, vertex_points, polygon_internal_angles)
+        diameter = geometry_utilities.polygon_diameter(kernel)
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, centroid)
 
-        polygon = NAVEMPolygon(geometry_utilities, vertex_points, diameter, centroid)
+        polygon = NAVEMPolygon(geometry_utilities, vertex_points, vertex_points, centroid, diameter, list_triangles)
 
         inertia_mapped_points, _ = polygon.map_inertia_inv(kernel)
         _, mapped_vertices, _, _ = polygon.map_f_inv(kernel, 3)
@@ -302,8 +298,9 @@ class TestPolygonUtilities(unittest.TestCase):
         kernel_centroid = geometry_utilities.polygon_centroid(kernel, kernel_area)
         other_centroid = kernel_centroid
         other_diameter = geometry_utilities.polygon_diameter(kernel)
+        other_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(kernel, other_centroid)
 
-        other_polygon = NAVEMPolygon(geometry_utilities, vertex_points, other_diameter, other_centroid, polygon_internal_angles)
+        other_polygon = NAVEMPolygon(geometry_utilities, vertex_points, kernel, other_centroid, other_diameter, other_list_triangles)
 
         other_inertia_mapped_points, _ = other_polygon.map_inertia_inv(vertex_points)
         _, other_mapped_vertices, _, _ = other_polygon.map_f_inv(vertex_points, 3)

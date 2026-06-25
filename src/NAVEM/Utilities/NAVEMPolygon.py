@@ -13,98 +13,59 @@ import numpy as np
 from pypolydim import gedim, polydim
 from numpy.typing import NDArray
 from typing import Tuple, List
-from NAVEM.geometry.geometry_utilities import compute_polygon_kernel
-from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
 
-# Map the points to the similar polygon with centroid=(0,0) and diameter=1
+
 class NAVEMPolygon:
 
-    def __init__(self, geometry_utilities: gedim.GeometryUtilities, vertex_points: NDArray[np.float64], diameter: float,
-                 centroid: NDArray[np.float64], internal_angles: List[float] = None):
+    def __init__(self, geometry_utilities: gedim.GeometryUtilities, vertex_points: NDArray[np.float64],
+                 inertia_vertices: NDArray[np.float64], centroid: NDArray[np.float64], diameter: float,
+                 list_triangles: List[int]):
+
+        """
+        # Map the points to the similar polygon with centroid=(0,0) and diameter=1
+        """
 
         self.geometry_utilities = geometry_utilities
         self.num_vertices: int = vertex_points.shape[1]
 
-        if internal_angles is not None:
-            use_kernel = NNCategory.is_concave(internal_angles)
-        else:
-            use_kernel = False
+        self.kernel = inertia_vertices
+        self.diameter = diameter
+        self.inv_diameter = 1.0 / self.diameter
+        self.centroid = centroid
+        self.list_triangles = list_triangles
+        self.centroid = np.expand_dims(self.centroid, axis=1)
 
-        if use_kernel:
-            self.kernel = compute_polygon_kernel(geometry_utilities, vertex_points, internal_angles)
+        num_vertices: int = vertex_points.shape[1]
+        num_kernel_vertices: int = self.kernel.shape[1]
 
-            self.diameter = geometry_utilities.polygon_diameter(self.kernel)
-            self.inv_diameter = 1.0 / self.diameter
-            kernal_area = geometry_utilities.polygon_area(self.kernel)
-            self.centroid = geometry_utilities.polygon_centroid(self.kernel, kernal_area)
-            self.list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(self.kernel, self.centroid)
-            self.centroid = np.expand_dims(self.centroid, axis=1)
+        self.vertices = self.kernel
+        self.mapped_max_vertex_distance = []
 
-            num_vertices: int = vertex_points.shape[1]
-            num_kernel_vertices: int = self.kernel.shape[1]
+        # first re-scaling
+        fr_vertex_points = self.inv_diameter * self.vertices
 
-            self.vertices = self.kernel
-            self.mapped_max_vertex_distance = []
+        # inertia mapping
+        fr_centroid = self.inv_diameter * self.centroid
+        in_vertex_points, map_inertia_matrix = self.compute_map_inertia(fr_vertex_points, fr_centroid, self.list_triangles)
 
-            # first re-scaling
-            fr_vertex_points = self.inv_diameter * self.vertices
+        # second inertia mapping for stability reason
+        in_centroid = np.zeros([3, 1])
+        s_in_vertex_points, s_map_inertia_matrix = self.compute_map_inertia(in_vertex_points, in_centroid, self.list_triangles)
 
-            # inertia mapping
-            fr_centroid = self.inv_diameter * self.centroid
-            in_vertex_points, map_inertia_matrix = self.compute_map_inertia(fr_vertex_points, fr_centroid, self.list_triangles)
+        # second rescaling
+        s_in_diameter = self.geometry_utilities.polygon_diameter(s_in_vertex_points)
+        s_in_inv_diameter = 1.0 / s_in_diameter
 
-            # second inertia mapping for stability reason
-            in_centroid = np.zeros([3, 1])
-            s_in_vertex_points, s_map_inertia_matrix = self.compute_map_inertia(in_vertex_points, in_centroid, self.list_triangles)
+        sr_vertex_points = np.zeros([3, num_kernel_vertices])
+        for v in range(num_kernel_vertices):
+            sr_vertex_points[:, v:(v + 1)] = s_in_inv_diameter * s_in_vertex_points[:, v:(v + 1)]
 
-            # second rescaling
-            s_in_diameter = self.geometry_utilities.polygon_diameter(s_in_vertex_points)
-            s_in_inv_diameter = 1.0 / s_in_diameter
+        self.map_f_matrix = self.inv_diameter * s_in_inv_diameter * s_map_inertia_matrix @ map_inertia_matrix
 
-            sr_vertex_points = np.zeros([3, num_kernel_vertices])
-            for v in range(num_kernel_vertices):
-                sr_vertex_points[:, v:(v + 1)] = s_in_inv_diameter * s_in_vertex_points[:, v:(v + 1)]
-
-            self.map_f_matrix = self.inv_diameter * s_in_inv_diameter * s_map_inertia_matrix @ map_inertia_matrix
-
-            self.mapped_vertices = np.zeros([3, num_vertices])
-            for v in range(num_vertices):
-                self.mapped_vertices[:, v:(v + 1)] = (self.map_f_matrix @
-                                                    (vertex_points[:, v:(v + 1)] - self.centroid))
-
-        else:
-
-            self.vertices = vertex_points
-            self.list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(self.vertices, centroid)
-            # self.list_triangles = list_triangles
-            self.diameter = diameter
-            self.inv_diameter = 1.0 / diameter
-            self.centroid = np.expand_dims(centroid, axis=1)
-
-
-            self.mapped_max_vertex_distance = []
-
-            # first re-scaling
-            fr_vertex_points = self.inv_diameter * self.vertices
-
-            # inertia mapping
-            fr_centroid = self.inv_diameter * self.centroid
-            in_vertex_points, map_inertia_matrix = self.compute_map_inertia(fr_vertex_points, fr_centroid, self.list_triangles)
-
-            # second inertia mapping for stability reason
-            in_centroid = np.zeros([3, 1])
-            s_in_vertex_points, s_map_inertia_matrix = self.compute_map_inertia(in_vertex_points, in_centroid, self.list_triangles)
-
-            # second rescaling
-            s_in_diameter = self.geometry_utilities.polygon_diameter(s_in_vertex_points)
-            s_in_inv_diameter = 1.0 / s_in_diameter
-
-            sr_vertex_points = np.zeros([3, self.num_vertices])
-            for v in range(self.num_vertices):
-                sr_vertex_points[:, v:(v + 1)] = s_in_inv_diameter * s_in_vertex_points[:, v:(v + 1)]
-
-            self.mapped_vertices = sr_vertex_points
-            self.map_f_matrix = self.inv_diameter * s_in_inv_diameter * s_map_inertia_matrix @ map_inertia_matrix
+        self.mapped_vertices = np.zeros([3, num_vertices])
+        for v in range(num_vertices):
+            self.mapped_vertices[:, v:(v + 1)] = (self.map_f_matrix @
+                                                (vertex_points[:, v:(v + 1)] - self.centroid))
 
 
     # def compute_inertia_matrix(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> NDArray[np.float64]:
