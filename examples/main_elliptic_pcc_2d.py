@@ -104,8 +104,7 @@ def main():
     mesh_connectivity_data = polydim.pde_tools.mesh.MeshMatricesDAO_mesh_connectivity_data(mesh)
 
     dof_manager = polydim.pde_tools.do_fs.DOFsManager()
-    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, mesh_geometric_data, boundary_info,
-                                                                 args.dictionary_file)
+    mesh_do_fs_info = reference_element_data.set_mesh_do_fs_info(mesh, boundary_info)
     do_fs_data = dof_manager.create_do_fs_2_d(mesh_do_fs_info, mesh_connectivity_data)
     assembler_utilities_obj = assembler_utilities()
     count_do_fs_data = assembler_utilities_obj.count_do_fs([do_fs_data])
@@ -114,7 +113,10 @@ def main():
     print('\x1b[6;30;42m' + "Created discrete space with ", do_fs_data.number_do_fs, " DOFs and ",
           do_fs_data.number_strongs, " STRONG" + '\x1b[0m')
     print("Assemble...")
-    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
+    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data,
+                                                                 args.dictionary_file)
+
+
     assembler_data = assemble(geometry_utilities_config,
                               mesh,
                               mesh_geometric_data,

@@ -13,10 +13,11 @@ import numpy as np
 from typing import Tuple
 import matplotlib.pyplot as plt
 import matplotlib.path as plt_path
-from pypolydim import gedim
+from pypolydim import gedim, polydim
 from enum import Enum
-
+from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
 import os
+from NAVEM.Utilities.wachspress_coordinate import wachspress_weights
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
@@ -34,6 +35,77 @@ class BubbleType(Enum):
     approximate_distance_function = 1
     product = 2
 
+
+def lagrange_basis_1d(basis_index: int, x: tf.Tensor, reference_do_fs_coordinates: tf.Tensor) -> tf.Tensor:
+    p = tf.convert_to_tensor(1.0, dtype=tf.float64)
+    for i, xi in enumerate(reference_do_fs_coordinates):
+        if i != basis_index:
+            p *= (x - reference_do_fs_coordinates[i]) / (
+                        reference_do_fs_coordinates[basis_index] - reference_do_fs_coordinates[
+                    i])  # Lagrange representation
+    return p
+
+def lagrange_1d_values(reference_do_fs_coordinates: tf.Tensor, lagrange_1d_coefficients: tf.Tensor,
+                       evaluation_points_x: tf.Tensor) -> tf.Tensor:
+    """
+    interpolation_points_x: shape [num DOFs]
+    lagrange_1d_coefficients: shape [num DOFs]
+    evaluation_points_x: shape [num polygon x num points]
+    """
+
+    x = tf.convert_to_tensor(reference_do_fs_coordinates, dtype=tf.float64)
+    c = tf.convert_to_tensor(lagrange_1d_coefficients, dtype=tf.float64)
+    xp = tf.convert_to_tensor(evaluation_points_x, dtype=tf.float64)
+
+    n = x.shape[0]
+    m = xp.shape[1]
+    p = xp.shape[0]
+
+    # differences[m,j] = xp_m - x_j
+    differences = xp[:, :, None] - x[None, None, :]
+
+    # differences_expanded shape [M, N, N]
+    # differences_expanded[:, i, j]  = xp - x_j
+    differences_expanded = tf.broadcast_to(
+        differences[:, :, None, :],
+        [p, m, n, n]
+    )
+
+    # Mask diagonal element : product ignores 1
+    eye_matrix = tf.eye(n, dtype=tf.bool)
+    differences_masked = tf.where(
+        eye_matrix[None, None, :, :],
+        tf.ones_like(differences_expanded),
+        differences_expanded
+    )
+
+    # prod_{j != i} (xp - x_j)
+    prod = tf.reduce_prod(differences_masked, axis=-1)
+
+    # For each i:
+    # L_i(xp) = c_i * prod_{j != i} (xp - x_j)
+    values = prod * c[None, None, :]
+
+    return values
+
+def filter_window_f(x: tf.Tensor) -> tf.Tensor:
+    return tf.where(x > tf.constant(0.0, dtype=x.dtype), tf.exp(tf.constant(-1.0, dtype=x.dtype) / x),
+                    tf.constant(0.0, dtype=x.dtype))
+
+
+def filter_window(x: tf.Tensor, margin: float) -> tf.Tensor:
+    z_left = (x + tf.constant(margin, dtype=x.dtype)) / tf.constant(margin, dtype=x.dtype)
+    one_side_window_left = filter_window_f(z_left) / (filter_window_f(z_left) + filter_window_f(1 - z_left))
+    z_right = (tf.constant(1.0 + margin, dtype=x.dtype) - x) / tf.constant(margin, dtype=x.dtype)
+    one_side_window_right = filter_window_f(z_right) / (filter_window_f(z_right) + filter_window_f(1 - z_right))
+    return 0.5 * (one_side_window_left + one_side_window_right)
+
+
+def localized_lagrange_basis_1d(basis_index: int, x: tf.Tensor, reference_do_fs_coordinates: tf.Tensor,
+                                margin: float) -> tf.Tensor:
+    lagrange_basis = lagrange_basis_1d(basis_index, x, reference_do_fs_coordinates)
+    window = filter_window(x, margin)
+    return lagrange_basis * window
 
 class EnforcingBoundary:
 
@@ -59,6 +131,80 @@ class EnforcingBoundary:
         self.boundary_method_type_adfs = boundary_method_type_adfs
         self.boundary_method_type_g = boundary_method_type_g
         self.bubble_type = bubble_type
+
+        reference_do_fs_coordinates = chebyshev_lobatto_nodes(0, 1, self.method_order + 1)
+        self.reference_do_fs_coordinates = tf.convert_to_tensor(reference_do_fs_coordinates, dtype=tf.float64)
+        self.lagrange_1d_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(
+            self.reference_do_fs_coordinates.numpy())
+
+    def compute_g_wachspress(self, lambdas: tf.Tensor) -> tf.Tensor:
+
+        """
+        Compute transfinite interpolant of Dirichlet boundary functions:
+        Sukumar 2026 - A Wachspress-based transfinite formulation for exactly enforcing Dirichlet boundary conditions
+         on convex polygonal domains in physics-informed neural networks
+        """
+        num_polygons = self.vertices.shape[0]
+        num_vertices = self.vertices.shape[1]
+
+        term_c = tf.constant(1.0, shape=[num_polygons], dtype=tf.float64)
+        g_vertex = tf.zeros([lambdas.shape[0], lambdas.shape[1], 0], dtype=tf.float64)
+        g_edge = tf.zeros([lambdas.shape[0], lambdas.shape[1], 0], dtype=tf.float64)
+
+        for i in range(num_vertices):
+            # Vertex basis function
+
+            # get the other vertices for edges attached to vertex i
+            ip1 = (i + 1) % num_vertices  # next vertex
+            im1 = (i - 1) % num_vertices  # previous vertex
+
+            # (x,y) coordinates where the boundary function will be evaluated
+            x_i = ((1.0 - lambdas[:, :, i]) * self.vertices[:, None, im1, 0]
+                   + lambdas[:, :, i] * self.vertices[:, None, i, 0])
+            y_i = ((1.0 - lambdas[:, :, i]) * self.vertices[:, None, im1, 1]
+                   + lambdas[:, :, i] * self.vertices[:, None, i, 1])
+
+            s_i = ((x_i - self.vertices[:, None, im1, 0]) * self.edge_tangents[:, None, im1, 0]
+                   + (y_i - self.vertices[:, None, im1, 1]) * self.edge_tangents[:, None, im1, 1]) / self.edge_lengths[
+                                                                                                     :, None, im1] ** 2
+
+            # Contributions to the transfinite boundary interpolant from this vertex
+            values_i = lagrange_1d_values(self.reference_do_fs_coordinates, self.lagrange_1d_coefficients, s_i)
+            term_a_im1 = values_i[:, :, -1]
+
+            # (x,y) coordinates where the boundary function will be evaluated
+            x_ip1 = ((1.0 - lambdas[:, :, ip1]) * self.vertices[:, None, i, 0]
+                     + lambdas[:, :, ip1] * self.vertices[:, None, ip1, 0])
+            y_ip1 = ((1.0 - lambdas[:, :, ip1]) * self.vertices[:, None, i, 1]
+                     + lambdas[:, :, ip1] * self.vertices[:, None, ip1, 1])
+            x_im1 = ((1.0 - lambdas[:, :, im1]) * self.vertices[:, None, i, 0]
+                     + lambdas[:, :, im1] * self.vertices[:, None, im1, 0])
+            y_im1 = ((1.0 - lambdas[:, :, im1]) * self.vertices[:, None, i, 1]
+                     + lambdas[:, :, im1] * self.vertices[:, None, im1, 1])
+
+            s_ip1 = ((x_ip1 - self.vertices[:, None, i, 0]) * self.edge_tangents[:, None, i, 0] + (
+                        y_ip1 - self.vertices[:, None, i, 1]) * self.edge_tangents[:, None, i, 1]) / self.edge_lengths[
+                                                                                                     :, None, i] ** 2
+            s_im1 = ((x_im1 - self.vertices[:, None, im1, 0]) * self.edge_tangents[:, None, im1, 0] + (
+                        y_im1 - self.vertices[:, None, im1, 1]) * self.edge_tangents[:, None, im1,
+                                                                  1]) / self.edge_lengths[:, None, im1] ** 2
+
+            values_ip1 = lagrange_1d_values(self.reference_do_fs_coordinates, self.lagrange_1d_coefficients, s_ip1)
+            values_im1 = lagrange_1d_values(self.reference_do_fs_coordinates, self.lagrange_1d_coefficients, s_im1)
+
+            # Contributions to the transfinite boundary interpolant from this vertex
+            term_a_i = values_ip1[:, :, 0]
+            term_b_i = values_im1[:, :, -1]
+            g_vertex = tf.concat([g_vertex, tf.expand_dims(
+                lambdas[:, :, i] * (term_a_i + term_b_i - term_c[:, None]) + lambdas[:, :, im1] * term_a_im1, axis=2)],
+                                 axis=2)
+
+            # Edge Basis functions
+            g_edge = tf.concat([g_edge,
+                                lambdas[:, :, i, None] * values_ip1[:, :, 1:-1] +
+                                lambdas[:, :, ip1, None] * tf.reverse(values_i[:, :, 1:-1], axis=[2])], axis=2)
+
+        return tf.concat([g_vertex, g_edge], axis=2)
 
     def initialize_boundary_properties(self, vertices: tf.Tensor):
 
@@ -165,24 +311,59 @@ class EnforcingBoundary:
         # Compute the final ratio
         return numerator / denominator  # Shape: (num_points, num_vertices)
 
+
     def compute_g(self, xy: tf.Tensor) -> tf.Tensor:
 
-        phi_k_line = self.compute_phi_k_line(xy)
-        dist = tf.constant([], tf.float64)
+        g = None
         match self.boundary_method_type_g:
-            case BoundaryMethodType.line:
-                dist = phi_k_line
-            case BoundaryMethodType.segment:
-                dist = self.compute_phi_k_segment(xy, phi_k_line)
+            case BoundaryMethodType.segment | BoundaryMethodType.line:
+
+                phi_k_line = self.compute_phi_k_line(xy)
+                dist = tf.constant([], tf.float64)
+                match self.boundary_method_type_adfs:
+                    case BoundaryMethodType.line:
+                        dist = phi_k_line
+                    case BoundaryMethodType.segment:
+                        dist = self.compute_phi_k_segment(xy, phi_k_line)
+                    case _:
+                        raise ValueError("Unknown boundary method type")
+
+                proj = self.projection(xy)
+                transfinite_ws = self.transfinite_w(dist)
+                prev_transfinite_w = tf.roll(transfinite_ws, shift=1, axis=2)
+                prev_proj = tf.roll(proj, shift=1, axis=2)
+
+                if self.method_order == 1:
+                    g = prev_transfinite_w * (1.0 - prev_proj) + transfinite_ws * proj
+                else:
+
+                    margin = 0.5
+
+                    psi_0je = localized_lagrange_basis_1d(self.method_order, proj, self.reference_do_fs_coordinates,
+                                                          margin) * transfinite_ws
+                    psi_m1je = localized_lagrange_basis_1d(0, prev_proj, self.reference_do_fs_coordinates,
+                                                           margin) * prev_transfinite_w
+                    g_vertex = psi_0je + psi_m1je
+
+                    g_edge = tf.zeros([g_vertex.shape[0], g_vertex.shape[1], 0], dtype=tf.float64)
+                    for i in range(1, self.method_order):
+                        psi_ije = localized_lagrange_basis_1d(i, proj, self.reference_do_fs_coordinates,
+                                                              margin) * transfinite_ws
+                        g_edge = tf.concat([g_edge, psi_ije], axis=-1)
+
+                    # reorder edge functions: divide in batch, order batch, reverse in each batch, flatten
+                    g_edge = tf.reshape(g_edge, (tf.shape(g_edge)[0], tf.shape(g_edge)[1], -1, self.num_vertices))
+                    g_edge = tf.transpose(g_edge, perm=[0, 1, 3, 2])
+                    g_edge = tf.reverse(g_edge, axis=[3])
+                    g_edge = tf.reshape(g_edge, (tf.shape(g_edge)[0], tf.shape(g_edge)[1], -1))
+
+                    g = tf.concat([g_vertex, g_edge], axis=-1)
+
+            case BoundaryMethodType.wachspress:
+                wachspress_functions = wachspress_weights(xy, self.vertices)
+                g = self.compute_g_wachspress(wachspress_functions)
             case _:
-                raise ValueError("Unknown boundary method type")
-
-        proj = self.projection(xy)
-        transfinite_ws = self.transfinite_w(dist)
-        prev_transfinite_w = tf.roll(transfinite_ws, shift=1, axis=2)
-        prev_proj = tf.roll(proj, shift=1, axis=2)
-
-        g = prev_transfinite_w * (1.0 - prev_proj) + transfinite_ws * proj
+                raise ValueError("Unknown boundary method")
 
         return g
 

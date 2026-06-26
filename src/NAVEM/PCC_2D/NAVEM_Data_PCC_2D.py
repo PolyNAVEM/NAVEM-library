@@ -9,28 +9,28 @@
 #
 # This file can be used citing references in CITATION.cff file.
 
-from enum import Enum
+from enum import IntEnum
 from pypolydim import gedim
 from typing import List
 import numpy as np
 from numpy.typing import NDArray
 
 
-class NAVEMType(Enum):
+class NAVEMType(IntEnum):
     H_NAVEM = 1
     B_NAVEM = 2
     P_NAVEM = 3
 
-class NAVEMMappingType(Enum):
+class NAVEMMappingType(IntEnum):
     standard = 1
     inertia = 2
     rotated_inertia = 3
 
-class NAVEMElementType(Enum):
+class NAVEMElementType(IntEnum):
     generic_convex = 1
     generic_concave = 2
 
-class BasisFunctionType(Enum):
+class BasisFunctionType(IntEnum):
     vertex = 1
     edge = 2
     internal = 3

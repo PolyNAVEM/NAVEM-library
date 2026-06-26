@@ -22,7 +22,7 @@ import tensorflow as tf
 from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 import csv
 from NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
-from NAVEM.Utilities.PrintInformation import print_training_information
+from NAVEM.NeuralNetwork.PrintInformation import print_training_information
 from NAVEM.Utilities.RationalFunction import RationalFunction
 
 
@@ -123,7 +123,7 @@ def train_h_navem_pcc_2d_on_generic_polygon(method_order: int,
     for c in range(num_training_polygons):
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
-        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]),
+        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_inertia_internal_angles[c]),
                                        axis=1).T
 
         for v_id in range(num_vertices):

@@ -86,9 +86,8 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
                      u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
         return laplacian
 
-
     def pinn_laplace_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
-        integral_argument = tf.square(y_predicted)
+        integral_argument = tf.square(y_predicted - self.laplacian_basis_functions)
         integrals = tf.reduce_sum(integral_argument) * self.one_over_n_funcs
         self.curr_laplacian.assign(integrals)
         return integrals
@@ -112,6 +111,7 @@ class BNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.var_phi.assign(zero_2d)
         self.var_phi_grad.assign(zero_zero_2d)
         self.var_phi_xx_yy.assign(zero_2d)
+        self.laplacian_basis_functions.assign(zero_2d)
 
         self.save_weights(name_storage + "/nn_weights.weights.h5")
 

@@ -16,11 +16,12 @@ from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
 from NAVEM.NeuralNetwork.training_utilities import *
-from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType, BasisFunctionType
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType, BasisFunctionType, NAVEMMappingType
 import csv
 from NAVEM.Utilities.points_generator import *
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
-from NAVEM.Utilities.PrintInformation import print_training_information
+from NAVEM.NeuralNetwork.PrintInformation import print_training_information
+from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMPCC2DReferenceElement, NAVEMPCC2DLocalSpace
 
 
 def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
@@ -48,11 +49,51 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    boundary_method_type_g: BoundaryMethodType = BoundaryMethodType.segment,
                                                    boundary_method_type_adf: BoundaryMethodType = BoundaryMethodType.segment,
                                                    bubble_type: BubbleType = BubbleType.approximate_distance_function):
-    assert method_order == 1
+    if method_order > 1:
+        if method_type is not NAVEMType.B_NAVEM:
+            raise ValueError("not implemented high order p-navem")
 
-    network_input_dimension = 2 + 2 * (num_vertices - 1)
+    reference_element = NAVEMPCC2DReferenceElement(method_order)
+    local_space = NAVEMPCC2DLocalSpace(reference_element, geometry_utilities)
+    local_space.setup_geometry(mesh_geometric_data)
+
+    network_input_dimension = 0
+    num_functions_per_polygon = 0
+    id_basis_functions = None
+    match basis_function_type:
+
+        case BasisFunctionType.vertex:
+
+            num_functions_per_polygon = num_vertices
+            network_input_dimension = 2 + 2 * (num_vertices - 1)
+
+        case BasisFunctionType.edge:
+
+            if method_order == 1:
+                raise ValueError("not valid basis function type for this order")
+
+            num_functions_per_polygon = reference_element.num_dof_1d * num_vertices
+            network_input_dimension = 2 + 2 * (num_vertices - 1)
+
+            if method_order > 2:
+                network_input_dimension += 1
+                id_basis_functions = np.expand_dims(np.arange(reference_element.num_dof_1d) + 1, axis=1)
+            else:
+                id_basis_functions = np.zeros(0)
+
+        case BasisFunctionType.internal:
+
+            if method_order == 1:
+                raise ValueError("not valid basis function type for this order")
+
+            num_functions_per_polygon = reference_element.num_dof_2d
+            id_basis_functions = local_space.convert_do_fs_id_internal_basis_functions_to_binary()
+            network_input_dimension = 2 + 2 * (num_vertices - 1) + id_basis_functions.shape[1]
+        case _:
+            raise ValueError("not valid basis function type")
+
     num_training_polygons = mesh.cell2_d_total_number()
-    num_functions_per_polygon = num_vertices - (method_type == NAVEMType.P_NAVEM)
+    num_functions_per_polygon = num_functions_per_polygon - (method_type == NAVEMType.P_NAVEM)
 
     flags: Flags = set_flags(network_input_dimension,
                              method_order,
@@ -108,17 +149,17 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     xy_per_pol = np.zeros(shape=(num_training_polygons, num_points_per_polygon, 2))
     vertices_per_pol = np.zeros(shape=(num_training_polygons, 2, num_vertices))
-    jac_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, num_functions_per_polygon))
-    jac_inv_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, num_functions_per_polygon))
+    jac_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, num_functions_per_polygon)) # from inertia to inertia rotated
+    jac_inv_per_pol = np.zeros(shape=(num_training_polygons, 2, 2, num_functions_per_polygon)) # from inertia rotated to inertia
+    laplacian_per_polygon = np.zeros(shape=(num_training_polygons, num_points_per_polygon, num_functions_per_polygon))
 
     exact_bfgs = True
 
     for c in range(num_training_polygons):
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
-        internal_point = np.squeeze(polygon.centroid)
+        inertia_mapped_internal_point = mesh_geometric_data.cell2_ds_inertia_centroids[c]
 
-        inertia_mapped_internal_point, _ = polygon.map_inertia_inv(np.expand_dims(internal_point, axis=1))
         inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(
             polygon.mapped_vertices, inertia_mapped_internal_point)
         inertia_mapped_list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(
@@ -128,26 +169,90 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         inertia_mapped_internal_nodes = grid_over_polygon(distribution_points_type,
                                                           reference_nodes,
                                                           inertia_mapped_list_triangles_points,
-                                                          uniform_boundary, accumulating_border)
+                                                          uniform_boundary,
+                                                          accumulating_border)
 
         xy_per_pol[c, :, :] = inertia_mapped_internal_nodes[:2, :].T  # points over the inertia polygon
         vertices_per_pol[c, :, :] = polygon.mapped_vertices[:2, :]  # vertices are set up over the inertia polygon
 
-        for v_id in range(num_functions_per_polygon):
-            rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = NAVEMPolygon.map_fix_vertex_inv(
-                polygon.mapped_vertices,
-                inertia_mapped_internal_nodes,
-                v_id)
-            rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
+        match basis_function_type:
+            case BasisFunctionType.vertex:
+                for v_id in range(num_functions_per_polygon):
+                    rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = NAVEMPolygon.map_fix_vertex_inv(
+                        polygon.mapped_vertices,
+                        inertia_mapped_internal_nodes,
+                        v_id)
+                    rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
 
-            flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
-            rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
-            c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
+                    flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
+                    rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
+                    c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
 
-            inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon:
-                   (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
-            jac_per_pol[c, :, :, v_id] = jac[:2, :2]
-            jac_inv_per_pol[c, :, :, v_id] = jac_inv[:2, :2]
+                    inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon:
+                           (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
+                    jac_per_pol[c, :, :, v_id] = jac[:2, :2]
+                    jac_inv_per_pol[c, :, :, v_id] = jac_inv[:2, :2]
+
+            case BasisFunctionType.edge:
+                for v_id in range(num_vertices):
+                    rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = NAVEMPolygon.map_fix_vertex_inv(
+                        polygon.mapped_vertices,
+                        inertia_mapped_internal_nodes,
+                        v_id)
+                    rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
+
+                    flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
+
+                    for f_id in range(method_order - 1):
+
+                        if method_order > 2:
+                            polygon_and_id = np.concatenate((flat_rotated_vertices, id_basis_functions[f_id, :]), axis=0)
+                        else:
+                            polygon_and_id = flat_rotated_vertices
+
+                        rep_polygon_and_id = np.tile(polygon_and_id[np.newaxis, :], [num_points_per_polygon, 1])
+                        c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_polygon_and_id], axis=1)
+
+                        inputs[(c * num_functions_per_polygon + v_id * (method_order - 1) + f_id) * num_points_per_polygon:
+                               (c * num_functions_per_polygon + v_id * (method_order - 1) + f_id + 1) * num_points_per_polygon, :] = c_inputs
+                        jac_per_pol[c, :, :, v_id * (method_order - 1) + f_id] = jac[:2, :2]
+                        jac_inv_per_pol[c, :, :, v_id * (method_order - 1) + f_id] = jac_inv[:2, :2]
+
+            case BasisFunctionType.internal:
+
+                # Internal degrees of freedom are set up on the inertia element
+                local_space.create_local_space(c, reference_element, NAVEMMappingType.inertia)
+                laplacian_values = local_space.evaluate_laplacian_internal_basis_functions(inertia_mapped_internal_nodes)
+
+
+                for f_id in range(num_functions_per_polygon):
+
+                    v_id = f_id % num_vertices
+
+                    rotated_vertices, rotated_mapped_points, jac_inv, jac, inv_rescaling_factor = NAVEMPolygon.map_fix_vertex_inv(
+                        polygon.mapped_vertices,
+                        inertia_mapped_internal_nodes,
+                        v_id)
+
+                    rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
+                    flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
+
+                    if method_order > 2:
+                        polygon_and_id = np.concatenate((flat_rotated_vertices, id_basis_functions[f_id, :]), axis=0)
+                    else:
+                        polygon_and_id = flat_rotated_vertices
+                    rep_polygon_and_id = np.tile(polygon_and_id[np.newaxis, :], [num_points_per_polygon, 1])
+                    c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_polygon_and_id], axis=1)
+
+                    inputs[(c * num_functions_per_polygon + f_id) * num_points_per_polygon:
+                           (c * num_functions_per_polygon + f_id + 1) * num_points_per_polygon, :] = c_inputs
+                    jac_per_pol[c, :, :, f_id] = jac[:2, :2]
+                    jac_inv_per_pol[c, :, :, f_id] = jac_inv[:2, :2]
+
+                    laplacian_per_polygon[c, :, f_id] = laplacian_values[:, f_id] * inv_rescaling_factor * inv_rescaling_factor
+
+            case _:
+                raise  ValueError("not valid basis function type")
 
     inputs = tf.convert_to_tensor(inputs, dtype=tf.float64)
     labels = 0 * inputs[:, 0:1]
@@ -169,6 +274,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             raise ValueError("not valid navem type")
 
     nn.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives, geometry_utilities)
+
+    laplacian_per_polygon = np.reshape(np.transpose(np.array(laplacian_per_polygon), axes=[0, 2, 1]), [-1, 1])
+    nn.laplacian_basis_functions.assign(tf.convert_to_tensor(np.array(laplacian_per_polygon), dtype=tf.float64))
 
     learning_rate_scheduler = get_lr_scheduler(num_epoches_opt_order1, learning_rate_min, learning_rate_max)
     exponential_learning_rate = tf.keras.callbacks.LearningRateScheduler(learning_rate_scheduler)

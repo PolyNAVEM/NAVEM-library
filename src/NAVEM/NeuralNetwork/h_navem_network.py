@@ -8,7 +8,6 @@
 # See top level LICENSE file for more details.
 #
 # This file can be used citing references in CITATION.cff file.
-from warnings import catch_warnings
 
 import numpy as np
 from numpy.typing import NDArray

@@ -10,7 +10,6 @@
 # This file can be used citing references in CITATION.cff file.
 
 import os.path
-from email.policy import default
 from pathlib import Path
 import argparse
 from pypolydim import gedim, polydim
@@ -35,8 +34,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-order', '--method-order', dest='method_order',
                         default=1, type=int, help="Method order (Default: 1)")
+    parser.add_argument('-bft', '--basis-function-type', dest='basis_function_type',
+                        default=1, type=int, help="Basis function type: 1 - vertex; 2 - edge; 3 - internal (Default: 1)")
     parser.add_argument('-method', '--method-type', dest='method_type',
-                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
+                        default=3, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
@@ -110,6 +111,7 @@ def main():
 
     method_type = NAVEMType(args.method_type)
     element_type = NAVEMElementType(args.element_type)
+    basis_function_type = BasisFunctionType(args.basis_function_type)
 
     export_file_path = args.export_training_data_file_path
     if not os.path.exists(export_file_path):
@@ -140,8 +142,8 @@ def main():
 
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
-    full_export_training_data_file_path = (export_file_path + "/num_vertices_" + str(args.num_vertices) + "_" +
-                                           element_type.name + "/")
+    full_export_training_data_file_path = (export_file_path+ "/num_vertices_" + str(args.num_vertices) + "_"
+                                           + element_type.name + "_order_" + str(args.method_order) + "_" + basis_function_type.name + "/")
     if not os.path.exists(full_export_training_data_file_path):
         os.makedirs(full_export_training_data_file_path)
 
@@ -173,7 +175,7 @@ def main():
                                                     RationalFunction.RationalType(args.rational_type_function))
         case method_type.B_NAVEM | method_type.P_NAVEM:
             train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
-                                                           BasisFunctionType.vertex,
+                                                           basis_function_type,
                                                            method_type,
                                                            args.num_vertices,
                                                            geometry_utilities,

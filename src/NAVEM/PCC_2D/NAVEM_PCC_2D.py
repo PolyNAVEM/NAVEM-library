@@ -21,7 +21,7 @@ from pypolydim import polydim
 from scipy.linalg import cho_factor, cho_solve
 
 
-class NAVEM_PCC_2D_ReferenceElement:
+class NAVEMPCC2DReferenceElement:
 
     def __init__(self, method_order: int):
 
@@ -36,20 +36,14 @@ class NAVEM_PCC_2D_ReferenceElement:
         self.fem_reference_element_data: polydim.fem.pcc.FEM_PCC_2D_ReferenceElement_Data = fem_reference_element.create(method_order)
 
 
-class NAVEM_PCC_2D_LocalSpace:
+class NAVEMPCC2DLocalSpace:
 
     cell_2_d_index: int
     num_vertices: int
 
     # Polygon data
-    polygon_vertices: NDArray[np.float64]
-    polygon_measure: float
-    polygon_diameter: float
-    polygon_centroid: NDArray[np.float64]
-    polygon_edge_lengths: List[float]
-    polygon_edge_directions: List[bool]
-    polygon_edge_tangents: List[np.float64]
-    polygon_edge_normals: List[np.float64]
+    fem_polygon: polydim.fem.pcc.FEM_PCC_2D_Polygon_Geometry
+    fem_local_space_data: polydim.fem.pcc.FEM_PCC_2D_LocalSpace_Data
 
     num_boundary_basis_functions: int
     num_basis_functions: int
@@ -63,14 +57,16 @@ class NAVEM_PCC_2D_LocalSpace:
     d_matrix: NDArray[np.float64]
     laplacian_coefficients: NDArray[np.float64]
 
+    mesh_geometric_data: MeshGeometricData2D
+    navem_categories: Dict[NNCategory, NNDictionary]
+    internal_quadrature_points: Dict[int, NDArray[np.float64]]
+    internal_quadrature_weights: Dict[int, NDArray[np.float64]]
+    navem_input_output: Dict[int, NAVEMOutput]
+    navem_element_type: NAVEMMappingType
 
-    def __init__(self, reference_element_data: NAVEM_PCC_2D_ReferenceElement,
+    def __init__(self, reference_element_data: NAVEMPCC2DReferenceElement,
                  geometry_utilities: gedim.GeometryUtilities,
-                 mesh_geometric_data: MeshGeometricData2D,
-                 navem_categories: Dict[NNCategory, NNDictionary],
                  monomial_scaling: float = 0.5):
-
-        assert reference_element_data.method_order == 1
 
         self.utilities = polydim.vem.pcc.VEM_PCC_Utilities()
 
@@ -97,75 +93,100 @@ class NAVEM_PCC_2D_LocalSpace:
         self.edge_basis_coefficients = self.utilities.compute_edge_basis_coefficients(self.method_order,
                                                                                       self.edge_internal_points)
 
+        self.fem_local_space = polydim.fem.pcc.FEM_PCC_2D_LocalSpace = polydim.fem.pcc.FEM_PCC_2D_LocalSpace()
+
+
+
+    def setup_geometry(self, mesh_geometric_data: MeshGeometricData2D):
+        self.mesh_geometric_data = mesh_geometric_data
+
+    def setup_categories(self, dictionary_file_name: str):
+        self.navem_categories = categorize_elements_by_vertex_number(self.method_order,
+                                                                     self.mesh_geometric_data,
+                                                                     dictionary_file_name)
+
+    def setup_default_values(self, navem_element_type):
         self.internal_quadrature_points: Dict[int, NDArray[np.float64]] = {}
         self.internal_quadrature_weights: Dict[int, NDArray[np.float64]] = {}
-        for c in range(len(mesh_geometric_data.cell2_ds_vertices)):
+        self.navem_element_type = navem_element_type
+        for c in range(len(self.mesh_geometric_data.cell2_ds_vertices)):
             internal_quadrature \
                 = self.quadrature.polygon_internal_quadrature(
                 self.reference_quadrature_data.reference_triangle_quadrature,
-                mesh_geometric_data.cell2_ds_triangulations[c])
+                self.mesh_geometric_data.cell2_ds_triangulations[c])
 
             self.internal_quadrature_points[c] = internal_quadrature.points
             self.internal_quadrature_weights[c] = internal_quadrature.weights
 
+
         self.navem_input_output \
-            = create_navem_input_output(geometry_utilities,
-                                        mesh_geometric_data,
-                                        navem_categories,
+            = create_navem_input_output(self.geometry_utilities,
+                                        self.mesh_geometric_data,
+                                        self.navem_categories,
                                         self.internal_quadrature_points,
-                                        self.internal_quadrature_weights)
-
-
-        self.fem_local_space = polydim.fem.pcc.FEM_PCC_2D_LocalSpace = polydim.fem.pcc.FEM_PCC_2D_LocalSpace()
+                                        self.internal_quadrature_weights,
+                                        navem_element_type=self.navem_element_type)
 
     def create_local_space(self,
                            cell_index: int,
-                           polygon_vertices: NDArray[np.float64],
-                           polygon_measure: float,
-                           polygon_diameter: float,
-                           polygon_centroid: NDArray[np.float64],
-                           polygon_edge_lengths: List[float],
-                           polygon_edge_directions: List[bool],
-                           polygon_edge_tangents: List[np.float64],
-                           polygon_edge_normals: List[np.float64],
-                           list_triangles_points: List[NDArray[np.float64]],
-                           reference_element_data: NAVEM_PCC_2D_ReferenceElement) -> None:
+                           reference_element_data: NAVEMPCC2DReferenceElement,
+                           navem_element_type: NAVEMMappingType) -> None:
 
         self.cell_2_d_index = cell_index
-        self.num_vertices = polygon_vertices.shape[1]
+        self.num_vertices = self.mesh_geometric_data.cell2_ds_vertices[cell_index].shape[1]
 
         if self.num_vertices == 3:
             self.fem_polygon = polydim.fem.pcc.FEM_PCC_2D_Polygon_Geometry()
             self.fem_polygon.tolerance2_d = self.geometry_utilities.tolerance1_d()
             self.fem_polygon.tolerance1_d = self.geometry_utilities.tolerance2_d()
-            self.fem_polygon.vertices = polygon_vertices
-            self.fem_polygon.edges_direction = polygon_edge_directions
-            self.fem_polygon.edges_tangent = polygon_edge_tangents
-            self.fem_polygon.edges_length = polygon_edge_lengths
+            self.fem_polygon.vertices = self.mesh_geometric_data.cell2_ds_vertices[cell_index]
+            self.fem_polygon.edges_direction = self.mesh_geometric_data.cell2_ds_edge_directions[cell_index]
+            self.fem_polygon.edges_tangent = self.mesh_geometric_data.cell2_ds_edge_tangents[cell_index]
+            self.fem_polygon.edges_length = self.mesh_geometric_data.cell2_ds_edge_lengths[cell_index]
             self.fem_local_space_data: polydim.fem.pcc.FEM_PCC_2D_LocalSpace_Data \
                 = self.fem_local_space.create_local_space(reference_element_data.fem_reference_element_data, self.fem_polygon)
 
             self.num_basis_functions = self.fem_local_space_data.number_of_basis_functions
         else:
+            match navem_element_type:
+                case NAVEMMappingType.standard:
+                    self.polygon_vertices = self.mesh_geometric_data.cell2_ds_vertices[cell_index]
+                    self.polygon_diameter = self.mesh_geometric_data.cell2_ds_diameters[cell_index]
+                    self.polygon_centroid = self.mesh_geometric_data.cell2_ds_centroids[cell_index]
+                    self.polygon_measure = self.mesh_geometric_data.cell2_ds_areas[cell_index]
+                    self.polygon_edges_directions = self.mesh_geometric_data.cell2_ds_edge_directions[cell_index]
+                    self.polygon_edges_tangents = self.mesh_geometric_data.cell2_ds_edge_tangents[cell_index]
+                    self.polygon_edges_lengths = self.mesh_geometric_data.cell2_ds_edge_lengths[cell_index]
+                    self.polygon_edge_normals = self.mesh_geometric_data.cell2_ds_edge_normals[cell_index]
+                    self.polygon_triangulations = self.mesh_geometric_data.cell2_ds_triangulations[cell_index]
+                case NAVEMMappingType.inertia:
+                    self.polygon_vertices = self.mesh_geometric_data.cell2_ds_inertia_vertices[cell_index]
+                    self.polygon_diameter = self.mesh_geometric_data.cell2_ds_inertia_diameters[cell_index]
+                    self.polygon_measure = self.mesh_geometric_data.cell2_ds_inertia_areas[cell_index]
+                    self.polygon_centroid = self.mesh_geometric_data.cell2_ds_inertia_centroids[cell_index]
+                    self.polygon_edges_directions = self.mesh_geometric_data.cell2_ds_edge_directions[cell_index]
+                    self.polygon_edges_tangents = self.mesh_geometric_data.cell2_ds_inertia_edges_tangents[cell_index]
+                    self.polygon_edges_lengths = self.mesh_geometric_data.cell2_ds_inertia_edges_lengths[cell_index]
+                    self.polygon_edge_normals = self.mesh_geometric_data.cell2_ds_inertia_edges_normals[cell_index]
+                    self.polygon_triangulations = self.mesh_geometric_data.cell2_ds_inertia_triangulations[cell_index]
+                case _:
+                    raise ValueError("Invalid navem element type")
 
-            self.polygon_vertices = polygon_vertices
-            self.polygon_measure = polygon_measure
-            self.polygon_diameter = polygon_diameter
-            self.polygon_centroid = polygon_centroid
-            self.polygon_edge_lengths = polygon_edge_lengths
-            self.polygon_edge_directions = polygon_edge_directions
-            self.polygon_edge_tangents = polygon_edge_tangents
-            self.polygon_edge_normals = polygon_edge_normals
+
             self.num_boundary_basis_functions = self.method_order * self.polygon_vertices.shape[1]
             self.num_basis_functions = self.num_boundary_basis_functions + self.num_internal_basis_functions
+
+            self.internal_quadrature_data = self.quadrature.polygon_internal_quadrature(
+                self.reference_quadrature_data.reference_triangle_quadrature,
+                self.polygon_triangulations)
 
             self.boundary_quadrature = self.quadrature.polygon_edges_lobatto_quadrature(self.reference_quadrature_data.reference_edge_do_fs_internal_points,
                                                                                    self.reference_quadrature_data.reference_edge_do_fs_internal_weights,
                                                                                    self.reference_quadrature_data.reference_edge_do_fs_extrema_weights,
                                                                                    self.polygon_vertices,
-                                                                                   self.polygon_edge_lengths,
-                                                                                   self.polygon_edge_directions,
-                                                                                   self.polygon_edge_tangents,
+                                                                                   self.polygon_edges_lengths,
+                                                                                   self.polygon_edges_directions,
+                                                                                   self.polygon_edges_tangents,
                                                                                    self.polygon_edge_normals)
 
             self.vander_boundary = self.monomials.vander(self.monomials_data,
@@ -174,18 +195,18 @@ class NAVEM_PCC_2D_LocalSpace:
                                                self.scaling * self.polygon_diameter)
 
             self.vander_internal = self.monomials.vander(self.monomials_data,
-                                                         self.internal_quadrature_points[self.cell_2_d_index],
+                                                         self.internal_quadrature_data.points,
                                                          self.polygon_centroid,
                                                          self.scaling * self.polygon_diameter)
 
             self.h_matrix = (self.vander_internal.T
-                             @ np.diag(self.internal_quadrature_weights[self.cell_2_d_index])
+                             @ np.diag(self.internal_quadrature_data.weights)
                              @ self.vander_internal)
 
             self.d_matrix = self.compute_polynomial_do_fs()
             self.laplacian_coefficients = self.compute_laplacian_coefficients()
 
-    def basis_functions_values(self, reference_element_data: NAVEM_PCC_2D_ReferenceElement,
+    def basis_functions_values(self, reference_element_data: NAVEMPCC2DReferenceElement,
                                evaluation_points: NDArray[np.float64] = None,
                                evaluation_navem_input_output = None) -> NDArray[np.float64]:
 
@@ -205,7 +226,7 @@ class NAVEM_PCC_2D_LocalSpace:
             else:
                 return evaluation_navem_input_output[self.cell_2_d_index].basis_values
 
-    def basis_functions_derivative_values(self, reference_element_data: NAVEM_PCC_2D_ReferenceElement,
+    def basis_functions_derivative_values(self, reference_element_data: NAVEMPCC2DReferenceElement,
                                           evaluation_points: NDArray[np.float64] = None,
                                           evaluation_navem_input_output = None) -> List[NDArray[np.float64]]:
 
@@ -225,8 +246,9 @@ class NAVEM_PCC_2D_LocalSpace:
             else:
                 return evaluation_navem_input_output[self.cell_2_d_index].basis_derivatives_values
 
-    def basis_functions_laplacian_values(self, reference_element_data: NAVEM_PCC_2D_ReferenceElement,
-                                          evaluation_points: NDArray[np.float64] = None) -> NDArray[np.float64]:
+    def basis_functions_laplacian_values(self, reference_element_data: NAVEMPCC2DReferenceElement,
+                                          evaluation_points: NDArray[np.float64] = None,
+                                          evaluation_navem_input_output = None) -> NDArray[np.float64]:
 
         if self.num_vertices == 3:
             if evaluation_points is None:
@@ -239,11 +261,7 @@ class NAVEM_PCC_2D_LocalSpace:
                     self.fem_local_space_data,
                     evaluation_points)
         else:
-            # I can use the exact values
-            if evaluation_points is None:
-                return np.zeros([self.internal_quadrature_points[self.cell_2_d_index].shape[1], self.num_basis_functions])
-            else:
-                return np.zeros([evaluation_points.shape[1], self.num_basis_functions])
+            raise ValueError("not implemented")
 
     def internal_quadrature(self) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
 
@@ -254,7 +272,7 @@ class NAVEM_PCC_2D_LocalSpace:
 
 
     def edge_do_fs_coordinates(self, edge_local_index: int,
-                              reference_element_data: NAVEM_PCC_2D_ReferenceElement) -> NDArray[np.float64]:
+                              reference_element_data: NAVEMPCC2DReferenceElement) -> NDArray[np.float64]:
 
         if self.num_vertices == 3:
             return self.fem_local_space.edge_do_fs_coordinates(
@@ -262,16 +280,16 @@ class NAVEM_PCC_2D_LocalSpace:
             self.fem_local_space_data,
             edge_local_index)
         else:
-            reference_edge_do_fs_point = reference_element_data.quadrature.reference_edge_do_fs_internal_points
+            reference_edge_do_fs_point = self.reference_quadrature_data.reference_edge_do_fs_internal_points
             num_edge_do_fs = reference_edge_do_fs_point.shape[1]
 
             if num_edge_do_fs == 0:
                 return np.zeros([0, 0])
 
             num_edges = self.polygon_vertices.shape[1]
-            edge_origin = self.polygon_vertices[:, edge_local_index] if self.polygon_edge_directions[edge_local_index] else self.polygon_vertices[:, (edge_local_index + 1) % num_edges]
-            edge_tangent = self.polygon_edge_tangents[:, edge_local_index]
-            edge_direction = 1.0 if self.polygon_edge_directions[edge_local_index] else -1.0
+            edge_origin = self.polygon_vertices[:, edge_local_index] if self.polygon_edges_directions[edge_local_index] else self.polygon_vertices[:, (edge_local_index + 1) % num_edges]
+            edge_tangent = self.polygon_edges_tangents[:, edge_local_index]
+            edge_direction = 1.0 if self.polygon_edges_directions[edge_local_index] else -1.0
 
             edge_do_fs_coordinates = np.zeros([3, num_edge_do_fs])
             for r in range(num_edge_do_fs):
@@ -280,7 +298,7 @@ class NAVEM_PCC_2D_LocalSpace:
 
 
     def basis_functions_values_on_edge(self, edge_local_index: int,
-                                       reference_element_data: NAVEM_PCC_2D_ReferenceElement,
+                                       reference_element_data: NAVEMPCC2DReferenceElement,
                                        points_curvilinear_coordinates: NDArray[np.float64]) -> NDArray[np.float64]:
 
         if self.num_vertices == 3:
@@ -332,7 +350,8 @@ class NAVEM_PCC_2D_LocalSpace:
 
         return cho_solve(cho_factor(lhs), rhs)
 
-    def evaluate_laplacian_basis_functions(self, points: NDArray[np.float64]) -> NDArray[np.float64]:
+    def evaluate_laplacian_internal_basis_functions(self, points: NDArray[np.float64])\
+            -> NDArray[np.float64]:
 
 
         vander_matrix = self.monomials.vander(self.monomials_data,
@@ -367,7 +386,6 @@ class NAVEM_PCC_2D_LocalSpace:
 
 
 def categorize_elements_by_vertex_number(method_order: int,
-                                         mesh: gedim.MeshMatricesDAO,
                                          mesh_geometric_data: MeshGeometricData2D,
                                          dictionary_file_path: str) -> Dict[NNCategory, NNDictionary]:
 
@@ -379,11 +397,11 @@ def categorize_elements_by_vertex_number(method_order: int,
                 continue
 
             element_class, name_storage = line.split("=", 1)
-            num_vertices, element_type, order, basis_function_type = element_class.split(",", 4)
+            num_vertices, element_type, order, basis_function_type_value = element_class.split(",", 4)
             num_vertices = int(num_vertices.strip())
             element_type = NAVEMElementType(int(element_type.strip()))
             order = int(order.strip())
-            basis_function_type = int(basis_function_type.strip())
+            basis_function_type_value = int(basis_function_type_value.strip())
             category = NNCategory(num_vertices, element_type)
 
             name_storage = name_storage.strip()
@@ -410,12 +428,12 @@ def categorize_elements_by_vertex_number(method_order: int,
 
             categories[category].method_type = NAVEMType(int(raw["method_type"]))
 
-            assert basis_function_type == int(raw["basis_function_type"])
+            assert basis_function_type_value == int(raw["basis_function_type"])
             assert order == int(raw["method_order"])
             assert num_vertices == int(raw["num_vertices"])
             assert element_type.value == int(raw["element_type"])
 
-            basis_function_type = BasisFunctionType(basis_function_type)
+            basis_function_type = BasisFunctionType(basis_function_type_value)
 
             match categories[category].method_type:
                 case NAVEMType.H_NAVEM:
@@ -433,14 +451,14 @@ def categorize_elements_by_vertex_number(method_order: int,
                 case _:
                     raise ValueError("Unknown method type")
 
-    for c in range(mesh.cell2_d_total_number()):
+    for c in range(len(mesh_geometric_data.cell2_ds_vertices)):
 
-        num_vertices = mesh.cell2_d_number_vertices(c)
+        num_vertices = mesh_geometric_data.cell2_ds_vertices[c].shape[1]
 
         if num_vertices == 3:
             continue
 
-        internal_angles = mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]
+        internal_angles = mesh_geometric_data.cell2_ds_inertia_internal_angles[c]
 
         sum_internal_angles = sum(internal_angles)
 
@@ -507,7 +525,7 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
     for c, internal_nodes in evaluation_points.items():
 
         polygon = mesh_geometric_data.cell2_ds_polygon[c]
-        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_mapped_polygon_internal_angles[c]), axis=1).T
+        mapped_angles = np.expand_dims(np.array(mesh_geometric_data.cell2_ds_inertia_internal_angles[c]), axis=1).T
 
         output_values[c] = NAVEMOutput()
 

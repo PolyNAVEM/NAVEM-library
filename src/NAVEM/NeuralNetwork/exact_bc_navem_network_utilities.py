@@ -17,6 +17,7 @@ from enum import Enum
 from pypolydim import gedim
 from numpy.typing import NDArray
 import numpy as np
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 
 
 class SetupDerivatives(Enum):
@@ -205,6 +206,9 @@ class AbstractBPNAVEM(ABC):
         self.exact_one = 0
         self.tf_two = tf.convert_to_tensor(2.0, dtype=tf.float64)
 
+        self.laplacian_basis_functions = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None), dtype=tf.float64)
+
     @abstractmethod
     def load_model(self, name_storage: str):
         pass
@@ -289,8 +293,6 @@ class AbstractBPNAVEM(ABC):
                                  setup_n_derivatives: SetupDerivatives,
                                  geometry_utilities: gedim.GeometryUtilities):
 
-        num_of_functions = self.flags["num_vertices"] - self.exact_one
-
         eb = EnforcingBoundary(geometry_utilities,
                                method_order=self.flags["method_order"],
                                boundary_method_type_adfs=BoundaryMethodType(self.flags["boundary_method_type_adf"]),
@@ -303,63 +305,109 @@ class AbstractBPNAVEM(ABC):
 
         eb.initialize_boundary_properties(vertices)
 
-        g = None
+        g = tf.constant(0, dtype=tf.float64)
+        g_grad = tf.constant(0, dtype=tf.float64)
+        g_sec_ders = tf.constant(0, dtype=tf.float64)
+
         phi = None
         phi_grad = None
-        g_grad = tf.constant(0, dtype=tf.float64)
         phi_sec_ders = None
-        g_sec_ders = tf.constant(0, dtype=tf.float64)
 
         match setup_n_derivatives:
             case SetupDerivatives.basis:
                 phi = eb.compute_adfs(xy_per_pol)
                 g = eb.compute_g(xy_per_pol)
 
+                match BasisFunctionType(self.flags["basis_function_type"]):
+                    case BasisFunctionType.vertex:
+                        g = eb.compute_g(xy_per_pol)
+                        g = g[:, :, :self.flags["num_vertices"]]
+                    case BasisFunctionType.edge:
+                        g = eb.compute_g(xy_per_pol)
+                        g = g[:, :, self.flags["num_vertices"]:]
+                    case _:
+                        pass
+
+
             case SetupDerivatives.basis_and_derivatives:
 
                 phi, phi_grad = eb.compute_adfs_and_grads(xy_per_pol)
                 phi_grad = eb.map_adf_grads(phi_grad, jac_per_pol)
 
-                g, g_grad = eb.compute_g_and_grads(xy_per_pol)
-                g_grad = g_grad[:, :, :num_of_functions, :]
-                g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+                match BasisFunctionType(self.flags["basis_function_type"]):
+                    case BasisFunctionType.vertex:
+                        g, g_grad = eb.compute_g_and_grads(xy_per_pol)
+                        g = g[:, :, :self.flags["num_functions_per_polygon"]]
+                        g_grad = g_grad[:, :, :self.flags["num_functions_per_polygon"], :]
+                        g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+                    case BasisFunctionType.edge:
+                        g, g_grad = eb.compute_g_and_grads(xy_per_pol)
+                        g = g[:, :, self.flags["num_vertices"]:]
+                        g_grad = g_grad[:, :, self.flags["num_vertices"]:, :]
+                        g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+                    case _:
+                        pass
 
             case SetupDerivatives.basis_and_derivatives_and_laplacian:
-
-                g, g_grad, g_sec_ders = eb.compute_g_and_grads_and_second_derivatives(xy_per_pol)
-                g_grad = eb.map_g_grads(g_grad, jac_per_pol)
-                g_sec_ders = eb.map_g_second_derivatives(g_sec_ders, jac_per_pol)
 
                 phi, phi_grad, phi_sec_ders = eb.compute_adfs_and_grads_and_second_derivatives(xy_per_pol)
                 phi_grad = eb.map_adf_grads(phi_grad, jac_per_pol)
                 phi_sec_ders = eb.map_adf_second_derivatives(phi_sec_ders, jac_per_pol)
 
+                match BasisFunctionType(self.flags["basis_function_type"]):
+                    case BasisFunctionType.vertex:
+                        g, g_grad, g_sec_ders = eb.compute_g_and_grads_and_second_derivatives(xy_per_pol)
+                        g = g[:, :, :self.flags["num_vertices"]]
+                        g_grad = g_grad[:, :, :self.flags["num_vertices"], :]
+                        g_sec_ders = g_sec_ders[:, :, :self.flags["num_vertices"], :]
+                        g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+                        g_sec_ders = eb.map_g_second_derivatives(g_sec_ders, jac_per_pol)
+                    case BasisFunctionType.edge:
+                        g, g_grad, g_sec_ders = eb.compute_g_and_grads_and_second_derivatives(xy_per_pol)
+                        g = g[:, :, self.flags["num_vertices"]:]
+                        g_grad = g_grad[:, :, self.flags["num_vertices"]:, :]
+                        g_sec_ders = g_sec_ders[:, :, self.flags["num_vertices"]:, :]
+                        g_grad = eb.map_g_grads(g_grad, jac_per_pol)
+                        g_sec_ders = eb.map_g_second_derivatives(g_sec_ders, jac_per_pol)
+                    case _:
+                        pass
+
             case _:
                 raise ValueError("not valid setup_n_derivatives.")
 
-        g = g[:, :, :num_of_functions]
+        self.n_polygons = self.flags["num_training_polygons"]
+        self.n_funcs_per_polygon = self.flags["num_functions_per_polygon"]
+        self.n_local_pts = phi.shape[1]
+        self.one_over_n_funcs = tf.convert_to_tensor(1.0 / (self.flags["num_training_polygons"] * self.flags["num_functions_per_polygon"]), dtype=tf.float64)
 
-        self.n_polygons, self.n_local_pts, self.n_funcs_per_polygon = g.shape
-        self.one_over_n_funcs = tf.convert_to_tensor(1.0/(self.n_polygons*self.n_funcs_per_polygon), dtype=tf.float64)
-
-        phi = tf.tile(phi, [1, 1, self.n_funcs_per_polygon])
+        phi = tf.tile(phi, [1, 1, self.flags["num_functions_per_polygon"]])
         phi = tf.transpose(phi, [0, 2, 1])
         phi = tf.reshape(phi, [-1, 1])
         self.var_phi.assign(phi)
 
-        g = tf.transpose(g, [0, 2, 1])
-        g = tf.reshape(g, [-1, 1])
-        self.var_g.assign(g)
+        match BasisFunctionType(self.flags["basis_function_type"]):
+            case BasisFunctionType.vertex | BasisFunctionType.edge:
+                g = g[:, :, :self.flags["num_functions_per_polygon"]]
+                g = tf.transpose(g, [0, 2, 1])
+                g = tf.reshape(g, [-1, 1])
+                self.var_g.assign(g)
+            case _:
+                pass
 
         match setup_n_derivatives:
             case SetupDerivatives.basis_and_derivatives | SetupDerivatives.basis_and_derivatives_and_laplacian:
                 phi_grad = tf.transpose(phi_grad, [0, 2, 1, 3])
                 phi_grad = tf.reshape(phi_grad, [-1, 2])
-                g_grad = tf.transpose(g_grad, [0, 2, 1, 3])
-                g_grad = tf.reshape(g_grad, [-1, 2])
-
                 self.var_phi_grad.assign(phi_grad)
-                self.var_g_grad.assign(g_grad)
+
+                match BasisFunctionType(self.flags["basis_function_type"]):
+                    case BasisFunctionType.vertex | BasisFunctionType.edge:
+                        g_grad = tf.transpose(g_grad, [0, 2, 1, 3])
+                        g_grad = tf.reshape(g_grad, [-1, 2])
+                        self.var_g_grad.assign(g_grad)
+                    case _:
+                        pass
+
             case SetupDerivatives.basis:
                 pass
             case _:
@@ -369,12 +417,18 @@ class AbstractBPNAVEM(ABC):
             case SetupDerivatives.basis_and_derivatives_and_laplacian:
                 phi_sec_ders = tf.transpose(phi_sec_ders, [0, 2, 1, 3])
                 self.var_phi_second_derivatives = tf.reshape(phi_sec_ders, [-1, 3])
-                g_sec_ders = tf.transpose(g_sec_ders, [0, 2, 1, 3])
-                self.var_g_second_derivatives = tf.reshape(g_sec_ders, [-1, 3])
-
                 self.var_phi_xx_yy.assign(
                     self.var_phi_second_derivatives[:, 0:1] + self.var_phi_second_derivatives[:, 2:3])
-                self.var_g_xx_yy.assign(self.var_g_second_derivatives[:, 0:1] + self.var_g_second_derivatives[:, 2:3])
+
+
+                match BasisFunctionType(self.flags["basis_function_type"]):
+                    case BasisFunctionType.vertex | BasisFunctionType.edge:
+                        g_sec_ders = tf.transpose(g_sec_ders, [0, 2, 1, 3])
+                        self.var_g_second_derivatives = tf.reshape(g_sec_ders, [-1, 3])
+                        self.var_g_xx_yy.assign(self.var_g_second_derivatives[:, 0:1] + self.var_g_second_derivatives[:, 2:3])
+                    case _:
+                        pass
+
             case SetupDerivatives.basis | SetupDerivatives.basis_and_derivatives:
                 pass
             case _:

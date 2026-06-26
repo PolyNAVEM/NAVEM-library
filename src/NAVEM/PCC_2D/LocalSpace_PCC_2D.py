@@ -17,7 +17,7 @@ from NAVEM.PCC_2D import NAVEM_PCC_2D
 from numpy.typing import NDArray
 import numpy as np
 
-from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMMappingType
 from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 
 
@@ -28,8 +28,6 @@ class MethodTypes(Enum):
 
 class ReferenceElementData:
 
-    navem_categories: Dict[NNCategory, NAVEM_PCC_2D.NNDictionary]
-
     def __init__(self, method_type: MethodTypes, method_order: int):
         self.method_type: MethodTypes = method_type
         self.method_order: int = method_order
@@ -37,7 +35,7 @@ class ReferenceElementData:
         match self.method_type:
             case MethodTypes.NAVEM:
                 self.standard_method_type: None
-                self.navem_reference_element_data: NAVEM_PCC_2D.NAVEM_PCC_2D_ReferenceElement = NAVEM_PCC_2D.NAVEM_PCC_2D_ReferenceElement(self.method_order)
+                self.navem_reference_element_data: NAVEM_PCC_2D.NAVEMPCC2DReferenceElement = NAVEM_PCC_2D.NAVEMPCC2DReferenceElement(self.method_order)
             case MethodTypes.VEM:
                 self.standard_method_type: polydim.pde_tools.local_space_pcc_2_d.MethodTypes = polydim.pde_tools.local_space_pcc_2_d.MethodTypes.vem_pcc
                 self.standard_reference_element_data: polydim.pde_tools.local_space_pcc_2_d.ReferenceElement_Data = polydim.pde_tools.local_space_pcc_2_d.create_reference_element(self.standard_method_type,
@@ -50,14 +48,10 @@ class ReferenceElementData:
                 raise ValueError("Not valid method type")
 
     def set_mesh_do_fs_info(self, mesh: gedim.MeshMatricesDAO,
-                            mesh_geometric_data: MeshGeometricData2D,
-                            boundary_info: Dict[int, polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo.BoundaryInfo],
-                            dictionary_file_name: str) -> polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo:
+                            boundary_info: Dict[int, polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo.BoundaryInfo]) -> polydim.pde_tools.do_fs.DOFsManager.MeshDOFsInfo:
 
         match self.method_type:
             case MethodTypes.NAVEM:
-
-                self.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(self.method_order, mesh, mesh_geometric_data, dictionary_file_name)
 
                 num_cell0_ds = mesh.cell0_d_total_number()
 
@@ -112,16 +106,23 @@ class ReferenceElementData:
 class LocalSpaceData:
 
     standard_local_space_data: polydim.pde_tools.local_space_pcc_2_d.LocalSpace_Data
-    navem_local_space_data: NAVEM_PCC_2D.NAVEM_PCC_2D_LocalSpace
+    navem_local_space_data: NAVEM_PCC_2D.NAVEMPCC2DLocalSpace
 
     def __init__(self, geometry_utilities: gedim.GeometryUtilities,
                  mesh_geometric_data: MeshGeometricData2D,
-                 reference_element_data: ReferenceElementData):
+                 reference_element_data: ReferenceElementData,
+                 dictionary_file_name: str):
 
 
         match reference_element_data.method_type:
             case MethodTypes.NAVEM:
-                self.navem_local_space_data = NAVEM_PCC_2D.NAVEM_PCC_2D_LocalSpace(reference_element_data.navem_reference_element_data, geometry_utilities, mesh_geometric_data, reference_element_data.navem_categories)
+                self.navem_local_space_data \
+                    = NAVEM_PCC_2D.NAVEMPCC2DLocalSpace(reference_element_data.navem_reference_element_data,
+                                                        geometry_utilities)
+
+                self.navem_local_space_data.setup_geometry(mesh_geometric_data)
+                self.navem_local_space_data.setup_categories(dictionary_file_name)
+                self.navem_local_space_data.setup_default_values(NAVEMMappingType.standard)
             case MethodTypes.VEM | MethodTypes.FEM:
                 pass
             case _:
@@ -138,16 +139,8 @@ class LocalSpaceData:
         match reference_element_data.method_type:
             case MethodTypes.NAVEM:
                 self.navem_local_space_data.create_local_space(cell_2_d_index,
-                                                               mesh_geometric_data.cell2_ds_vertices[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_areas[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_diameters[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_centroids[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_edge_lengths[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_edge_directions[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_edge_tangents[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_edge_normals[cell_2_d_index],
-                                                               mesh_geometric_data.cell2_ds_triangulations[cell_2_d_index],
-                                                               reference_element_data.navem_reference_element_data)
+                                                               reference_element_data.navem_reference_element_data,
+                                                               NAVEMMappingType.standard)
 
             case MethodTypes.VEM | MethodTypes.FEM:
                 self.standard_local_space_data: polydim.pde_tools.local_space_pcc_2_d.LocalSpace_Data \
@@ -210,7 +203,8 @@ class LocalSpaceData:
 
         match reference_element_data.method_type:
             case MethodTypes.NAVEM:
-                return self.navem_local_space_data.basis_functions_laplacian_values(reference_element_data.navem_reference_element_data, evaluation_points, evaluation_navem_input_output)
+                return self.navem_local_space_data.basis_functions_laplacian_values(reference_element_data.navem_reference_element_data,
+                                                                                    evaluation_points, evaluation_navem_input_output)
             case MethodTypes.VEM | MethodTypes.FEM:
                 if evaluation_points is None:
                     return polydim.pde_tools.local_space_pcc_2_d.basis_functions_laplacian_values(
@@ -235,7 +229,9 @@ class LocalSpaceData:
             case _:
                 raise  ValueError("Not valid method type")
 
-    def stabilization_matrix(self, reference_element_data: ReferenceElementData, projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi_nabla) -> NDArray[np.float64]:
+    def stabilization_matrix(self, reference_element_data: ReferenceElementData,
+                             projection_type: polydim.vem.pcc.ProjectionTypes = polydim.vem.pcc.ProjectionTypes.pi_nabla) \
+            -> NDArray[np.float64]:
 
         match reference_element_data.method_type:
             case MethodTypes.NAVEM:

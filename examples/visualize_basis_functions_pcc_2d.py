@@ -88,7 +88,6 @@ def main():
     mesh_geometric_data = compute_geometric_properties_mesh_2(geometry_utilities, mesh_utilities, mesh)
 
     reference_element_data = LocalSpace_PCC_2D.ReferenceElementData(method_type, method_order)
-    reference_element_data.navem_categories = NAVEM_PCC_2D.categorize_elements_by_vertex_number(method_order, mesh, mesh_geometric_data, args.dictionary_file)
 
     print("Compute Evaluation Points...")
     num_cell_2 = mesh.cell2_d_total_number()
@@ -121,13 +120,13 @@ def main():
         evaluation_points[c] = np.concatenate([boundary_points, internal_quadrature.points], axis=1)
 
     print("Export Polygons and Basis Functions...")
-    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data)
+    local_space_data = LocalSpace_PCC_2D.LocalSpaceData(geometry_utilities, mesh_geometric_data, reference_element_data, args.dictionary_file)
     evaluation_navem_input_output = None
     match method_type:
         case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
-                                                                                   reference_element_data.navem_categories,
+                                                                                   local_space_data.navem_local_space_data.navem_categories,
                                                                                    evaluation_points)
         case _:
             pass
