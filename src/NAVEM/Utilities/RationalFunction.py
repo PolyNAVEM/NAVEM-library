@@ -253,7 +253,7 @@ class RationalFunction:
             case RationalFunction.RationalType.imag:
                 return num_rat_points
             case _:
-                raise ValueError('not valid vander type')
+                raise ValueError('not valid rational type')
 
     def vander(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64],
                distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -266,7 +266,7 @@ class RationalFunction:
             case RationalFunction.RationalType.imag:
                 return self.vander_imag(points, flat_poles, distance_pole_vertex)
             case _:
-                raise ValueError('not valid vander type')
+                raise ValueError('not valid rational type')
 
     def vander_derivatives(self, points: NDArray[np.float64], flat_poles: NDArray[np.float64],
                            distance_pole_vertex: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -279,4 +279,4 @@ class RationalFunction:
             case RationalFunction.RationalType.imag:
                 return self.vander_imag_derivatives(points, flat_poles, distance_pole_vertex)
             case _:
-                raise ValueError('not valid vander type')
+                raise ValueError('not valid rational type')

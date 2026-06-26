@@ -21,3 +21,6 @@ num_generators = 44
 use_hanging_function = 1
 list_id_vertices_hanging = [0, 1, 3]
 use_sqrt_in_train = 1
+num_rationals_points = 0
+rational_type_function = 2
+list_id_vertices_rationals = []

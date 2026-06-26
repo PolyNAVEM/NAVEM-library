@@ -12,7 +12,7 @@
 from NAVEM.NeuralNetwork import h_navem_network, b_navem_network, p_navem_network
 from NAVEM.NeuralNetwork import exact_bc_navem_network_utilities
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import SetupDerivatives, AbstractBPNAVEM
-from NAVEM.Utilities import NAVEMGenerators
+from NAVEM.Utilities import NAVEMGenerators, RationalFunction
 import tensorflow as tf
 from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import *
@@ -37,6 +37,9 @@ class NAVEM_PCC_2D_ReferenceElement:
 
 
 class NAVEM_PCC_2D_LocalSpace:
+
+    cell_2_d_index: int
+    num_vertices: int
 
     # Polygon data
     polygon_vertices: NDArray[np.float64]
@@ -223,8 +226,7 @@ class NAVEM_PCC_2D_LocalSpace:
                 return evaluation_navem_input_output[self.cell_2_d_index].basis_derivatives_values
 
     def basis_functions_laplacian_values(self, reference_element_data: NAVEM_PCC_2D_ReferenceElement,
-                                          evaluation_points: NDArray[np.float64] = None,
-                                          evaluation_navem_input_output = None) -> NDArray[np.float64]:
+                                          evaluation_points: NDArray[np.float64] = None) -> NDArray[np.float64]:
 
         if self.num_vertices == 3:
             if evaluation_points is None:
@@ -241,7 +243,7 @@ class NAVEM_PCC_2D_LocalSpace:
             if evaluation_points is None:
                 return np.zeros([self.internal_quadrature_points[self.cell_2_d_index].shape[1], self.num_basis_functions])
             else:
-                return np.zeros([self.evaluation_points.shape[1], self.num_basis_functions])
+                return np.zeros([evaluation_points.shape[1], self.num_basis_functions])
 
     def internal_quadrature(self) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
 
@@ -255,9 +257,9 @@ class NAVEM_PCC_2D_LocalSpace:
                               reference_element_data: NAVEM_PCC_2D_ReferenceElement) -> NDArray[np.float64]:
 
         if self.num_vertices == 3:
-            return self.fem_local_space.edge_dofs_coordinates(
+            return self.fem_local_space.edge_do_fs_coordinates(
             reference_element_data.fem_reference_element_data,
-            self.fem_local_space_datam,
+            self.fem_local_space_data,
             edge_local_index)
         else:
             reference_edge_do_fs_point = reference_element_data.quadrature.reference_edge_do_fs_internal_points
@@ -266,10 +268,10 @@ class NAVEM_PCC_2D_LocalSpace:
             if num_edge_do_fs == 0:
                 return np.zeros([0, 0])
 
-            num_edges = self.vem_geometry.vertices.shape[1]
-            edge_origin = self.vem_geometry.vertices[:, edge_local_index] if self.vem_geometry.edges_direction[edge_local_index] else self.vem_geometry.vertices[:, (edge_local_index + 1) % num_edges]
-            edge_tangent = self.vem_geometry.edges_tangent[:, edge_local_index]
-            edge_direction = 1.0 if self.vem_geometry.edges_direction[edge_local_index] else -1.0
+            num_edges = self.polygon_vertices.shape[1]
+            edge_origin = self.polygon_vertices[:, edge_local_index] if self.polygon_edge_directions[edge_local_index] else self.polygon_vertices[:, (edge_local_index + 1) % num_edges]
+            edge_tangent = self.polygon_edge_tangents[:, edge_local_index]
+            edge_direction = 1.0 if self.polygon_edge_directions[edge_local_index] else -1.0
 
             edge_do_fs_coordinates = np.zeros([3, num_edge_do_fs])
             for r in range(num_edge_do_fs):
@@ -478,6 +480,8 @@ def navem_predict_basis_values_and_derivatives(geometry_utilities: gedim.Geometr
                                                        neural_network[BasisFunctionType.vertex].flags["harmonic_degree"],
                                                        neural_network[BasisFunctionType.vertex].flags["use_hanging_function"],
                                                        neural_network[BasisFunctionType.vertex].flags["normalization_diameter"],
+                                                       neural_network[BasisFunctionType.vertex].flags["num_rationals_points"],
+                                                       RationalFunction.RationalFunction.RationalType(neural_network[BasisFunctionType.vertex].flags["rational_type_function"]),
                                                        NAVEMElementType(neural_network[BasisFunctionType.vertex].flags["element_type"]))
 
     num_vertices = neural_network[BasisFunctionType.vertex].flags["num_vertices"]

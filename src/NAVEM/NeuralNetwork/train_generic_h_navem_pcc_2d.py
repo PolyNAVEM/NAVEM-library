@@ -23,6 +23,7 @@ from NAVEM.geometry.mesh_utilities import MeshGeometricData2D
 import csv
 from NAVEM.Utilities.points_generator import reference_points_distribution, PointsSegmentDistributionType
 from NAVEM.Utilities.PrintInformation import print_training_information
+from NAVEM.Utilities.RationalFunction import RationalFunction
 
 
 def train_h_navem_pcc_2d_on_generic_polygon(method_order: int,
@@ -46,7 +47,9 @@ def train_h_navem_pcc_2d_on_generic_polygon(method_order: int,
                                             element_type: NAVEMElementType = NAVEMElementType.generic_convex,
                                             harmonic_degree: int = 20,
                                             normalization_diameter: float = 3.0,
-                                            use_hanging_function: bool = True):
+                                            use_hanging_function: bool = True,
+                                            num_rationals_points: int = 0,
+                                            rational_type_function: RationalFunction.RationalType =  RationalFunction.RationalType.real) -> None:
     assert method_order == 1
     assert method_type == NAVEMType.H_NAVEM
 
@@ -57,6 +60,8 @@ def train_h_navem_pcc_2d_on_generic_polygon(method_order: int,
                                        harmonic_degree,
                                        use_hanging_function,
                                        normalization_diameter,
+                                       num_rationals_points,
+                                       rational_type_function,
                                        element_type)
 
     num_training_polygons = mesh.cell2_d_total_number()
@@ -81,6 +86,9 @@ def train_h_navem_pcc_2d_on_generic_polygon(method_order: int,
                              normalization_diameter,
                              use_hanging_function,
                              navem_generators.list_id_vertices_hanging,
+                             num_rationals_points,
+                             rational_type_function.value,
+                             navem_generators.list_id_vertices_rationals,
                              regularization_coefficient,
                              num_points_on_each_edge,
                              export_training_data_file_path)

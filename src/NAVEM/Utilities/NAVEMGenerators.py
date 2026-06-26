@@ -13,6 +13,7 @@ from NAVEM.Utilities.HarmonicPolynomials import HarmonicPolynomials, change_basi
 from NAVEM.Utilities.LaplaceSolver import hanging_function
 from NAVEM.Utilities.FunctionUtilities import *
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType
+from NAVEM.Utilities.RationalFunction import RationalFunction
 
 
 class NAVEMGenerators:
@@ -22,6 +23,8 @@ class NAVEMGenerators:
                  harmonic_degree: int,
                  use_hanging_function: bool,
                  normalization_diameter: float,
+                 num_rationals_points: int,
+                 rational_type_function: RationalFunction.RationalType,
                  element_type: NAVEMElementType):
 
         self.normalization_diameter = normalization_diameter
@@ -29,19 +32,9 @@ class NAVEMGenerators:
         self.geometry_utilities = geometry_utilities
         self.num_vertices = num_vertices
 
+        # Harmonic polynomials
         self.harmonic_degree = harmonic_degree
         self.harmonic_polynomials = HarmonicPolynomials(self.harmonic_degree, HarmonicPolynomials.HarmonicType.total)
-
-        self.use_hanging_function = use_hanging_function
-        self.list_id_vertices_hanging: List[int] = []
-        if use_hanging_function:
-            match element_type:
-                case NAVEMElementType.generic_convex:
-                    self.list_id_vertices_hanging = [0, 1, num_vertices - 1]
-                case NAVEMElementType.generic_concave:
-                    self.list_id_vertices_hanging = [i for i in range(num_vertices)]
-                case _:
-                    raise ValueError("Not valid element type")
 
         self.num_harmonic_polynomials = self.harmonic_polynomials.num_harmonic_polynomials
 
@@ -61,10 +54,46 @@ class NAVEMGenerators:
         self.change_basis_matrix = change_basis_matrix(harmonic_vandermonde)
         self.num_generators = self.num_harmonic_polynomials
 
+
+        # Hanging functions
+        self.use_hanging_function = use_hanging_function
+        self.list_id_vertices_hanging: List[int] = []
+
         if self.use_hanging_function:
+
+            match element_type:
+                case NAVEMElementType.generic_convex:
+                    self.list_id_vertices_hanging = [0, 1, num_vertices - 1]
+                case NAVEMElementType.generic_concave:
+                    self.list_id_vertices_hanging = [i for i in range(num_vertices)]
+                case _:
+                    raise ValueError("Not valid element type")
+
             self.hanging_function = hanging_function(geometry_utilities)
             self.num_hanging_functions = len(self.list_id_vertices_hanging)
             self.num_generators += self.num_hanging_functions
+
+        # Rational functions
+        self.num_rationals_points = num_rationals_points
+        self.rational_type_function = rational_type_function
+        self.list_id_vertices_rationals: List[int] = []
+
+        if self.num_rationals_points > 0:
+
+            match element_type:
+                case NAVEMElementType.generic_convex:
+                    self.list_id_vertices_rationals = [0, 1, num_vertices - 1]
+                case NAVEMElementType.generic_concave:
+                    self.list_id_vertices_rationals = [i for i in range(num_vertices)]
+                case _:
+                    raise ValueError("Not valid element type")
+
+            self.rational_function = RationalFunction(self.rational_type_function)
+            self.num_rational_functions = (self.rational_function.
+                                           num_rational_functions(self.num_rationals_points *
+                                                                  len(self.list_id_vertices_rationals),
+                                                                  self.rational_type_function))
+            self.num_generators += self.num_rational_functions
 
     def vander_and_vander_derivatives(self, points: NDArray[np.float64], polygon_vertices: NDArray[np.float64],
                                       internal_angles: NDArray[np.float64] = np.zeros(0),
@@ -110,5 +139,35 @@ class NAVEMGenerators:
                     = grad_hang_vandermonde[1, :, :]
 
                 vandermonde = np.concatenate((vandermonde, hang_vandermonde), axis=1)
+
+        if self.num_rationals_points > 0:
+
+            polygon_edge_normals = self.geometry_utilities.polygon_edge_normals(polygon_vertices)
+            polygon_vertex_bisectors = compute_polygon_external_bisectors(self.geometry_utilities, polygon_edge_normals)
+            polygon_bounding_box = self.geometry_utilities.points_bounding_box(polygon_vertices)
+            polygon_scale = max([polygon_bounding_box[0, 1] - polygon_bounding_box[0, 0],
+                                 polygon_bounding_box[1, 1] - polygon_bounding_box[1, 0]])
+
+            poles, flat_poles = RationalFunction.compute_poles(self.geometry_utilities, self.num_rationals_points,
+                                                               self.list_id_vertices_rationals, polygon_vertices,
+                                                               np.squeeze(internal_angles).tolist(),
+                                                               polygon_vertex_bisectors, polygon_scale)
+
+            dist = RationalFunction.compute_distance_pole_vertex(self.list_id_vertices_rationals, poles, flat_poles, polygon_vertices)
+
+
+
+            n_hangings = self.num_hanging_functions
+            grad_rat_vandermonde = self.rational_function.vander_derivatives(points, flat_poles, dist)
+
+            grad_vandermonde[0, :, (self.num_harmonic_polynomials + n_hangings):
+                                   (self.num_harmonic_polynomials + n_hangings + self.num_rational_functions)] \
+                = grad_rat_vandermonde[0, :, :]
+            grad_vandermonde[1, :, (self.num_harmonic_polynomials + n_hangings):
+                                   (self.num_harmonic_polynomials + n_hangings + self.num_rational_functions)] \
+                = grad_rat_vandermonde[1, :, :]
+
+            vandermonde_rat = self.rational_function.vander(points, flat_poles, dist)
+            vandermonde = np.concatenate((vandermonde, vandermonde_rat), axis=1)
 
         return vandermonde, grad_vandermonde

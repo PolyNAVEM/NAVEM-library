@@ -10,6 +10,7 @@
 # This file can be used citing references in CITATION.cff file.
 
 import os.path
+from email.policy import default
 from pathlib import Path
 import argparse
 from pypolydim import gedim, polydim
@@ -17,6 +18,7 @@ from NAVEM.NeuralNetwork.train_generic_h_navem_pcc_2d import train_h_navem_pcc_2
 from NAVEM.NeuralNetwork.train_generic_exact_bc_pcc_2d import train_exact_bc_navem_pcc_2d_on_generic_polygon
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType, NAVEMElementType
+from NAVEM.Utilities.RationalFunction import RationalFunction
 from NAVEM.geometry.mesh_utilities import compute_geometric_properties_mesh_2
 import os
 from NAVEM.Utilities.enforcing_boundary_functions import BoundaryMethodType, BubbleType
@@ -34,7 +36,7 @@ def main():
     parser.add_argument('-order', '--method-order', dest='method_order',
                         default=1, type=int, help="Method order (Default: 1)")
     parser.add_argument('-method', '--method-type', dest='method_type',
-                        default=2, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
+                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
@@ -76,14 +78,18 @@ def main():
                         help='Flag to specify if I want to export info (loss, time,...) during training')
 
     # H-NAVEM
-    parser.add_argument('-np', '--num-points-on-edges', dest='num_points_on_each_edge', default=50, type=int,
+    parser.add_argument('-np', '--num-points-on-edges', dest='num_points_on_each_edge', default=20, type=int,
                         help='Number of points on each edge')
     parser.add_argument('-nsd', '--normalization-diameter', dest='normalization_diameter', default=3.0,
                         type=float, help='Edge of the normalization square')
     parser.add_argument('-hd', '--harmonic-degree', dest='harmonic_degree', default=10, type=int,
                         help='Degree of the considered harmonic polynomials')
-    parser.add_argument('-hf', '--use-hanging-function', dest='use_hanging_function', default=1, type=int,
-                        help='Flag to specify to add the hanging function in the linear combination')
+    parser.add_argument('-hf', '--use-hanging-function', dest='use_hanging_function', default=True, type=bool,
+                        action=argparse.BooleanOptionalAction, help='Flag to specify to add the hanging function in the linear combination')
+    parser.add_argument('-nrt', '--num-rationals-points', dest='num_rationals_points', default=2, type=int,
+                        help='Number of poles for rationals functions for each vertex (Default: 0)')
+    parser.add_argument('-rtf', '--rational-type-function', dest='rational_type_function', default=2, type=int,
+                        help='Rational type: 1 - Total; 2 - Real; 3 - Imag (Default: 2)')
 
     # B-NAVEM and P-NAVEM
     parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=10, type=int,
@@ -142,27 +148,29 @@ def main():
     match method_type:
         case method_type.H_NAVEM:
             train_h_navem_pcc_2d_on_generic_polygon(args.method_order,
-                                                  method_type,
-                                                  args.num_vertices,
-                                                  geometry_utilities,
-                                                  mesh,
-                                                  mesh_geometric_data,
-                                                  args.import_path,
-                                                  args.num_hidden_layers,
-                                                  args.num_neurons_per_layer,
-                                                  args.num_epochs_opt_order1,
-                                                  args.num_epochs_opt_order2,
-                                                  args.learning_rate_max,
-                                                  args.learning_rate_min,
-                                                  args.num_points_on_each_edge,
-                                                  args.regularization_coefficient,
-                                                  full_export_training_data_file_path,
-                                                  args.export_training_info,
-                                                  args.use_sqrt_in_train,
-                                                  element_type,
-                                                  args.harmonic_degree,
-                                                  args.normalization_diameter,
-                                                  args.use_hanging_function)
+                                                    method_type,
+                                                    args.num_vertices,
+                                                    geometry_utilities,
+                                                    mesh,
+                                                    mesh_geometric_data,
+                                                    args.import_path,
+                                                    args.num_hidden_layers,
+                                                    args.num_neurons_per_layer,
+                                                    args.num_epochs_opt_order1,
+                                                    args.num_epochs_opt_order2,
+                                                    args.learning_rate_max,
+                                                    args.learning_rate_min,
+                                                    args.num_points_on_each_edge,
+                                                    args.regularization_coefficient,
+                                                    full_export_training_data_file_path,
+                                                    args.export_training_info,
+                                                    args.use_sqrt_in_train,
+                                                    element_type,
+                                                    args.harmonic_degree,
+                                                    args.normalization_diameter,
+                                                    args.use_hanging_function,
+                                                    args.num_rationals_points,
+                                                    RationalFunction.RationalType(args.rational_type_function))
         case method_type.B_NAVEM | method_type.P_NAVEM:
             train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
                                                            BasisFunctionType.vertex,

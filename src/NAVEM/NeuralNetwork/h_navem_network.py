@@ -8,6 +8,7 @@
 # See top level LICENSE file for more details.
 #
 # This file can be used citing references in CITATION.cff file.
+from warnings import catch_warnings
 
 import numpy as np
 from numpy.typing import NDArray
@@ -46,6 +47,9 @@ class Flags(TypedDict):
     normalization_diameter: float
     use_hanging_function: bool
     list_id_vertices_hanging: List[int]
+    num_rationals_points: int
+    rational_type_function: int
+    list_id_vertices_rationals: List[int]
     regularization_coefficient: float
     num_points_on_each_edge: int
     name_storage: str
@@ -71,6 +75,9 @@ def set_flags(network_input_dimension: int,
               normalization_diameter: float,
               use_hanging_function: bool,
               list_id_vertices_hanging: List[int],
+              num_rationals_points: int,
+              rational_type_function: int,
+              list_id_vertices_rationals: List[int],
               regularization_coefficient: float,
               num_points_on_each_edge: int,
               export_training_data_file_path: str) -> Flags:
@@ -95,6 +102,9 @@ def set_flags(network_input_dimension: int,
                     'normalization_diameter': normalization_diameter,
                     'use_hanging_function': use_hanging_function,
                     'list_id_vertices_hanging': list_id_vertices_hanging,
+                    'num_rationals_points': num_rationals_points,
+                    'rational_type_function': rational_type_function,
+                    'list_id_vertices_rationals': list_id_vertices_rationals,
                     'regularization_coefficient': regularization_coefficient,
                     'num_points_on_each_edge': num_points_on_each_edge,
                     'name_storage': export_training_data_file_path}
@@ -128,12 +138,26 @@ def write_flags_on_dictionary(flags: Flags) -> None:
     file.write("num_generators = {}\n".format(flags['num_generators']))
     file.write("use_hanging_function = {}\n".format(flags['use_hanging_function']))
     file.write("list_id_vertices_hanging = {}\n".format(flags['list_id_vertices_hanging']))
+    file.write("num_rationals_points = {}\n".format(flags['num_rationals_points']))
+    file.write("rational_type_function = {}\n".format(flags['rational_type_function']))
+    file.write("list_id_vertices_rationals = {}\n".format(flags['list_id_vertices_rationals']))
     file.write("use_sqrt_in_train = {}\n".format(flags['use_sqrt_in_train']))
 
     file.close()
 
 
 def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
+
+    try:
+        list_id_vertices_hanging = [int(x.strip()) for x in raw["list_id_vertices_hanging"][1:-1].split(",")]
+    except ValueError:
+        list_id_vertices_hanging = []
+
+    try:
+        list_id_vertices_rationals = [int(x.strip()) for x in raw["list_id_vertices_rationals"][1:-1].split(",")]
+    except ValueError:
+        list_id_vertices_rationals = []
+
     flags: Flags = {
         "input_dim": int(raw["input_dim"]),
         "output_dim": int(raw["output_dim"]),
@@ -155,7 +179,10 @@ def load_flags_from_dictionary(name_storage: str, raw: Dict) -> Flags:
         "harmonic_degree": int(raw["harmonic_degree"]),
         "normalization_diameter": float(raw["normalization_diameter"]),
         "use_hanging_function": bool(raw["use_hanging_function"]),
-        "list_id_vertices_hanging": [int(x.strip()) for x in raw["list_id_vertices_hanging"][1:-1].split(",")],
+        "list_id_vertices_hanging": list_id_vertices_hanging,
+        "num_rationals_points": int(raw["num_rationals_points"]),
+        "rational_type_function": int(raw["rational_type_function"]),
+        "list_id_vertices_rationals": list_id_vertices_rationals,
         "regularization_coefficient": float(raw["regularization_coefficient"]),
         "num_points_on_each_edge": int(raw["num_points_on_each_edge"]),
         "name_storage": name_storage,
