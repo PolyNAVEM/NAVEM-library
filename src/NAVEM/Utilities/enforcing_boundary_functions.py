@@ -337,6 +337,8 @@ class EnforcingBoundary:
                     g = prev_transfinite_w * (1.0 - prev_proj) + transfinite_ws * proj
                 else:
 
+                    raise ValueError("not implemented")
+
                     margin = 0.5
 
                     psi_0je = localized_lagrange_basis_1d(self.method_order, proj, self.reference_do_fs_coordinates,
