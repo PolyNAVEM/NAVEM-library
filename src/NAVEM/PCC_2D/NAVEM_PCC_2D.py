@@ -93,7 +93,7 @@ class NAVEMPCC2DLocalSpace:
         self.edge_basis_coefficients = self.utilities.compute_edge_basis_coefficients(self.method_order,
                                                                                       self.edge_internal_points)
 
-        self.fem_local_space = polydim.fem.pcc.FEM_PCC_2D_LocalSpace = polydim.fem.pcc.FEM_PCC_2D_LocalSpace()
+        self.fem_local_space: polydim.fem.pcc.FEM_PCC_2D_LocalSpace = polydim.fem.pcc.FEM_PCC_2D_LocalSpace()
 
 
 
