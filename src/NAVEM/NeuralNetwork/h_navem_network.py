@@ -202,11 +202,13 @@ class BoundaryLoss:
         self.geometry_utilities = geometry_utilities
         self.method_order = method_order
 
-        assert method_order == 1
+#        assert method_order == 1
 
         lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
         quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)
-        self.references_do_fs_on_edge = quadrature_data.points[0, :]
+        self.references_do_fs_on_edge = np.zeros([self.method_order + 1])
+        self.references_do_fs_on_edge[1] = 1.0
+        self.references_do_fs_on_edge[2:] = quadrature_data.points[0, 1:-1]
 
         self.lagrange_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(
             self.references_do_fs_on_edge)
@@ -233,19 +235,27 @@ class BoundaryLoss:
         self.derivatives_evaluations = np.zeros([self.n_pts * self.num_vertices, 1])
         zero_pol = np.zeros(self.n_pts)
 
-        # do_fs on vertices (evaluations)
-        v = v_id
-        prev_v = v_id - 1 if v_id > 0 else self.num_vertices - 1
-        for e in range(self.num_vertices):
-            if e == v:  # edge e after vertex v
-                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 0]
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 0]
-            elif e == prev_v:
-                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 1]
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 1]
-            else:
-                self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
-                self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
+        if v_id < self.num_vertices:
+            # do_fs on vertices (evaluations)
+            v = v_id
+            prev_v = v_id - 1 if v_id > 0 else self.num_vertices - 1
+            for e in range(self.num_vertices):
+                if e == v:  # edge e after vertex v
+                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 0]
+                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 0]
+                elif e == prev_v:
+                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 1]
+                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 1]
+                else:
+                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
+                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
+        elif v_id < self.num_vertices * self.method_order:
+            # do_fs on edges (evaluations)
+            local_id = (v_id - num_vertices) % (self.method_order - 1)
+            local_edge = int(np.floor((v_id - num_vertices) / (self.method_order - 1)))
+
+            self.basis_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_values[:, 2 + local_id]
+            self.derivatives_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 2 + local_id]
 
     def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) \
             -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
