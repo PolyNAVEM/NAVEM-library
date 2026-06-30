@@ -37,7 +37,7 @@ def main():
     parser.add_argument('-bft', '--basis-function-type', dest='basis_function_type',
                         default=1, type=int, help="Basis function type: 1 - vertex; 2 - edge; 3 - internal (Default: 1)")
     parser.add_argument('-method', '--method-type', dest='method_type',
-                        default=3, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
+                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
