@@ -57,9 +57,10 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     local_space = NAVEMPCC2DLocalSpace(reference_element, geometry_utilities)
     local_space.setup_geometry(mesh_geometric_data)
 
+    id_basis_functions = local_space.define_inputs_functions_ids(basis_function_type)
+
     network_input_dimension = 0
     num_functions_per_polygon = 0
-    id_basis_functions = None
     match basis_function_type:
 
         case BasisFunctionType.vertex:
@@ -75,19 +76,12 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             num_functions_per_polygon = reference_element.num_dof_1d * num_vertices
             network_input_dimension = 2 + 2 * (num_vertices - 1)
 
-            if method_order > 2:
-                network_input_dimension += 1
-                id_basis_functions = np.expand_dims(np.arange(reference_element.num_dof_1d) + 1, axis=1)
-            else:
-                id_basis_functions = np.zeros(0)
-
         case BasisFunctionType.internal:
 
             if method_order == 1:
                 raise ValueError("not valid basis function type for this order")
 
             num_functions_per_polygon = reference_element.num_dof_2d
-            id_basis_functions = local_space.convert_do_fs_id_internal_basis_functions_to_binary()
             network_input_dimension = 2 + 2 * (num_vertices - 1) + id_basis_functions.shape[1]
         case _:
             raise ValueError("not valid basis function type")

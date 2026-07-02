@@ -395,6 +395,33 @@ class NAVEMPCC2DLocalSpace:
 
         return binary_do_fs
 
+    def define_inputs_functions_ids(self, basis_function_type):
+        id_basis_functions = None
+        match basis_function_type:
+
+            case BasisFunctionType.vertex:
+                pass
+            case BasisFunctionType.edge:
+
+                if self.method_order == 1:
+                    raise ValueError("not valid basis function type for this order")
+
+                if self.method_order > 2:
+                    id_basis_functions = np.expand_dims(np.arange(self.method_order - 1) + 1, axis=1)
+                else:
+                    id_basis_functions = np.zeros(0)
+
+            case BasisFunctionType.internal:
+
+                if self.method_order == 1:
+                    raise ValueError("not valid basis function type for this order")
+
+                id_basis_functions = self.convert_do_fs_id_internal_basis_functions_to_binary()
+            case _:
+                raise ValueError("not valid basis function type")
+
+        return id_basis_functions
+
 
 def categorize_elements_by_vertex_number(method_order: int,
                                          mesh_geometric_data: MeshGeometricData2D,
