@@ -61,11 +61,8 @@ class NAVEMPolygon:
             sr_vertex_points[:, v:(v + 1)] = s_in_inv_diameter * s_in_vertex_points[:, v:(v + 1)]
 
         self.map_f_matrix = self.inv_diameter * s_in_inv_diameter * s_map_inertia_matrix @ map_inertia_matrix
+        self.mapped_vertices = self.map_f_matrix @ (vertex_points - self.centroid)
 
-        self.mapped_vertices = np.zeros([3, num_vertices])
-        for v in range(num_vertices):
-            self.mapped_vertices[:, v:(v + 1)] = (self.map_f_matrix @
-                                                (vertex_points[:, v:(v + 1)] - self.centroid))
 
 
     # def compute_inertia_matrix(self, points: NDArray[np.float64], centroid: NDArray[np.float64], list_triangles: List[int]) -> NDArray[np.float64]:
@@ -177,12 +174,7 @@ class NAVEMPolygon:
 
     def map_inertia_inv(self, points: NDArray[np.float64]) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
 
-        num_points = points.shape[1]
-        mapped_points = np.zeros([3, num_points])
-        for v in range(num_points):
-            mapped_points[:, v:(v + 1)] = (self.map_f_matrix @
-                                           (points[:, v:(v + 1)] - self.centroid))
-
+        mapped_points = self.map_f_matrix @ (points - self.centroid)
         return mapped_points, self.map_f_matrix
 
     def __str__(self):

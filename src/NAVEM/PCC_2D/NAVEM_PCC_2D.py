@@ -52,12 +52,23 @@ class NAVEMPCC2DLocalSpace:
     vander_internal: NDArray[np.float64]
     h_matrix: NDArray[np.float64]
 
-    boundary_quadrature: polydim.vem.quadrature.VEM_Quadrature_2D.Edges_QuadratureData
+    boundary_quadrature_data: polydim.vem.quadrature.VEM_Quadrature_2D.Edges_QuadratureData
 
     d_matrix: NDArray[np.float64]
     laplacian_coefficients: NDArray[np.float64]
 
     mesh_geometric_data: MeshGeometricData2D
+    polygon_vertices: NDArray[np.float64]
+    polygon_diameter: float
+    polygon_measure: float
+    polygon_centroid: NDArray[np.float64]
+    polygon_edges_directions: List[bool]
+    polygon_edges_tangents: NDArray[np.float64]
+    polygon_edges_lengths: List[float]
+    polygon_edge_normals: NDArray[np.float64]
+    polygon_triangulations: List[NDArray[np.float64]]
+
+
     navem_categories: Dict[NNCategory, NNDictionary]
     internal_quadrature_points: Dict[int, NDArray[np.float64]]
     internal_quadrature_weights: Dict[int, NDArray[np.float64]]
@@ -84,6 +95,7 @@ class NAVEMPCC2DLocalSpace:
         self.quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
         self.reference_quadrature_data: polydim.vem.quadrature.VEM_QuadratureData_2D = self.quadrature.compute_pcc_2_d(self.method_order)
 
+        self.reference_triangle_quadrature: gedim.quadrature.QuadratureData = gedim.quadrature.Quadrature_Gauss2D_Triangle.fill_points_and_weights(2)
 
         self.edge_internal_points = np.zeros(0)
         if self.reference_quadrature_data.reference_edge_do_fs_internal_points.shape[1] > 0:
@@ -112,7 +124,7 @@ class NAVEMPCC2DLocalSpace:
         for c in range(len(self.mesh_geometric_data.cell2_ds_vertices)):
             internal_quadrature \
                 = self.quadrature.polygon_internal_quadrature(
-                self.reference_quadrature_data.reference_triangle_quadrature,
+                self.reference_triangle_quadrature,
                 self.mesh_geometric_data.cell2_ds_triangulations[c])
 
             self.internal_quadrature_points[c] = internal_quadrature.points
@@ -176,11 +188,11 @@ class NAVEMPCC2DLocalSpace:
             self.num_boundary_basis_functions = self.method_order * self.polygon_vertices.shape[1]
             self.num_basis_functions = self.num_boundary_basis_functions + self.num_internal_basis_functions
 
-            self.internal_quadrature_data = self.quadrature.polygon_internal_quadrature(
+            internal_quadrature_data = self.quadrature.polygon_internal_quadrature(
                 self.reference_quadrature_data.reference_triangle_quadrature,
                 self.polygon_triangulations)
 
-            self.boundary_quadrature = self.quadrature.polygon_edges_lobatto_quadrature(self.reference_quadrature_data.reference_edge_do_fs_internal_points,
+            self.boundary_quadrature_data = self.quadrature.polygon_edges_lobatto_quadrature(self.reference_quadrature_data.reference_edge_do_fs_internal_points,
                                                                                    self.reference_quadrature_data.reference_edge_do_fs_internal_weights,
                                                                                    self.reference_quadrature_data.reference_edge_do_fs_extrema_weights,
                                                                                    self.polygon_vertices,
@@ -190,20 +202,19 @@ class NAVEMPCC2DLocalSpace:
                                                                                    self.polygon_edge_normals)
 
             self.vander_boundary = self.monomials.vander(self.monomials_data,
-                                               self.boundary_quadrature.quadrature.points,
+                                               self.boundary_quadrature_data.quadrature.points,
                                                self.polygon_centroid,
                                                self.scaling * self.polygon_diameter)
 
             self.vander_internal = self.monomials.vander(self.monomials_data,
-                                                         self.internal_quadrature_data.points,
+                                                         internal_quadrature_data.points,
                                                          self.polygon_centroid,
                                                          self.scaling * self.polygon_diameter)
 
             self.h_matrix = (self.vander_internal.T
-                             @ np.diag(self.internal_quadrature_data.weights)
+                             @ np.diag(internal_quadrature_data.weights)
                              @ self.vander_internal)
 
-            self.d_matrix = self.compute_polynomial_do_fs()
             self.laplacian_coefficients = self.compute_laplacian_coefficients()
 
     def basis_functions_values(self, reference_element_data: NAVEMPCC2DReferenceElement,
@@ -248,7 +259,7 @@ class NAVEMPCC2DLocalSpace:
 
     def basis_functions_laplacian_values(self, reference_element_data: NAVEMPCC2DReferenceElement,
                                           evaluation_points: NDArray[np.float64] = None,
-                                          evaluation_navem_input_output = None) -> NDArray[np.float64]:
+                                          _evaluation_navem_input_output = None) -> NDArray[np.float64]:
 
         if self.num_vertices == 3:
             if evaluation_points is None:
@@ -297,7 +308,7 @@ class NAVEMPCC2DLocalSpace:
             return edge_do_fs_coordinates
 
 
-    def basis_functions_values_on_edge(self, edge_local_index: int,
+    def basis_functions_values_on_edge(self, _edge_local_index: int,
                                        reference_element_data: NAVEMPCC2DReferenceElement,
                                        points_curvilinear_coordinates: NDArray[np.float64]) -> NDArray[np.float64]:
 

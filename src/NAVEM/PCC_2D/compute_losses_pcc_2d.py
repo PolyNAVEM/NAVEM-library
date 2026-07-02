@@ -147,7 +147,7 @@ def compute_polynomial_loss(geometry_utilities: gedim.GeometryUtilities,
         case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
-                                                                                   reference_element_data.navem_categories,
+                                                                                   local_space_data.navem_local_space_data.navem_categories,
                                                                                    evaluation_points,
                                                                                    navem_element_type=NAVEM_PCC_2D.NAVEMMappingType.standard)
         case _:
@@ -224,7 +224,7 @@ def compute_laplacian_loss(geometry_utilities: gedim.GeometryUtilities,
         case LocalSpace_PCC_2D.MethodTypes.NAVEM:
             evaluation_navem_input_output = NAVEM_PCC_2D.create_navem_input_output(geometry_utilities,
                                                                                    mesh_geometric_data,
-                                                                                   reference_element_data.navem_categories,
+                                                                                   local_space_data.navem_local_space_data.navem_categories,
                                                                                    evaluation_points,
                                                                                    evaluation_weights,
                                                                                    predict_laplacian=True,

@@ -34,7 +34,7 @@ class ReferenceElementData:
 
         match self.method_type:
             case MethodTypes.NAVEM:
-                self.standard_method_type: None
+                self.standard_method_type = None
                 self.navem_reference_element_data: NAVEM_PCC_2D.NAVEMPCC2DReferenceElement = NAVEM_PCC_2D.NAVEMPCC2DReferenceElement(self.method_order)
             case MethodTypes.VEM:
                 self.standard_method_type: polydim.pde_tools.local_space_pcc_2_d.MethodTypes = polydim.pde_tools.local_space_pcc_2_d.MethodTypes.vem_pcc

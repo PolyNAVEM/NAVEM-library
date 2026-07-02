@@ -231,6 +231,12 @@ class AbstractBPNAVEM(ABC):
         u0 = self.internal_call(inputs)
         return tf.concat([u0, self.var_phi, self.var_g], 1)
 
+    def get_g(self) -> tf.Tensor:
+        return self.var_g
+
+    def get_phi(self) -> tf.Tensor:
+        return self.var_phi
+
     def get_u_and_du(self, inputs: tf.Tensor) -> tf.Tensor:
         with tf.GradientTape() as t:
             t.watch(inputs)
@@ -256,6 +262,12 @@ class AbstractBPNAVEM(ABC):
         u0_grad = t.gradient(u0, inputs)[:, :2]
 
         return tf.concat([u0, self.var_phi, self.var_g, u0_grad, self.var_phi_grad, self.var_g_grad], 1)
+
+    def get_phi_and_d_phi(self) -> tf.Tensor:
+        return tf.concat([self.var_phi, self.var_phi_grad], 1)
+
+    def get_g_and_dg(self) -> tf.Tensor:
+        return tf.concat([self.var_g, self.var_g_grad], 1)
 
     def get_second_derivatives_u(self, inputs: tf.Tensor) -> tf.Tensor:
 
@@ -285,6 +297,12 @@ class AbstractBPNAVEM(ABC):
                 + self.var_g_second_derivatives[:, 2:3])
 
         return tf.concat([u_xx, u_xy, u_yy], 1)
+
+    def get_second_derivatives_g(self) -> tf.Tensor:
+        return self.var_g_second_derivatives
+
+    def get_second_derivatives_phi(self) -> tf.Tensor:
+        return self.var_phi_second_derivatives
 
     def setup_model_global_input(self,
                                  xy_per_pol: NDArray[np.float64],
