@@ -196,8 +196,8 @@ class EnforcingBoundary:
             term_a_i = values_ip1[:, :, 0]
             term_b_i = values_im1[:, :, -1]
             g_vertex = tf.concat([g_vertex, tf.expand_dims(
-                lambdas[:, :, i] * (term_a_i + term_b_i - term_c[:, None]) + lambdas[:, :, im1] * term_a_im1, axis=2)],
-                                 axis=2)
+                lambdas[:, :, i] * (term_a_i + term_b_i - term_c[:, None])
+                + (lambdas[:, :, im1] + lambdas[:, :, ip1]) * term_a_im1, axis=2)], axis=2)
 
             # Edge Basis functions
             g_edge = tf.concat([g_edge,
@@ -205,6 +205,7 @@ class EnforcingBoundary:
                                 lambdas[:, :, ip1, None] * tf.reverse(values_i[:, :, 1:-1], axis=[2])], axis=2)
 
         return tf.concat([g_vertex, g_edge], axis=2)
+
 
     def initialize_boundary_properties(self, vertices: tf.Tensor):
 
