@@ -13,6 +13,7 @@ from NAVEM.NeuralNetwork.h_navem_network import Flags as H_Flags
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import Flags as BP_Flags
 from NAVEM.PCC_2D.NAVEM_PCC_2D import NAVEMType
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import BasisFunctionType
 import tensorflow as tf
 
 
@@ -23,6 +24,10 @@ def print_training_information(flags: H_Flags | BP_Flags):
     method_type = NAVEMType(flags["method_type"])
     tf.print("Method type: " + method_type.name)
     tf.print("Method order: " + str(flags["method_order"]))
+
+    if flags["method_order"] > 1:
+        basis_function_type = BasisFunctionType(flags["basis_function_type"])
+        tf.print("Basis function type: ", basis_function_type.name)
 
     tf.print('\n\x1b[6;30;42m' + 'Training' + '\x1b[0m')
     tf.print("Training mesh path: " + flags["mesh_import_path"])
