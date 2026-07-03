@@ -39,6 +39,7 @@ def print_training_information(flags: H_Flags | BP_Flags):
             tf.print('\n\x1b[6;30;42m' + method_type.name + ' properties' + '\x1b[0m')
             tf.print("Harmonic polynomials degree: " + str(flags["harmonic_degree"]))
             tf.print("Normalization diameter: " + str(flags["normalization_diameter"]))
+            tf.print("Number of rationals function per vertex: " + str(flags["num_rationals_points"]))
 
         case method_type.B_NAVEM | method_type.P_NAVEM:
             boundary_method_type_g = BoundaryMethodType(flags["boundary_method_type_g"])
