@@ -87,7 +87,7 @@ def main():
                         help='Degree of the considered harmonic polynomials')
     parser.add_argument('-hf', '--use-hanging-function', dest='use_hanging_function', default=True, type=bool,
                         action=argparse.BooleanOptionalAction, help='Flag to specify to add the hanging function in the linear combination')
-    parser.add_argument('-nrt', '--num-rationals-points', dest='num_rationals_points', default=2, type=int,
+    parser.add_argument('-nrt', '--num-rationals-points', dest='num_rationals_points', default=0, type=int,
                         help='Number of poles for rationals functions for each vertex (Default: 0)')
     parser.add_argument('-rtf', '--rational-type-function', dest='rational_type_function', default=2, type=int,
                         help='Rational type: 1 - Total; 2 - Real; 3 - Imag (Default: 2)')
