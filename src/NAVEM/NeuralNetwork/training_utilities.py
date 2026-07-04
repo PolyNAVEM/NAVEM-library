@@ -259,6 +259,10 @@ def function_factory(model, loss, train_x, train_y, info_printer):
         if f.iter.read_value() % 100 == 0:
             info_printer(model, f.iter)
 
+        # store loss value and time so we can retrieve later
+        tf.py_function(f.losses.append, inp=[loss_value], Tout=[])
+        tf.py_function(f.times.append, inp=[time.perf_counter()-f.t0], Tout=[])
+
         return loss_value, grads
 
     # store these information as members, so we can use them outside the scope
