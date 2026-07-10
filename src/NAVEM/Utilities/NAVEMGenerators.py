@@ -151,7 +151,8 @@ class NAVEMGenerators:
             poles, flat_poles = RationalFunction.compute_poles(self.geometry_utilities, self.num_rationals_points,
                                                                self.list_id_vertices_rationals, polygon_vertices,
                                                                np.squeeze(internal_angles).tolist(),
-                                                               polygon_vertex_bisectors, polygon_scale)
+                                                               polygon_vertex_bisectors, polygon_scale,
+                                                               triplicate_poles_for_concave=False)
 
             dist = RationalFunction.compute_distance_pole_vertex(self.list_id_vertices_rationals, poles, flat_poles, polygon_vertices)
 

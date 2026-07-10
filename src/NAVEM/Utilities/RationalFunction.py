@@ -29,7 +29,8 @@ class RationalFunction:
     @staticmethod
     def compute_poles(geometry_utilities: gedim.GeometryUtilities, num_poles: int, list_pole_vertices: List[int],
                       polygon_vertices: NDArray[np.float64], polygon_interior_angles: List[float],
-                      polygon_vertex_bisectors: NDArray[np.float64], polygon_scale: float, sigma: float = 4.0) \
+                      polygon_vertex_bisectors: NDArray[np.float64], polygon_scale: float, sigma: float = 4.0,
+                      triplicate_poles_for_concave: bool = True) \
             -> Tuple[List[NDArray[np.float64]], NDArray[np.float64]]:
 
         """
@@ -54,7 +55,7 @@ class RationalFunction:
         for v in list_pole_vertices:
 
             n = num_poles
-            if polygon_interior_angles[v] > np.pi:
+            if polygon_interior_angles[v] > np.pi and triplicate_poles_for_concave:
                 n = 3 * num_poles
 
             distance_fun = np.exp(-sigma * (np.sqrt(n) - np.sqrt(np.arange(1, n + 1))))
