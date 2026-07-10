@@ -418,24 +418,49 @@ class EnforcingBoundary:
 
         return tf.convert_to_tensor(g_sec_ders_mapped, dtype=tf.float64)
 
-    def compute_g_and_grads_and_second_derivatives(self, xy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+    # def compute_g_and_grads_and_second_derivatives(self, xy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+    #
+    #     with tf.GradientTape(persistent=True) as tape:
+    #         tape.watch(xy)
+    #         g, g_grad = self.compute_g_and_grads(xy)
+    #
+    #         g_x, g_y = [g_grad[:, :, :, 0], g_grad[:, :, :, 1]]
+    #
+    #         g_x_slices = [g_x[:, :, v] for v in range(self.num_boundary_functions)]
+    #         g_y_slices = [g_y[:, :, v] for v in range(self.num_boundary_functions)]
+    #
+    #     g_x_ders = [tape.gradient(g_x_slices[v], xy) for v in range(self.num_boundary_functions)]
+    #     g_x_ders = tf.stack(g_x_ders, 2)
+    #     g_y_ders = [tape.gradient(g_y_slices[v], xy) for v in range(self.num_boundary_functions)]
+    #     g_y_ders = tf.stack(g_y_ders, 2)
+    #     g_sec_ders = tf.concat([g_x_ders, g_y_ders[:, :, :, 1:]], 3)
+    #
+    #     del tape
+    #
+    #     return g, g_grad, g_sec_ders
 
-        with tf.GradientTape(persistent=True) as tape:
-            tape.watch(xy)
-            g, g_grad = self.compute_g_and_grads(xy)
 
-            g_x, g_y = [g_grad[:, :, :, 0], g_grad[:, :, :, 1]]
+    def compute_g_and_grads_and_second_derivatives(
+            self, xy: tf.Tensor
+    ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
 
-            g_x_slices = [g_x[:, :, v] for v in range(self.num_boundary_functions)]
-            g_y_slices = [g_y[:, :, v] for v in range(self.num_boundary_functions)]
+        ex = tf.broadcast_to(tf.constant([1.0, 0.0], dtype=xy.dtype), tf.shape(xy))
+        ey = tf.broadcast_to(tf.constant([0.0, 1.0], dtype=xy.dtype), tf.shape(xy))
 
-        g_x_ders = [tape.gradient(g_x_slices[v], xy) for v in range(self.num_boundary_functions)]
-        g_x_ders = tf.stack(g_x_ders, 2)
-        g_y_ders = [tape.gradient(g_y_slices[v], xy) for v in range(self.num_boundary_functions)]
-        g_y_ders = tf.stack(g_y_ders, 2)
-        g_sec_ders = tf.concat([g_x_ders, g_y_ders[:, :, :, 1:]], 3)
+        def forward_over_forward(t_outer, t_inner):
+            with tf.autodiff.ForwardAccumulator(xy, t_outer) as acc_o:
+                with tf.autodiff.ForwardAccumulator(xy, t_inner) as acc_i:
+                    g = self.compute_g(xy)  # [P, N, V]
+                d_inner = acc_i.jvp(g)
+            d_outer_inner = acc_o.jvp(d_inner)
+            return g, d_inner, d_outer_inner
 
-        del tape
+        g, g_x, g_xx = forward_over_forward(ex, ex)
+        _, g_y, g_yy = forward_over_forward(ey, ey)
+        _, _, g_xy = forward_over_forward(ex, ey)
+
+        g_grad = tf.stack([g_x, g_y], axis=-1)  # [P, N, V, 2]
+        g_sec_ders = tf.stack([g_xx, g_xy, g_yy], axis=-1)  # [P, N, V, 3]
 
         return g, g_grad, g_sec_ders
 
@@ -510,18 +535,38 @@ class EnforcingBoundary:
 
     def compute_adfs_and_grads_and_second_derivatives(self, xy: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
 
-        with tf.GradientTape(persistent=True) as tape:
-            tape.watch(xy)
-            phi, phi_grad = self.compute_adfs_and_grads(xy)
-            phi_x, phi_y = [phi_grad[:, :, :1], phi_grad[:, :, 1:]]
+        # with tf.GradientTape(persistent=True) as tape:
+        #     tape.watch(xy)
+        #     phi, phi_grad = self.compute_adfs_and_grads(xy)
+        #     phi_x, phi_y = [phi_grad[:, :, :1], phi_grad[:, :, 1:]]
+        #
+        # phi_x_ders = tape.gradient(phi_x, xy)
+        # phi_y_ders = tape.gradient(phi_y, xy)
+        # phi_sec_ders = tf.concat([phi_x_ders, phi_y_ders[:, :, 1:]], -1)
+        #
+        # del tape
+        #
+        # return phi, phi_grad, phi_sec_ders
 
-        phi_x_ders = tape.gradient(phi_x, xy)
-        phi_y_ders = tape.gradient(phi_y, xy)
-        phi_sec_ders = tf.concat([phi_x_ders, phi_y_ders[:, :, 1:]], -1)
+        hess_cols = []
+        phi = None
+        grad = None
+        for e in ([1.0, 0.0], [0.0, 1.0]):
+            tangent = tf.broadcast_to(tf.constant(e, dtype=xy.dtype), tf.shape(xy))
+            with tf.autodiff.ForwardAccumulator(xy, tangent) as acc:
+                with tf.GradientTape() as tape:
+                    tape.watch(xy)
+                    phi = self.compute_adfs(xy)  # [P, N, 1]
+                grad = tape.gradient(phi, xy)  # [P, N, 2] = [phi_x, phi_y]
+            hess_cols.append(acc.jvp(grad))  # H · e  -> [P, N, 2]
 
-        del tape
+        # hess_cols[0] = [phi_xx, phi_yx],  hess_cols[1] = [phi_xy, phi_yy]
+        phi_xx = hess_cols[0][:, :, 0:1]
+        phi_xy = hess_cols[0][:, :, 1:2]
+        phi_yy = hess_cols[1][:, :, 1:2]
+        phi_sec_ders = tf.concat([phi_xx, phi_xy, phi_yy], -1)  # [P, N, 3]
 
-        return phi, phi_grad, phi_sec_ders
+        return phi, grad, phi_sec_ders
 
     def inside_polygon(self, xy: tf.Tensor) -> tf.Tensor:
         inside = 0
