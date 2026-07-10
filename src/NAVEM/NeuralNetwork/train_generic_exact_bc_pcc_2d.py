@@ -74,7 +74,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                 raise ValueError("not valid basis function type for this order")
 
             num_functions_per_polygon = reference_element.num_dof_1d * num_vertices
-            network_input_dimension = 2 + 2 * (num_vertices - 1)
+            network_input_dimension = 2 + 2 * (num_vertices - 1) + (len(id_basis_functions) > 0)
 
         case BasisFunctionType.internal:
 
