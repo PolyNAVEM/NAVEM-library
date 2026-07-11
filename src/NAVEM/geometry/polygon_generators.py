@@ -45,6 +45,21 @@ class PolygonGenerator:
         plt.legend()
         plt.show()
 
+    @staticmethod
+    def generate_regular_polygon(num_vertices: int) -> NDArray[np.float64]:
+
+        inv_num_vertices = 1.0 / num_vertices
+        theta_values = 2.0 * np.pi * inv_num_vertices
+
+        vertices =np.zeros([3, num_vertices])
+
+        for v in range(num_vertices):
+            vertices[0, v] = np.cos(v * theta_values)
+            vertices[1, v] = np.sin(v * theta_values)
+
+        return vertices
+
+
 
     def generate_simple_random_polygon(self, num_polygons: int, num_vertices: int, plot_generate_elements: bool = False) -> Tuple[gedim.MeshMatrices, gedim.MeshMatricesDAO]:
 
