@@ -196,6 +196,7 @@ class BoundaryLoss:
     reference_eval_points: NDArray[np.float64]
     basis_evaluations: NDArray[np.float64]
     derivatives_evaluations: NDArray[np.float64]
+    polygon_edge_directions: List[bool]
 
     def __init__(self, geometry_utilities: gedim.GeometryUtilities, method_order: int):
 
@@ -212,7 +213,7 @@ class BoundaryLoss:
             self.references_do_fs_on_edge)
 
     def initialize_basis_evaluations_on_boundary(self, reference_evaluation_points: NDArray[np.float64],
-                                                 num_vertices: int, v_id: int = 0) -> None:
+                                                 num_vertices: int, v_id: int = 0, polygon_edge_directions: List[bool] = None) -> None:
 
         assert reference_evaluation_points.ndim == 1
 
@@ -228,6 +229,10 @@ class BoundaryLoss:
             polydim.interpolation.lagrange.lagrange_1_d_derivative_values(self.references_do_fs_on_edge,
                                                                           self.lagrange_coefficients,
                                                                           reference_evaluation_points))
+        if polygon_edge_directions is None:
+            polygon_edge_directions = [True for _ in range(self.num_vertices)]
+
+        self.polygon_edge_directions = polygon_edge_directions
 
         self.basis_evaluations = np.zeros([self.n_pts * self.num_vertices, 1])
         self.derivatives_evaluations = np.zeros([self.n_pts * self.num_vertices, 1])
@@ -239,11 +244,11 @@ class BoundaryLoss:
             prev_v = v_id - 1 if v_id > 0 else self.num_vertices - 1
             for e in range(self.num_vertices):
                 if e == v:  # edge e after vertex v
-                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 0]
-                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 0]
+                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 0] if self.polygon_edge_directions[e] else lagrange_values[::-1, 0]
+                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 0] if self.polygon_edge_directions[e] else lagrange_derivatives_values[::-1, 0]
                 elif e == prev_v:
-                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 1]
-                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 1]
+                    self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_values[:, 1] if self.polygon_edge_directions[e] else lagrange_values[::-1, 1]
+                    self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 1] if self.polygon_edge_directions[e] else lagrange_derivatives_values[::-1, 1]
                 else:
                     self.basis_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
                     self.derivatives_evaluations[e * self.n_pts:(e + 1) * self.n_pts, 0] = zero_pol
@@ -252,8 +257,8 @@ class BoundaryLoss:
             local_id = (v_id - num_vertices) % (self.method_order - 1)
             local_edge = int(np.floor((v_id - num_vertices) / (self.method_order - 1)))
 
-            self.basis_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_values[:, 2 + local_id]
-            self.derivatives_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 2 + local_id]
+            self.basis_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_values[:, 2 + local_id] if self.polygon_edge_directions[local_edge] else lagrange_values[::-1, 2 + local_id]
+            self.derivatives_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 2 + local_id] if self.polygon_edge_directions[local_edge] else lagrange_derivatives_values[::-1, 2 + local_id]
 
     def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) \
             -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:

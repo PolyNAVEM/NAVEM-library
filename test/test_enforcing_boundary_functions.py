@@ -72,13 +72,18 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         geometry_utilities_config = gedim.GeometryUtilitiesConfig()
         geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
 
-        polygon_vertices = np.array([[0.90, 0.65, -0.35, -0.90, 0.10],
-                              [-0.80, 0.86, 0.60, 0.10, -0.60],
-                              [0.0, 0.0, 0.0, 0.0, 0.0]])
+        # polygon_vertices = np.array([[0.90, 0.65, -0.35, -0.90, 0.10],
+        #                       [-0.80, 0.86, 0.60, 0.10, -0.60],
+        #                       [0.0, 0.0, 0.0, 0.0, 0.0]])
+
+        polygon_vertices = np.array([[0.0, 1.0, 1.0, 0.0],
+                              [0.0, 0.0, 1.00, 1.0],
+                              [0.0, 0.0, 0.0, 0.0]])
 
         polygon_edge_lengths = geometry_utilities.polygon_edge_lengths(polygon_vertices)
         polygon_edge_tangents = geometry_utilities.polygon_edge_tangents(polygon_vertices)
         polygon_edge_normals = geometry_utilities.polygon_edge_normals(polygon_vertices)
+        polygon_edge_directions = [True, True, False, False]
         num_vertices = polygon_vertices.shape[1]
 
 
@@ -88,7 +93,7 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         boundary_quadrature_data = quadrature.polygon_edges_quadrature(reference_segment_quadrature_data,
                                                               polygon_vertices,
                                                               polygon_edge_lengths,
-                                                              [True for _ in range(num_vertices)],
+                                                              polygon_edge_directions,
                                                               polygon_edge_tangents,
                                                               polygon_edge_normals)
 
@@ -125,7 +130,7 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
             basis_tangent_derivatives = np.zeros([evaluation_points.shape[1], num_basis_functions])
             for i in range(num_basis_functions):
                 boundary_loss.initialize_basis_evaluations_on_boundary(reference_segment_quadrature_data.points[0, :],
-                                                                       num_vertices, v_id=i)
+                                                                       num_vertices, v_id=i, polygon_edge_directions=polygon_edge_directions)
                 _, labels[:, i], _, labels_tangent_derivatives[:, i] = boundary_loss.add_polygon(polygon_vertices)
 
                 for e in range(num_vertices):
@@ -135,7 +140,6 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
                            + g_y_boundary[
                                e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * polygon_edge_tangents[1, e]) / \
                           polygon_edge_lengths[e]
-
 
             self.assertLess(np.linalg.norm(labels - g_boundary), 1.0e-12)
             self.assertLess(np.linalg.norm(basis_tangent_derivatives - labels_tangent_derivatives), 1.0e-12)
