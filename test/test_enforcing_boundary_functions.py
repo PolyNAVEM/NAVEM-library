@@ -19,6 +19,7 @@ from matplotlib import use
 import importlib
 from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
+from NAVEM.NeuralNetwork.h_navem_network import BoundaryLoss
 
 try:
     use("Qt5Agg")
@@ -65,6 +66,79 @@ def plot_polygon_with_edge_normals(vertices: np.ndarray,
 
 
 class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
+
+    def test_boundary_loss(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
+        polygon_vertices = np.array([[0.90, 0.65, -0.35, -0.90, 0.10],
+                              [-0.80, 0.86, 0.60, 0.10, -0.60],
+                              [0.0, 0.0, 0.0, 0.0, 0.0]])
+
+        polygon_edge_lengths = geometry_utilities.polygon_edge_lengths(polygon_vertices)
+        polygon_edge_tangents = geometry_utilities.polygon_edge_tangents(polygon_vertices)
+        polygon_edge_normals = geometry_utilities.polygon_edge_normals(polygon_vertices)
+        num_vertices = polygon_vertices.shape[1]
+
+
+        quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
+        reference_quadrature = gedim.quadrature.Quadrature_Gauss1D()
+        reference_segment_quadrature_data = reference_quadrature.fill_points_and_weights(20)
+        boundary_quadrature_data = quadrature.polygon_edges_quadrature(reference_segment_quadrature_data,
+                                                              polygon_vertices,
+                                                              polygon_edge_lengths,
+                                                              [True for _ in range(num_vertices)],
+                                                              polygon_edge_tangents,
+                                                              polygon_edge_normals)
+
+        num_points_on_each_edge = reference_segment_quadrature_data.points.shape[1]
+        evaluation_points = boundary_quadrature_data.quadrature.points
+
+        vertices = np.array([polygon_vertices[:2, :]])
+        vertices = tf.convert_to_tensor(np.transpose(vertices, axes=[0, 2, 1]), dtype=tf.float64)
+
+        xy_boundary = boundary_quadrature_data.quadrature.points[:2, :].T
+        xy_boundary = tf.convert_to_tensor(xy_boundary, dtype=tf.float64)
+        xy_boundary = tf.expand_dims(xy_boundary, 0)
+        xy_boundary = tf.concat([xy_boundary] * vertices.shape[0], axis=0)
+
+
+        for method_order in range(1, 7):
+            boundary_loss = BoundaryLoss(geometry_utilities, method_order)
+
+            method_type_g = BoundaryMethodType.wachspress
+            eb = EnforcingBoundary(geometry_utilities,
+                                   method_order=method_order,
+                                   boundary_method_type_g=method_type_g)
+
+            eb.initialize_boundary_properties(vertices)
+            g_boundary, g_grad_boundary = eb.compute_g_and_grads(xy_boundary)
+            g_boundary = g_boundary[0, :, :]
+            g_x_boundary = g_grad_boundary[0, :, :, 0]
+            g_y_boundary = g_grad_boundary[0, :, :, 1]
+
+            num_basis_functions = int(method_order * num_vertices)
+
+            labels = np.zeros([evaluation_points.shape[1], num_basis_functions])
+            labels_tangent_derivatives = np.zeros([evaluation_points.shape[1], num_basis_functions])
+            basis_tangent_derivatives = np.zeros([evaluation_points.shape[1], num_basis_functions])
+            for i in range(num_basis_functions):
+                boundary_loss.initialize_basis_evaluations_on_boundary(reference_segment_quadrature_data.points[0, :],
+                                                                       num_vertices, v_id=i)
+                _, labels[:, i], _, labels_tangent_derivatives[:, i] = boundary_loss.add_polygon(polygon_vertices)
+
+                for e in range(num_vertices):
+                    basis_tangent_derivatives[e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] \
+                        = (g_x_boundary[
+                               e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * polygon_edge_tangents[0, e]
+                           + g_y_boundary[
+                               e * num_points_on_each_edge: (e + 1) * num_points_on_each_edge, i] * polygon_edge_tangents[1, e]) / \
+                          polygon_edge_lengths[e]
+
+
+            self.assertLess(np.linalg.norm(labels - g_boundary), 1.0e-12)
+            self.assertLess(np.linalg.norm(basis_tangent_derivatives - labels_tangent_derivatives), 1.0e-12)
 
 
     def test_laplacian_values_g(self):
@@ -431,8 +505,11 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
 
     def test_lagrange_values_1d(self):
 
-        method_order = 2
-        reference_do_fs_coordinates = chebyshev_lobatto_nodes(0, 1, method_order + 1)
+        method_order = 4
+        lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
+        quadrature_data = lobatto_quadrature.fill_points_and_weights(2 * method_order - 1)
+
+        reference_do_fs_coordinates = quadrature_data.points[0, :]
         reference_do_fs_coordinates = tf.convert_to_tensor(reference_do_fs_coordinates, dtype=tf.float64)
         lagrange_1d_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(reference_do_fs_coordinates.numpy())
 

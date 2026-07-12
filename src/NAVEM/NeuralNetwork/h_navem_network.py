@@ -202,10 +202,8 @@ class BoundaryLoss:
         self.geometry_utilities = geometry_utilities
         self.method_order = method_order
 
-#        assert method_order == 1
-
         lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
-        quadrature_data = lobatto_quadrature.fill_points_and_weights(self.method_order)
+        quadrature_data = lobatto_quadrature.fill_points_and_weights(2 * self.method_order - 1)
         self.references_do_fs_on_edge = np.zeros([self.method_order + 1])
         self.references_do_fs_on_edge[1] = 1.0
         self.references_do_fs_on_edge[2:] = quadrature_data.points[0, 1:-1]

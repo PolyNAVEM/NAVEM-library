@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import matplotlib.path as plt_path
 from pypolydim import gedim, polydim
 from enum import Enum
-from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
 import os
 from NAVEM.Utilities.wachspress_coordinate import wachspress_weights
 
@@ -132,10 +131,12 @@ class EnforcingBoundary:
         self.boundary_method_type_g = boundary_method_type_g
         self.bubble_type = bubble_type
 
-        reference_do_fs_coordinates = chebyshev_lobatto_nodes(0, 1, self.method_order + 1)
-        self.reference_do_fs_coordinates = tf.convert_to_tensor(reference_do_fs_coordinates, dtype=tf.float64)
+        lobatto_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
+        quadrature_data = lobatto_quadrature.fill_points_and_weights(2 * method_order - 1)
+        reference_do_fs_coordinates = quadrature_data.points[0, :]
         self.lagrange_1d_coefficients = polydim.interpolation.lagrange.lagrange_1_d_coefficients(
-            self.reference_do_fs_coordinates.numpy())
+            reference_do_fs_coordinates)
+        self.reference_do_fs_coordinates = tf.convert_to_tensor(reference_do_fs_coordinates, dtype=tf.float64)
 
     def compute_g_wachspress(self, lambdas: tf.Tensor) -> tf.Tensor:
 
