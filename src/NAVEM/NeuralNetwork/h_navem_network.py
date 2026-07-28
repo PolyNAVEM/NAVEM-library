@@ -257,8 +257,8 @@ class BoundaryLoss:
             local_id = (v_id - num_vertices) % (self.method_order - 1)
             local_edge = int(np.floor((v_id - num_vertices) / (self.method_order - 1)))
 
-            self.basis_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_values[:, 2 + local_id] if self.polygon_edge_directions[local_edge] else lagrange_values[::-1, 2 + local_id]
-            self.derivatives_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 2 + local_id] if self.polygon_edge_directions[local_edge] else lagrange_derivatives_values[::-1, 2 + local_id]
+            self.basis_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_values[:, 2 + local_id] if self.polygon_edge_directions[local_edge] else lagrange_values[::-1, self.method_order - local_id]
+            self.derivatives_evaluations[local_edge * self.n_pts:(local_edge + 1) * self.n_pts, 0] = lagrange_derivatives_values[:, 2 + local_id] if self.polygon_edge_directions[local_edge] else lagrange_derivatives_values[::-1, self.method_order - local_id]
 
     def add_polygon(self, vertices: NDArray[np.float64], add_coordinates: bool = False) \
             -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
