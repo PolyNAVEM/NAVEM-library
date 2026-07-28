@@ -27,31 +27,31 @@ def main():
     program_folder = str(Path(__file__).resolve().parent)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order")
+    parser.add_argument('-order', '--method-order', dest='method_order', default=1, type=int, help="Method order (Default : 1)")
     parser.add_argument('-method', '--method-type', dest='method_type', default=1, type=int,
-                        help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM")
+                        help="Method type: 1 - NAVEM; 2 - FEM; 3 - VEM (Default : 1)")
     parser.add_argument('-test', '--test-id', dest='test_id', default=1, type=int,
                         help="Test type: 1 - Polynomial")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=0, type=int,
                         help="Mesh type: 0 - Triangular; 1 - Minimal; 2 - Polygonal; 4 - CSV Importer; 5 - Square; (Default : 0)")
     parser.add_argument('-tol1', '--tolerance-1-d', dest='tolerance1_d', default=1.0e-12, type=float,
-                        help="Geometric Tolerance 1D")
+                        help="Geometric Tolerance 1D (Default : 1.0e-12)")
     parser.add_argument('-tol2', '--tolerance-2-d', dest='tolerance2_d', default=1.0e-14, type=float,
-                        help="Geometric Tolerance 2D")
+                        help="Geometric Tolerance 2D (Default : 1.0e-14)")
     parser.add_argument('-area', '--mesh-max-relative-area', dest='max_relative_area', default=0.1, type=float,
-                        help="Mesh max relative area")
+                        help="Mesh max relative area (Default : 0.1)")
     parser.add_argument('-export', '--export-path', dest='export_path',
-                        default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path")
-    parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path")
+                        default=program_folder + '/../Export/Elliptic_PCC_2D', type=str, help="Export Path (Default : ./Export/Elliptic_PCC_2D)")
+    parser.add_argument('-import', '--import-path', dest='import_path', default='./', type=str, help="Mesh Import Path (Default: ./)")
     parser.add_argument('-df', '--dictionary-file', dest='dictionary_file',
-                        default=program_folder + '/../TrainedModels/B-NAVEM', type=str, help="Dictionary file")
+                        default=program_folder + '/../TrainedModels/B-NAVEM', type=str, help="Dictionary file (Default: ./TrainedModels/B-NAVEM)")
     parser.add_argument('-epl', '--evaluate-polynomial-loss', dest='evaluate_polynomial_loss',
-                        default=False, type=bool, help="Evaluate polynomial loss",
+                        default=False, type=bool, help="Evaluate polynomial loss (Default: False)",
                         action=argparse.BooleanOptionalAction)
     parser.add_argument('-ebl', '--evaluate-boundary-loss', dest='evaluate_boundary_loss',
-                        default=False, type=bool, help="Evaluate boundary loss", action=argparse.BooleanOptionalAction)
+                        default=False, type=bool, help="Evaluate boundary loss (Default: False)", action=argparse.BooleanOptionalAction)
     parser.add_argument('-ell', '--evaluate-laplacian-loss', dest='evaluate_laplacian_loss',
-                        default=False, type=bool, help="Evaluate laplacian loss", action=argparse.BooleanOptionalAction)
+                        default=False, type=bool, help="Evaluate laplacian loss (Default: False)", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     tf.keras.backend.set_floatx('float64')
