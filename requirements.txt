@@ -26,7 +26,6 @@ matplotlib==3.10.8
 mdurl==0.1.2
 ml_dtypes==0.5.4
 namex==0.1.0
--e git+ssh://git@github.com/PolyNAVEM/NAVEM-library.git@914e9e7523c4a2689629cedc97d4646079d2c7c4#egg=navem_library
 numpy==2.4.4
 nvidia-ml-py==13.610.43
 opt_einsum==3.4.0
