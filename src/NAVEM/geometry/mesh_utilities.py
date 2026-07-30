@@ -144,13 +144,21 @@ def compute_geometric_properties_mesh_2(geometry_utilities: gedim.GeometryUtilit
         cell2_ds_inertia_edges_tangents.append(geometry_utilities.polygon_edge_tangents(inertia_polygon_vertices))
         cell2_ds_inertia_edges_normals.append(geometry_utilities.polygon_edge_normals(inertia_polygon_vertices))
 
-        list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
+        # list_triangles = geometry_utilities.polygon_triangulation_by_ear_clipping(vertex_points)
+        # cell2_ds_list_triangles.append(list_triangles)
+        #
+        # triangulation_points = geometry_utilities.extract_triangulation_points(vertex_points, list_triangles)
+        # cell2_ds_triangulations.append(triangulation_points)
+        #
+        # cell2_ds_inertia_triangulations.append(geometry_utilities.extract_triangulation_points(inertia_polygon_vertices, list_triangles))
+
+        list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points, internal_point)
         cell2_ds_list_triangles.append(list_triangles)
 
-        triangulation_points = geometry_utilities.extract_triangulation_points(vertex_points, list_triangles)
+        triangulation_points = geometry_utilities.extract_triangulation_points_by_internal_point(vertex_points, internal_point, list_triangles)
         cell2_ds_triangulations.append(triangulation_points)
 
-        cell2_ds_inertia_triangulations.append(geometry_utilities.extract_triangulation_points(inertia_polygon_vertices, list_triangles))
+        cell2_ds_inertia_triangulations.append(geometry_utilities.extract_triangulation_points_by_internal_point(inertia_polygon_vertices, internal_point, list_triangles))
 
     return MeshGeometricData2D(mesh_geometric_data,
                                cell2_ds_list_triangles,
