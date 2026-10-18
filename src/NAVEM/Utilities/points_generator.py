@@ -361,8 +361,8 @@ def gauss_points_over_polygon(reference_points: NDArray[np.float64],
 def grid_over_polygon(points_distribution_type: PointsTriangleDistributionType,
                       reference_points: NDArray[np.float64],
                       polygon_triangulation_by_interior_points: List[NDArray[np.float64]],
-                      uniform_boundary: bool = False, accumulating_border: BorderType = BorderType.no_borders) -> \
-NDArray[np.float64]:
+                      uniform_boundary: bool = False, accumulating_border: BorderType = BorderType.no_borders) -> NDArray[np.float64]:
+
     match points_distribution_type:
         case PointsTriangleDistributionType.gauss:
             return gauss_points_over_polygon(reference_points, polygon_triangulation_by_interior_points)
