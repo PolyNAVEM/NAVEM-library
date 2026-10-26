@@ -480,9 +480,21 @@ class EnforcingBoundary:
         phi = None
         match self.bubble_type:
             case BubbleType.approximate_distance_function:
-                m = 2
-                sum_inverse = tf.reduce_sum(tf.pow(dist, -tf.constant(m, dtype=dist.dtype)), axis=2, keepdims=True)
-                phi = 1.0 / sum_inverse ** (1 / m)
+                # m = 2
+                # sum_inverse = tf.reduce_sum(tf.pow(dist, -tf.constant(m, dtype=dist.dtype)), axis=2, keepdims=True)
+                # phi = 1.0 / sum_inverse ** (1 / m)
+
+                dist_sq = tf.square(dist)
+                denom_sum = tf.reduce_prod(dist_sq[:, :, 1:], axis=2, keepdims=True)
+                for v in range(1, self.num_vertices-1):
+                    denom_sum += (tf.reduce_prod(dist_sq[:, :, :v], axis=2, keepdims=True) *
+                                  tf.reduce_prod(dist_sq[:, :, v+1:], axis=2, keepdims=True))
+                denom_sum += tf.reduce_prod(dist_sq[:, :, :-1], axis=2, keepdims=True)
+                numerator = tf.reduce_prod(dist, axis=2, keepdims=True)
+
+                phi = numerator / tf.sqrt(denom_sum) ** (1/3)
+
+
             case BubbleType.product:
                 phi = tf.reduce_prod(dist, axis=2, keepdims=True)
             case _:
@@ -593,8 +605,9 @@ class EnforcingBoundary:
         z = tf.boolean_mask(phi, inside)
 
         if contour_plot:
-            plt.tricontourf(x, y, z, levels=20, cmap="viridis")
-            cbar = plt.colorbar()
+            tcf = plt.tricontourf(x, y, z, levels=20, cmap="viridis")
+            plt.tricontour(x, y, z, levels=20, colors="black", linewidths=1)
+            cbar = plt.colorbar(tcf)
 
             segments = tf.concat([self.vertices, self.next_vertices], axis=2)
             for e in segments[pol_id, :, :]:

@@ -112,3 +112,89 @@ def compute_g_wachspress(vertices: tf.Tensor, lambdas: tf.Tensor, boundary_funct
 
     return g
 
+"""
+def compute_g_wachspress_vec(vertices: tf.Tensor,
+                                     lambdas: tf.Tensor,
+                                     boundary_function) -> tf.Tensor:
+    
+    Compute transfinite interpolant of Dirichlet boundary functions
+    (vectorized over the vertices).
+    
+    vertices: [num_polygons, num_vertices, 2]
+    lambdas:  [num_polygons, num_points, num_vertices]
+    
+    num_vertices = vertices.shape[1]
+
+    # Index vectors holding the value of i, ip1, im1 at each loop iteration
+    i = tf.range(num_vertices)          # [V]
+    ip1 = (i + 1) % num_vertices        # next vertices
+    im1 = (i - 1) % num_vertices        # previous vertices
+
+    # Vertex coordinates, each [P, 1, V] so they broadcast against lambdas [P, N, V]
+    x_i = vertices[:, None, :, 0]
+    y_i = vertices[:, None, :, 1]
+    x_ip1_v = tf.gather(vertices, ip1, axis=1)[:, None, :, 0]
+    y_ip1_v = tf.gather(vertices, ip1, axis=1)[:, None, :, 1]
+    x_im1_v = tf.gather(vertices, im1, axis=1)[:, None, :, 0]
+    y_im1_v = tf.gather(vertices, im1, axis=1)[:, None, :, 1]
+
+    # Lambdas associated with the next / previous vertices: [P, N, V]
+    lam_ip1 = tf.gather(lambdas, ip1, axis=2)
+    lam_im1 = tf.gather(lambdas, im1, axis=2)
+
+    # (x,y) coordinates where the boundary function will be evaluated: [P, N, V]
+    x_ip1 = (1.0 - lam_ip1) * x_i + lam_ip1 * x_ip1_v
+    y_ip1 = (1.0 - lam_ip1) * y_i + lam_ip1 * y_ip1_v
+
+    x_im1 = (1.0 - lam_im1) * x_i + lam_im1 * x_im1_v
+    y_im1 = (1.0 - lam_im1) * y_i + lam_im1 * y_im1_v
+
+    # Contributions from every vertex at once
+    term_a = boundary_function(i, x_ip1, y_ip1)                    # [P, N, V]
+    term_b = boundary_function(im1, x_im1, y_im1)                  # [P, N, V]
+    term_c = boundary_function(i, vertices[:, :, 0], vertices[:, :, 1])  # [P, V]
+
+    # Sum over vertices (this replaces the `g +=` accumulation): [P, N]
+    g = tf.reduce_sum(lambdas * (term_a + term_b - term_c[:, None, :]), axis=2)
+
+    return g
+"""
+
+
+def compute_g_wachspress_vectorized(vertices: tf.Tensor,
+                                    lambdas: tf.Tensor,
+                                    boundary_function) -> tf.Tensor:
+    num_vertices = vertices.shape[1]
+
+    # Index vectors holding the value of i, ip1, im1 at each loop iteration
+    i = tf.range(num_vertices)
+    ip1 = (i + 1) % num_vertices
+    im1 = (i - 1) % num_vertices
+
+    x_i = vertices[:, None, :, 0]
+    y_i = vertices[:, None, :, 1]
+    x_ip1_v = tf.gather(vertices, ip1, axis=1)[:, None, :, 0]
+    y_ip1_v = tf.gather(vertices, ip1, axis=1)[:, None, :, 1]
+    x_im1_v = tf.gather(vertices, im1, axis=1)[:, None, :, 0]
+    y_im1_v = tf.gather(vertices, im1, axis=1)[:, None, :, 1]
+
+    # Lambdas associated with the next / previous vertices (size [polygons, points, vertices])
+    lam_ip1 = tf.gather(lambdas, ip1, axis=2)
+    lam_im1 = tf.gather(lambdas, im1, axis=2)
+
+    # (x,y) coordinates where the boundary function will be evaluated
+    x_ip1 = (1.0 - lam_ip1) * x_i + lam_ip1 * x_ip1_v
+    y_ip1 = (1.0 - lam_ip1) * y_i + lam_ip1 * y_ip1_v
+
+    x_im1 = (1.0 - lam_im1) * x_i + lam_im1 * x_im1_v
+    y_im1 = (1.0 - lam_im1) * y_i + lam_im1 * y_im1_v
+
+    # Contributions from every vertex at once
+    term_a = boundary_function(i, x_ip1, y_ip1)
+    term_b = boundary_function(im1, x_im1, y_im1)
+    term_c = boundary_function(i, vertices[:, None, :, 0], vertices[:, None, :, 1])
+
+    # Sum over vertices
+    g = tf.reduce_sum(lambdas * (term_a + term_b - term_c), axis=2)
+
+    return g
