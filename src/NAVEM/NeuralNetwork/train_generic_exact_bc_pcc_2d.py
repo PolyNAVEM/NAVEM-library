@@ -15,6 +15,7 @@ from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import *
 from NAVEM.NeuralNetwork.b_navem_network import BNAVEMNetwork
 from NAVEM.NeuralNetwork.p_navem_network import PNAVEMNetwork
+from NAVEM.NeuralNetwork.w_navem_network import WNAVEMNetwork
 from NAVEM.NeuralNetwork.training_utilities import *
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType, BasisFunctionType, NAVEMMappingType
 import csv
@@ -123,6 +124,8 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
             nn = PNAVEMNetwork(flags, in_training=True)
         case NAVEMType.B_NAVEM:
             nn = BNAVEMNetwork(flags, in_training=True)
+        case NAVEMType.W_NAVEM:
+            nn = WNAVEMNetwork(flags, in_training=True)
         case _:
             raise ValueError("not valid method")
 

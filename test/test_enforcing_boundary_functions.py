@@ -611,7 +611,7 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         xy = tf.concat([xy] * vertices.shape[0], axis=0)
 
         method_type = BoundaryMethodType.segment
-        bubble_type = BubbleType.bubble_similar_to_adf
+        bubble_type = BubbleType.approximate_distance_function
 
         method_order = 1
         eb = EnforcingBoundary(geometry_utilities,

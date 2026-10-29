@@ -20,6 +20,7 @@ class NAVEMType(IntEnum):
     H_NAVEM = 1
     B_NAVEM = 2
     P_NAVEM = 3
+    W_NAVEM = 4
 
 class NAVEMMappingType(IntEnum):
     standard = 1
