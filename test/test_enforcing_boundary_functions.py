@@ -17,7 +17,7 @@ from pypolydim import gedim, polydim
 import matplotlib.pyplot as plt
 from matplotlib import use
 import importlib
-from NAVEM.Utilities.points_generator import chebyshev_lobatto_nodes
+from NAVEM.Utilities.points_generator import *
 from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 from NAVEM.NeuralNetwork.h_navem_network import BoundaryLoss
 
@@ -578,7 +578,10 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         geometry_utilities_config = gedim.GeometryUtilitiesConfig()
         geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
 
-        vertices = np.array([[[0.90, 0.65, -0.35, -0.90, 0.10],
+        vertices = np.array([[[-1.0, 0.0, 1.0, 1.0, -1.0],
+                              [-1.0, -1.0, -1.0, 1.0, 1.0]],
+
+                             [[0.90, 0.65, -0.35, -0.90, 0.10],
                               [-0.80, 0.86, 0.60, 0.10, -0.60]],
 
                              [[0.80, 0.55, -0.15, -0.70, -0.20],
@@ -608,6 +611,93 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         xy = tf.concat([xy] * vertices.shape[0], axis=0)
 
         method_type = BoundaryMethodType.segment
+        bubble_type = BubbleType.bubble_similar_to_adf
+
+        method_order = 1
+        eb = EnforcingBoundary(geometry_utilities,
+                               method_order=method_order,
+                               boundary_method_type_adfs=method_type,
+                               boundary_method_type_g=method_type,
+                               bubble_type=bubble_type)
+
+        eb.initialize_boundary_properties(vertices)
+        g, g_grad, g_sec_ders = eb.compute_g_and_grads_and_second_derivatives(xy)
+        phi, phi_grad, phi_sec_ders = eb.compute_adfs_and_grads_and_second_derivatives(xy)
+
+        phi_laplacian = tf.expand_dims(phi_sec_ders[:, :, 0] + phi_sec_ders[:, :, 2], axis=2)
+        g_laplacian = g_sec_ders[:, :, :, 0] + g_sec_ders[:, :, :, 2]
+
+        num_boundary_do_fs = method_order * vertices.shape[1]
+        for pol_id in range(vertices.shape[0]):
+           eb.draw_adf(xy, phi, pol_id, scatter_plot=False, contour_plot=True)
+           eb.draw_adf(xy, phi_laplacian, pol_id, scatter_plot=False, contour_plot=True)
+
+           # for dof_id in range(num_boundary_do_fs):
+           #      eb.draw_g(xy, g, pol_id, dof_id, scatter_plot=False, contour_plot=True)
+           #      eb.draw_g(xy, g_laplacian, pol_id, dof_id, scatter_plot=False, contour_plot=True)
+           #      eb.draw_g_on_one_edge(xy, pol_id, dof_id)
+
+    def test_pentagon_segment_including_boundary(self):
+
+        geometry_utilities_config = gedim.GeometryUtilitiesConfig()
+        geometry_utilities = gedim.GeometryUtilities(geometry_utilities_config)
+
+        vertices = np.array([[[-1.0, 0.0, 1.0, 1.0, -1.0],
+                              [-1.0, -1.0, -1.0, 1.0, 1.0]],
+
+                             [[0.90, 0.65, -0.35, -0.90, 0.10],
+                              [-0.80, 0.86, 0.60, 0.10, -0.60]],
+
+                             [[0.80, 0.55, -0.15, -0.70, -0.20],
+                              [-0.60, 0.8, 0.90, 0.30, -0.05]],
+
+                             [[0.80, 0.55, 0.15, -0.70, -0.20],
+                              [-0.60, 0.8, 0.30, 0.30, -0.50]],
+
+                             [[0.50, -0.5, -0.55, -0.50, -0.30],
+                              [-0.50, 0.5, 0.45, 0.10, -0.70]],
+
+                             [[0.5, 0.5, 0.5, -0.90, -0.2],
+                              [-0.8, 0.0, 0.8, 0.0, -0.4]]
+                             ])
+
+        internal_points = np.array([[0.0], [0.0], [0.0]])
+
+        vertices = tf.convert_to_tensor(np.transpose(vertices, axes=[0, 2, 1]), dtype=tf.float64)
+
+        num_training_polygons = vertices.shape[0]
+        num_vertices = 5
+
+        quadrature = polydim.vem.quadrature.VEM_Quadrature_2D()
+        reference_quadrature = gedim.quadrature.Quadrature_GaussLobatto1D()
+        reference_segment_quadrature_data = reference_quadrature.fill_points_and_weights(20)
+
+        num_points_per_polygon = reference_segment_quadrature_data.points.shape[1] * num_vertices
+        xy = np.zeros(shape=(num_training_polygons, num_points_per_polygon, 2))
+
+        for c in range(num_training_polygons):
+            polygon_vertices = np.zeros([3, num_vertices], dtype=np.float64)
+            polygon_vertices[0, :] = vertices[c, :, 0]
+            polygon_vertices[1, :] = vertices[c, :, 1]
+
+            polygon_edge_lengths = geometry_utilities.polygon_edge_lengths(polygon_vertices)
+            polygon_edge_tangents = geometry_utilities.polygon_edge_tangents(polygon_vertices)
+            polygon_edge_normals = geometry_utilities.polygon_edge_normals(polygon_vertices)
+            polygon_edge_directions = [True, True, True, True, True]
+            num_vertices = polygon_vertices.shape[1]
+
+
+            boundary_quadrature_data = quadrature.polygon_edges_quadrature(reference_segment_quadrature_data,
+                                                                           polygon_vertices,
+                                                                           polygon_edge_lengths,
+                                                                           polygon_edge_directions,
+                                                                           polygon_edge_tangents,
+                                                                           polygon_edge_normals)
+
+            xy[c, :, :] = boundary_quadrature_data.quadrature.points[:2, :].T
+
+        xy = tf.convert_to_tensor(xy, dtype=tf.float64)
+        method_type = BoundaryMethodType.segment
         bubble_type = BubbleType.approximate_distance_function
 
         method_order = 1
@@ -618,16 +708,21 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
                                bubble_type=bubble_type)
 
         eb.initialize_boundary_properties(vertices)
-        g = eb.compute_g(xy)
-        phi = eb.compute_adfs(xy)
+        g, g_grad, g_sec_ders = eb.compute_g_and_grads_and_second_derivatives(xy)
+        phi, phi_grad, phi_sec_ders = eb.compute_adfs_and_grads_and_second_derivatives(xy)
+
+        phi_laplacian = tf.expand_dims(phi_sec_ders[:, :, 0] + phi_sec_ders[:, :, 2], axis=2)
+        g_laplacian = g_sec_ders[:, :, :, 0] + g_sec_ders[:, :, :, 2]
 
         num_boundary_do_fs = method_order * vertices.shape[1]
         for pol_id in range(vertices.shape[0]):
            eb.draw_adf(xy, phi, pol_id, scatter_plot=False, contour_plot=True)
+           eb.draw_adf(xy, phi_laplacian, pol_id, scatter_plot=False, contour_plot=True)
 
            for dof_id in range(num_boundary_do_fs):
                 eb.draw_g(xy, g, pol_id, dof_id, scatter_plot=False, contour_plot=True)
-                eb.draw_g_on_one_edge(xy, pol_id, dof_id)
+                eb.draw_g(xy, g_laplacian, pol_id, dof_id, scatter_plot=False, contour_plot=True)
+                #eb.draw_g_on_one_edge(xy, pol_id, dof_id)
 
     def test_hexagon_segment_product(self):
 

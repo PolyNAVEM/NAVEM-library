@@ -33,6 +33,7 @@ class BoundaryMethodType(Enum):
 class BubbleType(Enum):
     approximate_distance_function = 1
     product = 2
+    bubble_similar_to_adf = 3
 
 
 def lagrange_basis_1d(basis_index: int, x: tf.Tensor, reference_do_fs_coordinates: tf.Tensor) -> tf.Tensor:
@@ -480,20 +481,23 @@ class EnforcingBoundary:
         phi = None
         match self.bubble_type:
             case BubbleType.approximate_distance_function:
-                # m = 2
-                # sum_inverse = tf.reduce_sum(tf.pow(dist, -tf.constant(m, dtype=dist.dtype)), axis=2, keepdims=True)
-                # phi = 1.0 / sum_inverse ** (1 / m)
+                m = 2
+                sum_inverse = tf.reduce_sum(tf.pow(dist, -tf.constant(m, dtype=dist.dtype)), axis=2, keepdims=True)
+                phi = 1.0 / sum_inverse ** (1 / m)
+
+            case BubbleType.bubble_similar_to_adf:
 
                 dist_sq = tf.square(dist)
-                denom_sum = tf.reduce_prod(dist_sq[:, :, 1:], axis=2, keepdims=True)
+                denominator_sum = tf.reduce_prod(dist_sq[:, :, 1:], axis=2, keepdims=True)
                 for v in range(1, self.num_vertices-1):
-                    denom_sum += (tf.reduce_prod(dist_sq[:, :, :v], axis=2, keepdims=True) *
+                    denominator_sum += (tf.reduce_prod(dist_sq[:, :, :v], axis=2, keepdims=True) *
                                   tf.reduce_prod(dist_sq[:, :, v+1:], axis=2, keepdims=True))
-                denom_sum += tf.reduce_prod(dist_sq[:, :, :-1], axis=2, keepdims=True)
+                denominator_sum += tf.reduce_prod(dist_sq[:, :, :-1], axis=2, keepdims=True)
                 numerator = tf.reduce_prod(dist, axis=2, keepdims=True)
 
-                phi = numerator / tf.sqrt(denom_sum) ** (1/3)
-
+                a = 3
+                b = 1
+                phi = numerator / denominator_sum ** (a / (2 * a + b))
 
             case BubbleType.product:
                 phi = tf.reduce_prod(dist, axis=2, keepdims=True)
