@@ -122,10 +122,9 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         ip1 = (i + 1) % num_vertices
         im1 = (i - 1) % num_vertices
 
-        #first = tf.tile(tf.constant([[0., 1.]], dtype=inputs.dtype), [tf.shape(inputs)[0], 1])
-        #vertices = tf.concat([first, inputs[:, 2:]], axis=1)
-        vertices = inputs[:, 2:]
-        vertices = tf.transpose(tf.reshape(vertices, (tf.shape(inputs)[0], 2, num_vertices)), perm=[0, 2, 1])
+        first = tf.expand_dims(tf.tile(tf.constant([[1.0, 0.0]], dtype=inputs.dtype), [tf.shape(inputs)[0], 1]), axis=1)
+        vertices = tf.transpose(tf.reshape(inputs[:, 2:], (tf.shape(inputs)[0], 2, num_vertices - 1)), perm=[0, 2, 1])
+        vertices = tf.concat([first, vertices], axis=1)
 
 
         x_i = vertices[:, :, 0]

@@ -12,6 +12,7 @@
 import unittest
 
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMType, BasisFunctionType
 from NAVEM.Utilities.points_generator import *
@@ -21,7 +22,9 @@ from NAVEM.NeuralNetwork.w_navem_network import WNAVEMNetwork
 from NAVEM.Utilities.enforcing_boundary_functions import BubbleType, BoundaryMethodType
 from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NAVEMElementType, BasisFunctionType, NAVEMMappingType
 from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import set_flags, Flags
-
+from NAVEM.geometry.geometry_utilities import *
+from NAVEM.PCC_2D.NAVEM_Data_PCC_2D import NNCategory
+from NAVEM.Utilities.NAVEMPolygon import NAVEMPolygon
 
 try:
     use("Qt5Agg")
@@ -132,20 +135,20 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
              [0.0, 0.0, 1.0, 2.0, 1.0],
              [0.0, 0.0, 0.0, 0.0, 0.0]],
 
-            # [[0.80, 0.55, -0.15, -0.70, -0.20],
-            #  [-0.60, 0.8, 0.90, 0.30, -0.05],
-            #  [0.0, 0.0, 0.0, 0.0, 0.0]],
-            #
-            # [[0.50, -0.5, -0.55, -0.50, -0.30],
-            #  [-0.50, 0.5, 0.45, 0.10, -0.70],
-            #  [0.0, 0.0, 0.0, 0.0, 0.0]],
+            [[0.80, 0.55, -0.15, -0.70, -0.20],
+             [-0.60, 0.8, 0.90, 0.30, -0.05],
+             [0.0, 0.0, 0.0, 0.0, 0.0]],
+
+            [[0.50, -0.5, -0.55, -0.50, -0.30],
+             [-0.50, 0.5, 0.45, 0.10, -0.70],
+             [0.0, 0.0, 0.0, 0.0, 0.0]],
         ])
 
         internal_point = np.array([
             [[0.25], [0.0], [0.0]],
             [[0.5], [1.0], [0.0]],
-            # [[0.2], [0.3], [0.0]],
-            # [[-0.2], [-0.2], [0.0]],
+            [[0.2], [0.3], [0.0]],
+            [[-0.2], [-0.2], [0.0]],
         ])
 
         num_vertices = vertices.shape[2]
@@ -330,20 +333,13 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
              [0.0, 0.0, 1.0, 2.0, 1.0],
              [0.0, 0.0, 0.0, 0.0, 0.0]],
 
-            # [[0.80, 0.55, -0.15, -0.70, -0.20],
-            #  [-0.60, 0.8, 0.90, 0.30, -0.05],
-            #  [0.0, 0.0, 0.0, 0.0, 0.0]],
-            #
-            # [[0.50, -0.5, -0.55, -0.50, -0.30],
-            #  [-0.50, 0.5, 0.45, 0.10, -0.70],
-            #  [0.0, 0.0, 0.0, 0.0, 0.0]],
-        ])
+            [[0.80, 0.55, -0.15, -0.70, -0.20],
+             [-0.60, 0.8, 0.90, 0.30, -0.05],
+             [0.0, 0.0, 0.0, 0.0, 0.0]],
 
-        internal_point = np.array([
-            [[0.25], [0.0], [0.0]],
-            [[0.5], [1.0], [0.0]],
-            # [[0.2], [0.3], [0.0]],
-            # [[-0.2], [-0.2], [0.0]],
+            [[0.50, -0.5, -0.55, -0.50, -0.30],
+             [-0.50, 0.5, 0.45, 0.10, -0.70],
+             [0.0, 0.0, 0.0, 0.0, 0.0]],
         ])
 
         num_vertices = vertices.shape[2]
@@ -363,31 +359,65 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
 
         num_points_per_polygon = reference_nodes.shape[1] * num_vertices
         num_training_polygons = vertices.shape[0]
-        num_functions_per_polygon = 1
-        network_input_dimension = 2 + 2 * 5
+        num_functions_per_polygon = 5
+        network_input_dimension = 2 + 2 * 4
         inputs = np.zeros((num_training_polygons * num_points_per_polygon * num_functions_per_polygon,
                            network_input_dimension))
         for c in range(vertices.shape[0]):
+            vertex_points = vertices[c, :, :]
+            polygon_internal_angles = compute_polygon_interior_angles(vertex_points)
+
+            if polygon_internal_angles is not None:
+                use_kernel = NNCategory.is_concave(polygon_internal_angles)
+            else:
+                use_kernel = False
+
+            if use_kernel:
+                inertia_vertices = compute_polygon_kernel(geometry_utilities, vertex_points, polygon_internal_angles)
+                kernal_area = geometry_utilities.polygon_area(inertia_vertices)
+                internal_point = geometry_utilities.polygon_centroid(inertia_vertices, kernal_area)
+                diameter = geometry_utilities.polygon_diameter(inertia_vertices)
+            else:
+                area = geometry_utilities.polygon_area(vertex_points)
+                internal_point = geometry_utilities.polygon_centroid(vertex_points, area)
+                diameter = geometry_utilities.polygon_diameter(vertex_points)
+                inertia_vertices = vertex_points
+
+            list_triangles_by_internal_point = geometry_utilities.polygon_triangulation_by_internal_point(vertex_points,
+                                                                                                          internal_point)
+
+            polygon = NAVEMPolygon(geometry_utilities,
+                                   vertex_points,
+                                   inertia_vertices,
+                                   internal_point,
+                                   diameter,
+                                   list_triangles_by_internal_point)
+
+            inertia_polygon_centroid = polygon.centroid
+            inertia_mapped_internal_point, _ = polygon.map_inertia_inv(inertia_polygon_centroid)
+
+            inertia_mapped_list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(
+                polygon.mapped_vertices, inertia_mapped_internal_point)
+            inertia_mapped_list_triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(
+                polygon.mapped_vertices, inertia_mapped_internal_point, inertia_mapped_list_triangles)
+
+            # Loss will be minimized over the inertia polygon
+            inertia_mapped_internal_nodes = grid_over_polygon(distribution_points_type,
+                                                              reference_nodes,
+                                                              inertia_mapped_list_triangles_points,
+                                                              uniform_boundary,
+                                                              accumulating_border)
+
             for v_id in range(num_functions_per_polygon):
-                # rotated_vertices = np.roll(vertices[c, :, :], axis=1, shift=-v_id)
-                rotated_vertices = vertices[c, :, :]
-                list_triangles = geometry_utilities.polygon_triangulation_by_internal_point(rotated_vertices,
-                                                                                            internal_point[c, :, :])
-                triangles_points = geometry_utilities.extract_triangulation_points_by_internal_point(rotated_vertices,
-                                                                                                     internal_point[
-                                                                                                         c, :, :],
-                                                                                                     list_triangles)
+                rotated_vertices, rotated_mapped_points, jac_inv, jac, _ = NAVEMPolygon.map_fix_vertex_inv(
+                    polygon.mapped_vertices,
+                    inertia_mapped_internal_nodes,
+                    v_id)
+                rotated_vertices = np.roll(rotated_vertices, axis=1, shift=-v_id)
 
-                # Loss will be minimized over the inertia polygon
-                points = grid_over_polygon(PointsTriangleDistributionType.uniform,
-                                           reference_nodes,
-                                           triangles_points,
-                                           uniform_boundary,
-                                           accumulating_border)[:2, :].T
-
-                flat_rotated_vertices = rotated_vertices[:2, :].flatten()
+                flat_rotated_vertices = rotated_vertices[:2, 1:].flatten()
                 rep_flat_rot_vertices = np.tile(flat_rotated_vertices[np.newaxis, :], [num_points_per_polygon, 1])
-                c_inputs = np.concatenate([points, rep_flat_rot_vertices], axis=1)
+                c_inputs = np.concatenate([rotated_mapped_points[:2, :].T, rep_flat_rot_vertices], axis=1)
 
                 inputs[(c * num_functions_per_polygon + v_id) * num_points_per_polygon:
                        (c * num_functions_per_polygon + v_id + 1) * num_points_per_polygon, :] = c_inputs
@@ -426,15 +456,13 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
         lifting_g = nn.compute_network_lifting(inputs, boundary_function_1).numpy()
         points = inputs[:, :2].numpy()
 
-        lifting_g = np.reshape(lifting_g, (num_training_polygons, num_points_per_polygon))
-        points = np.reshape(points, (num_training_polygons, num_points_per_polygon, 2))
+        lifting_g = np.reshape(lifting_g, (num_training_polygons * num_functions_per_polygon, num_points_per_polygon))
+        points = np.reshape(points, (num_training_polygons * num_functions_per_polygon, num_points_per_polygon, 2))
 
-        for c in range(vertices.shape[0]):
+        for c in range(num_training_polygons * num_functions_per_polygon):
 
             f1 = boundary_function_1(None, points[c, :, 0], points[c, :, 1])
             diff_rete_g = lifting_g[c, :] - f1
-
-            print(diff_rete_g)
 
             # plot 3D surface
             fig = plt.figure(figsize=(7, 6))

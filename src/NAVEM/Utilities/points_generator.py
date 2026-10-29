@@ -335,8 +335,8 @@ def concentrating_grid_over_polygon(reference_points: NDArray[np.float64],
 
         nodes[:, (idx_t * num_quadrature): ((idx_t + 1) * num_quadrature)] = map_triangle.f(map_data, reference_points)
 
-    if border_type == BorderType.all_borders:
-        nodes = np.unique(nodes, axis=1)
+    # if border_type == BorderType.all_borders:
+    #     nodes = np.unique(nodes, axis=1)
 
     return nodes
 
