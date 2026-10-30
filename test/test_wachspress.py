@@ -39,6 +39,14 @@ def boundary_function_1(_edge_idx, x, y):
     """
     return np.cos(x) + y**2 + x**2
 
+def boundary_function_network(inputs: tf.Tensor) -> tf.Tensor:
+    """
+    Define the boundary function for any given edge
+    """
+    x = inputs[:, 0]
+    y = inputs[:, 1]
+    return np.cos(x) + y**2 + x**2
+
 def boundary_function_2(_edge_idx, x, y):
     """
     Define the boundary function for any given edge
@@ -453,15 +461,17 @@ class TestEnforcingBoundaryFunctionsEfficient(unittest.TestCase):
 
         nn = WNAVEMNetwork(flags, in_training=True)
 
-        lifting_g = nn.compute_network_lifting(inputs, boundary_function_1).numpy()
+        lifting_g = nn.compute_network_lifting(inputs, boundary_function_network).numpy()
         points = inputs[:, :2].numpy()
 
         lifting_g = np.reshape(lifting_g, (num_training_polygons * num_functions_per_polygon, num_points_per_polygon))
         points = np.reshape(points, (num_training_polygons * num_functions_per_polygon, num_points_per_polygon, 2))
 
+        offset_pts = 0
         for c in range(num_training_polygons * num_functions_per_polygon):
-
-            f1 = boundary_function_1(None, points[c, :, 0], points[c, :, 1])
+            input_f = tf.concat([points[c, :, 0:1], points[c, :, 1:2], inputs[offset_pts:offset_pts+num_points_per_polygon, 2:]], axis=1)
+            offset_pts += num_points_per_polygon
+            f1 = boundary_function_network(input_f)
             diff_rete_g = lifting_g[c, :] - f1
 
             # plot 3D surface

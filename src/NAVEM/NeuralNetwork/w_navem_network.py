@@ -55,6 +55,7 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         for layer in self.layers_list[1:]:
             layer.build((None, self.flags["num_neurons_per_layer"]))
 
+    @tf.function
     def wachspress_weights(self,
                            points: tf.Tensor, vertices: tf.Tensor) -> tf.Tensor:
         """
@@ -110,6 +111,7 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         return w / tf.reduce_sum(w, axis=1, keepdims=True)
 
+    @tf.function
     def compute_network_lifting(self,
                                 inputs: tf.Tensor,
                                 boundary_function) -> tf.Tensor:
@@ -149,9 +151,17 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         y_im1 = (1.0 - lam_im1) * y_i + lam_im1 * y_im1_v
 
         # Contributions from every vertex at once
-        term_a = boundary_function(i, x_ip1, y_ip1)
-        term_b = boundary_function(im1, x_im1, y_im1)
-        term_c = boundary_function(i, vertices[:, :, 0], vertices[:, :, 1])
+        term_a = tf.zeros(shape=(tf.shape(inputs)[0], 0), dtype=tf.float64)
+        term_b = tf.zeros(shape=(tf.shape(inputs)[0], 0), dtype=tf.float64)
+        term_c = tf.zeros(shape=(tf.shape(inputs)[0], 0), dtype=tf.float64)
+
+        for idx in range(num_vertices):
+            input_a = tf.concat([x_ip1[:, idx:idx+1], y_ip1[:, idx:idx+1], inputs[:, 2:]], axis=1)
+            term_a = tf.concat([term_a, tf.expand_dims(boundary_function(input_a),axis=1)], axis=1)
+            input_b = tf.concat([x_im1[:, idx:idx + 1], y_im1[:, idx:idx + 1], inputs[:, 2:]], axis=1)
+            term_b = tf.concat([term_b, tf.expand_dims(boundary_function(input_b),axis=1)], axis=1)
+            input_c = tf.concat([vertices[:, idx:idx + 1, 0], vertices[:, idx:idx + 1, 1], inputs[:, 2:]], axis=1)
+            term_c = tf.concat([term_c, tf.expand_dims(boundary_function(input_c),axis=1)], axis=1)
 
         # Sum over vertices
         g = tf.reduce_sum(lambdas * (term_a + term_b - term_c), axis=1)
@@ -170,53 +180,25 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
             with tf.GradientTape() as tape1:
                 tape1.watch(inputs)
                 u0 = self.internal_call(inputs)
-            grad = tape1.gradient(u0, inputs)
-        u_xx = acc_x.jvp(grad)[:, 0:1]
+                ln = self.compute_network_lifting(inputs, self.internal_call)
+            grad_u0 = tape1.gradient(u0, inputs)
+            grad_ln = tape1.gradient(ln, inputs)
+        u_xx = acc_x.jvp(grad_u0)[:, 0:1]
+        ln_xx = acc_x.jvp(grad_ln)[:, 0:1]
 
         with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
             with tf.GradientTape() as tape1b:
                 tape1b.watch(inputs)
                 u0b = self.internal_call(inputs)
+                lnb = self.compute_network_lifting(inputs, self.internal_call)
             grad_b = tape1b.gradient(u0b, inputs)
+            grad_ln_b = tape1b.gradient(lnb, inputs)
         u_yy = acc_y.jvp(grad_b)[:, 1:2]
+        ln_yy = acc_y.jvp(grad_ln_b)[:, 1:2]
 
-        laplacian_u0 = u_xx + u_yy
-
-        laplacian = (laplacian_u0 * self.var_phi +
-                     self.tf_two * (
-                             grad[:, 0:1] * self.var_phi_grad[:, 0:1] +
-                             grad[:, 1:2] * self.var_phi_grad[:, 1:2]) +
-                     u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
+        laplacian = u_xx + u_yy - (ln_xx + ln_yy) + self.var_g_xx_yy
 
         return laplacian
-
-    # @tf.function
-    # def call(self, inputs: tf.Tensor) -> tf.Tensor:
-    #
-    #     e_x = tf.concat([tf.ones_like(inputs[:, 0:1]), tf.zeros_like(inputs[:, 1:])], axis=1)
-    #     e_y = tf.concat([tf.zeros_like(inputs[:, 0:1]), tf.ones_like(inputs[:, 0:1]),
-    #                      tf.zeros_like(inputs[:, 2:])], axis=1)
-    #
-    #     with tf.autodiff.ForwardAccumulator(inputs, e_x) as acc_x:
-    #         with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
-    #             with tf.GradientTape() as tape1:
-    #                 tape1.watch(inputs)
-    #                 u0 = self.internal_call(inputs)
-    #             grad = tape1.gradient(u0, inputs)
-    #         grad_jvp_y = acc_y.jvp(grad)
-    #     grad_jvp_x = acc_x.jvp(grad)
-    #
-    #     u_xx = grad_jvp_x[:, 0:1]
-    #     u_yy = grad_jvp_y[:, 1:2]
-    #
-    #     laplacian_u0 = u_xx + u_yy
-    #
-    #     laplacian = (laplacian_u0 * self.var_phi +
-    #                  self.tf_two * (
-    #                          grad[:, 0:1] * self.var_phi_grad[:, 0:1] +
-    #                          grad[:, 1:2] * self.var_phi_grad[:, 1:2]) +
-    #                  u0 * self.var_phi_xx_yy + self.var_g_xx_yy)
-    #     return laplacian
 
     def pinn_laplace_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
         integral_argument = tf.square(y_predicted - self.laplacian_basis_functions)
