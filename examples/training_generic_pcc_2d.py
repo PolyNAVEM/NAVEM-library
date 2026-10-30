@@ -37,7 +37,7 @@ def main():
     parser.add_argument('-bft', '--basis-function-type', dest='basis_function_type',
                         default=1, type=int, help="Basis function type: 1 - vertex; 2 - edge; 3 - internal (Default: 1)")
     parser.add_argument('-method', '--method-type', dest='method_type',
-                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM (Default: 1)")
+                        default=1, type=int, help="Method type: 1 - H-NAVEM; 2 - B-NAVEM; 3 - P-NAVEM; 4 - W-NAVEM (Default: 1)")
     parser.add_argument('-mesh', '--mesh-type', dest='mesh_type', default=4,
                         type=int, help="Mesh generator type: 3 - OFFImporter; 4 - CSV CsvImporter (Default: 4)")
     parser.add_argument('-import', '--import-path', dest='import_path',
@@ -92,20 +92,24 @@ def main():
     parser.add_argument('-rtf', '--rational-type-function', dest='rational_type_function', default=2, type=int,
                         help='Rational type: 1 - Total; 2 - Real; 3 - Imag (Default: 2)')
 
-    # B-NAVEM and P-NAVEM
+    # B-NAVEM, P-NAVEM, and W-NAVEM
     parser.add_argument('-qo', '--quadrature-order', dest='quadrature_order', default=10, type=int,
                         help='Order of the quadrature rule to generate the training points')
     parser.add_argument('-pt', '--distribution-points-type', dest='distribution_points_type', type=int, default=3,
                         help='Type of points: 1 - gauss; 2 - uniform; 3 - accumulated (Default: 3)')
-    parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False,
-                        type=bool, action=argparse.BooleanOptionalAction,
-                        help='Flag to specify if distance from basis functions should be added to the loss')
+
+    # B-NAVEM and P-NAVEM
     parser.add_argument('-bt', '--bubble-type', dest='bubble_type', type=int, default=1,
                         help='Type of points: 1 - approximate_distance_function; 2 - product (Default: 1)')
     parser.add_argument('-bmtg', '--boundary-method-type-g', dest='boundary_method_type_g', default=1, type=int,
-                        help='Boundary method type for the lifting: 1 - segment; 2 - line; (Default: 1)')
+                        help='Boundary method type for the lifting: 1 - segment; 2 - line; 3 - wachspress (Default: 1)')
     parser.add_argument('-bmtadf', '--boundary-method-type-adf', dest='boundary_method_type_adf', default=1, type=int,
                         help='Boundary method type: 1 - segment; 2 - line (Default: 1)')
+
+    # P-NAVEM
+    parser.add_argument('-cbt', '--copy-basis-in-train', dest='copy_basis_in_train', default=False,
+                        type=bool, action=argparse.BooleanOptionalAction,
+                        help='Flag to specify if distance from basis functions should be added to the loss')
 
     args = parser.parse_args()
 
@@ -173,7 +177,7 @@ def main():
                                                     args.use_hanging_function,
                                                     args.num_rationals_points,
                                                     RationalFunction.RationalType(args.rational_type_function))
-        case method_type.B_NAVEM | method_type.P_NAVEM:
+        case method_type.B_NAVEM | method_type.P_NAVEM | method_type.W_NAVEM:
             train_exact_bc_navem_pcc_2d_on_generic_polygon(args.method_order,
                                                            basis_function_type,
                                                            method_type,

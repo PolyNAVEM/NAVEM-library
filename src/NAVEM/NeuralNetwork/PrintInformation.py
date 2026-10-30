@@ -56,5 +56,11 @@ def print_training_information(flags: H_Flags | BP_Flags):
             tf.print("Bubble function type: " + boundary_method_type_adf.name)
             tf.print("Lifting function type: " + boundary_method_type_g.name)
 
+        case method_type.W_NAVEM:
+            boundary_method_type_g = BoundaryMethodType(flags["boundary_method_type_g"])
+
+            tf.print('\n\x1b[6;30;42m' + method_type.name + ' properties' + '\x1b[0m')
+            tf.print("Lifting function type: " + boundary_method_type_g.name)
+
         case _:
             raise ValueError("Not valid method type.")

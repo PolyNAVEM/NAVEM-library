@@ -257,6 +257,9 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
     setup_n_derivatives = SetupDerivatives.basis
     considered_loss = None
     match method_type:
+        case NAVEMType.W_NAVEM:
+            setup_n_derivatives = SetupDerivatives.basis_and_derivatives_and_laplacian
+            considered_loss = nn.pinn_laplace_loss
         case NAVEMType.B_NAVEM:
             setup_n_derivatives = SetupDerivatives.basis_and_derivatives_and_laplacian
             considered_loss = nn.pinn_laplace_loss
@@ -290,7 +293,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
 
     results = None
     match method_type:
-        case NAVEMType.B_NAVEM:
+        case NAVEMType.B_NAVEM | NAVEMType.W_NAVEM:
             del vertices_per_pol
             del jac_per_pol
             del jac_inv_per_pol

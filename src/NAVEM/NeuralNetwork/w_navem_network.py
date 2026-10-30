@@ -157,11 +157,11 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         for idx in range(num_vertices):
             input_a = tf.concat([x_ip1[:, idx:idx+1], y_ip1[:, idx:idx+1], inputs[:, 2:]], axis=1)
-            term_a = tf.concat([term_a, tf.expand_dims(boundary_function(input_a),axis=1)], axis=1)
+            term_a = tf.concat([term_a, boundary_function(input_a)], axis=1)
             input_b = tf.concat([x_im1[:, idx:idx + 1], y_im1[:, idx:idx + 1], inputs[:, 2:]], axis=1)
-            term_b = tf.concat([term_b, tf.expand_dims(boundary_function(input_b),axis=1)], axis=1)
+            term_b = tf.concat([term_b, boundary_function(input_b)], axis=1)
             input_c = tf.concat([vertices[:, idx:idx + 1, 0], vertices[:, idx:idx + 1, 1], inputs[:, 2:]], axis=1)
-            term_c = tf.concat([term_c, tf.expand_dims(boundary_function(input_c),axis=1)], axis=1)
+            term_c = tf.concat([term_c, boundary_function(input_c)], axis=1)
 
         # Sum over vertices
         g = tf.reduce_sum(lambdas * (term_a + term_b - term_c), axis=1)
@@ -180,20 +180,28 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
             with tf.GradientTape() as tape1:
                 tape1.watch(inputs)
                 u0 = self.internal_call(inputs)
-                ln = self.compute_network_lifting(inputs, self.internal_call)
             grad_u0 = tape1.gradient(u0, inputs)
-            grad_ln = tape1.gradient(ln, inputs)
         u_xx = acc_x.jvp(grad_u0)[:, 0:1]
+
+        with tf.autodiff.ForwardAccumulator(inputs, e_x) as acc_x:
+            with tf.GradientTape() as tape1:
+                tape1.watch(inputs)
+                ln = self.compute_network_lifting(inputs, self.internal_call)
+            grad_ln = tape1.gradient(ln, inputs)
         ln_xx = acc_x.jvp(grad_ln)[:, 0:1]
 
         with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
             with tf.GradientTape() as tape1b:
                 tape1b.watch(inputs)
                 u0b = self.internal_call(inputs)
-                lnb = self.compute_network_lifting(inputs, self.internal_call)
             grad_b = tape1b.gradient(u0b, inputs)
-            grad_ln_b = tape1b.gradient(lnb, inputs)
         u_yy = acc_y.jvp(grad_b)[:, 1:2]
+
+        with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
+            with tf.GradientTape() as tape1b:
+                tape1b.watch(inputs)
+                lnb = self.compute_network_lifting(inputs, self.internal_call)
+            grad_ln_b = tape1b.gradient(lnb, inputs)
         ln_yy = acc_y.jvp(grad_ln_b)[:, 1:2]
 
         laplacian = u_xx + u_yy - (ln_xx + ln_yy) + self.var_g_xx_yy
