@@ -10,7 +10,7 @@
 # This file can be used citing references in CITATION.cff file.
 
 import numpy as np
-from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import (Flags, AbstractBPNAVEM)
+from NAVEM.NeuralNetwork.exact_bc_navem_network_utilities import (Flags, AbstractBPNAVEM, SetupDerivatives)
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -18,6 +18,8 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
+from pypolydim import gedim
+from numpy.typing import NDArray
 
 
 class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
@@ -26,6 +28,28 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         tf.keras.Model.__init__(self, name="b_navem_neural_network")
         AbstractBPNAVEM.__init__(self, flags, in_training)
+
+        self.mask_drop = None
+        self.mask_keep = None
+        self.first_vert = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None, None), dtype=tf.float64)
+        self.rest_verts = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None, None), dtype=tf.float64)
+        self.call_vertices = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None, None), dtype=tf.float64)
+        self.v_prev = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None, None), dtype=tf.float64)
+        self.v_next = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None, None), dtype=tf.float64)
+        self.call_num_points = tf.Variable(tf.convert_to_tensor(0, dtype=tf.int32), trainable=False,
+                                          validate_shape=False, dtype=tf.int32)
+        self.num_vertices = 0
+        self.edge_normals = tf.Variable(tf.convert_to_tensor([[[0.]]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None, None), dtype=tf.float64)
+        self.offsets = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None), dtype=tf.float64)
+        self.det_prev_current = tf.Variable(tf.convert_to_tensor([[0.]], dtype=tf.float64), trainable=False,
+                                           validate_shape=False, shape=(None, None), dtype=tf.float64)
 
         self.reg_coefficient = self.flags['regularization_coefficient']
 
@@ -55,158 +79,56 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         for layer in self.layers_list[1:]:
             layer.build((None, self.flags["num_neurons_per_layer"]))
 
-    @tf.function
-    def wachspress_weights(self,
-                           points: tf.Tensor, vertices: tf.Tensor) -> tf.Tensor:
-        """
-        Compute Wachspress weights as:
-
-            w_i(x) =
-                det(n_{i-1}, n_i)
-                PROD_{j != i-1,i} h_j(x)
-
-        Parameters
-        ----------
-        points : (num_points, 2)
-        vertices : (num_vertices, 2)
-
-        Returns
-        -------
-        lambda_w : (num_points, num_vertices)
-            normalized Wachspress coordinates
-        """
-
-        num_vertices = vertices.shape[1]
-        num_points = points.shape[0]
-
-        v_next = tf.roll(vertices, shift=-1, axis=1)
-
-        # edge vectors
-        edge_tangents = v_next - vertices
-
-        # NON normalized normals
-        edge_normals = tf.stack([-edge_tangents[:, :, 1], edge_tangents[:, :, 0]], axis=2)
-
-        # h_i(x)
-        h = tf.reduce_sum(
-            (points[:, None, :] - vertices[:, :, :]) *
-            edge_normals[:, :, :],
-            axis=-1
-        )
-
-        prev_edge_normals = tf.roll(edge_normals, shift=1, axis=1)
-        det_prev_current = tf.einsum('pij,pij->pi',
-                                     prev_edge_normals[:, :, ::-1],
-                                     edge_normals * tf.constant([1.0, -1.0], dtype=tf.float64))
-
-        prod_dist = tf.zeros(shape=(num_points, 0), dtype=tf.float64)
-        for i in range(num_vertices):
-            mask = [j for j in range(num_vertices) if j != i and j != (i - 1) % num_vertices]
-
-            prod_im1_i = tf.expand_dims(tf.reduce_prod(tf.gather(h, mask, axis=1), axis=1), axis=1)
-
-            prod_dist = tf.concat([prod_dist, prod_im1_i], axis=1)
-
-        w = prod_dist * det_prev_current[:, :]
-
+    def wachspress_weights_efficient(self, points):
+        h = tf.einsum('pd,pvd->pv', points, self.edge_normals) - self.offsets
+        h_masked = h[:, None, :] * self.mask_keep + self.mask_drop
+        prod_dist = tf.reduce_prod(h_masked, axis=2)
+        w = prod_dist * self.det_prev_current
         return w / tf.reduce_sum(w, axis=1, keepdims=True)
 
+    def u0_minus_lifting(self, points, params):
+        lambdas = self.wachspress_weights_efficient(points)  # (P, V)
+        lam_next = tf.roll(lambdas, -1, axis=1)
+        lam_prev = tf.roll(lambdas, 1, axis=1)
+
+        pt_a = (1 - lam_next[..., None]) * self.call_vertices + lam_next[..., None] * self.v_next
+        pt_b = (1 - lam_prev[..., None]) * self.call_vertices + lam_prev[..., None] * self.v_prev
+        pt_c = self.call_vertices
+
+        xy = tf.stack([pt_a, pt_b, pt_c], axis=0)
+        xy = tf.reshape(tf.transpose(xy, [0, 2, 1, 3]), (-1, 2))
+        par = tf.tile(params, [3 * self.num_vertices, 1])
+
+        big = tf.concat([tf.concat([points, params], axis=1),
+                         tf.concat([xy, par], axis=1)], axis=0)
+
+        output = self.internal_call(big)  # single network call
+
+        u0 = output[:self.call_num_points, 0]
+        ulift = tf.reshape(output[self.call_num_points:, 0], (3, self.num_vertices, self.call_num_points))
+        ulift = tf.transpose(ulift, [0, 2, 1])
+        term_a, term_b, term_c = ulift[0], ulift[1], ulift[2]
+
+        ln = tf.reduce_sum(lambdas * (term_a + term_b - term_c), axis=1)
+        return u0 - ln
+
     @tf.function
-    def compute_network_lifting(self,
-                                inputs: tf.Tensor,
-                                boundary_function) -> tf.Tensor:
-
-
-        num_vertices = self.flags["num_vertices"]
-
-        # Index vectors holding the value of i, ip1, im1 at each loop iteration
-        i = tf.range(num_vertices)
-        ip1 = (i + 1) % num_vertices
-        im1 = (i - 1) % num_vertices
-
-        first = tf.expand_dims(tf.tile(tf.constant([[1.0, 0.0]], dtype=inputs.dtype), [tf.shape(inputs)[0], 1]), axis=1)
-        vertices = tf.transpose(tf.reshape(inputs[:, 2:], (tf.shape(inputs)[0], 2, num_vertices - 1)), perm=[0, 2, 1])
-        vertices = tf.concat([first, vertices], axis=1)
-
-
-        x_i = vertices[:, :, 0]
-        y_i = vertices[:, :, 1]
-        x_ip1_v = tf.gather(vertices, ip1, axis=1)[:, :, 0]
-        y_ip1_v = tf.gather(vertices, ip1, axis=1)[:, :, 1]
-        x_im1_v = tf.gather(vertices, im1, axis=1)[:, :, 0]
-        y_im1_v = tf.gather(vertices, im1, axis=1)[:, :, 1]
-
+    def call(self, inputs):
+        params = inputs[:, 2:]  # constant w.r.t. differentiation
         points = inputs[:, :2]
-        lambdas = self.wachspress_weights(points, vertices)
 
-        # Lambdas associated with the next / previous vertices (size [polygons, points, vertices])
-        lam_ip1 = tf.gather(lambdas, ip1, axis=1)
-        lam_im1 = tf.gather(lambdas, im1, axis=1)
+        with tf.GradientTape(persistent=True) as outer:
+            outer.watch(points)
+            with tf.GradientTape() as inner:
+                inner.watch(points)
+                f = self.u0_minus_lifting(points, params)
+            grad = inner.gradient(f, points)
+            u_x = grad[:, 0:1]
+            u_y = grad[:, 1:2]
+        u_xx = outer.gradient(u_x, points)[:, 0:1]
+        u_yy = outer.gradient(u_y, points)[:, 1:2]
 
-        # (x,y) coordinates where the boundary function will be evaluated
-        x_ip1 = (1.0 - lam_ip1) * x_i + lam_ip1 * x_ip1_v
-        y_ip1 = (1.0 - lam_ip1) * y_i + lam_ip1 * y_ip1_v
-
-        x_im1 = (1.0 - lam_im1) * x_i + lam_im1 * x_im1_v
-        y_im1 = (1.0 - lam_im1) * y_i + lam_im1 * y_im1_v
-
-        # Contributions from every vertex at once
-        term_a = tf.zeros(shape=(tf.shape(inputs)[0], 0), dtype=tf.float64)
-        term_b = tf.zeros(shape=(tf.shape(inputs)[0], 0), dtype=tf.float64)
-        term_c = tf.zeros(shape=(tf.shape(inputs)[0], 0), dtype=tf.float64)
-
-        for idx in range(num_vertices):
-            input_a = tf.concat([x_ip1[:, idx:idx+1], y_ip1[:, idx:idx+1], inputs[:, 2:]], axis=1)
-            term_a = tf.concat([term_a, boundary_function(input_a)], axis=1)
-            input_b = tf.concat([x_im1[:, idx:idx + 1], y_im1[:, idx:idx + 1], inputs[:, 2:]], axis=1)
-            term_b = tf.concat([term_b, boundary_function(input_b)], axis=1)
-            input_c = tf.concat([vertices[:, idx:idx + 1, 0], vertices[:, idx:idx + 1, 1], inputs[:, 2:]], axis=1)
-            term_c = tf.concat([term_c, boundary_function(input_c)], axis=1)
-
-        # Sum over vertices
-        g = tf.reduce_sum(lambdas * (term_a + term_b - term_c), axis=1)
-
-        return g
-
-
-    @tf.function
-    def call(self, inputs: tf.Tensor) -> tf.Tensor:
-
-        e_x = tf.concat([tf.ones_like(inputs[:, 0:1]), tf.zeros_like(inputs[:, 1:])], axis=1)
-        e_y = tf.concat([tf.zeros_like(inputs[:, 0:1]), tf.ones_like(inputs[:, 0:1]),
-                         tf.zeros_like(inputs[:, 2:])], axis=1)
-
-        with tf.autodiff.ForwardAccumulator(inputs, e_x) as acc_x:
-            with tf.GradientTape() as tape1:
-                tape1.watch(inputs)
-                u0 = self.internal_call(inputs)
-            grad_u0 = tape1.gradient(u0, inputs)
-        u_xx = acc_x.jvp(grad_u0)[:, 0:1]
-
-        with tf.autodiff.ForwardAccumulator(inputs, e_x) as acc_x:
-            with tf.GradientTape() as tape1:
-                tape1.watch(inputs)
-                ln = self.compute_network_lifting(inputs, self.internal_call)
-            grad_ln = tape1.gradient(ln, inputs)
-        ln_xx = acc_x.jvp(grad_ln)[:, 0:1]
-
-        with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
-            with tf.GradientTape() as tape1b:
-                tape1b.watch(inputs)
-                u0b = self.internal_call(inputs)
-            grad_b = tape1b.gradient(u0b, inputs)
-        u_yy = acc_y.jvp(grad_b)[:, 1:2]
-
-        with tf.autodiff.ForwardAccumulator(inputs, e_y) as acc_y:
-            with tf.GradientTape() as tape1b:
-                tape1b.watch(inputs)
-                lnb = self.compute_network_lifting(inputs, self.internal_call)
-            grad_ln_b = tape1b.gradient(lnb, inputs)
-        ln_yy = acc_y.jvp(grad_ln_b)[:, 1:2]
-
-        laplacian = u_xx + u_yy - (ln_xx + ln_yy) + self.var_g_xx_yy
-
-        return laplacian
+        return u_xx + u_yy + self.var_g_xx_yy
 
     def pinn_laplace_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
         integral_argument = tf.square(y_predicted - self.laplacian_basis_functions)
@@ -221,6 +143,7 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         zero_1d = tf.convert_to_tensor([0.], dtype=tf.float64)
         zero_2d = tf.convert_to_tensor([[0.]], dtype=tf.float64)
+        zero_3d = tf.convert_to_tensor([[[0.]]], dtype=tf.float64)
         zero_zero_2d = tf.convert_to_tensor([[0., 0.]], dtype=tf.float64)
 
         self.best_w.assign(zero_1d)
@@ -235,8 +158,64 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.var_phi_xx_yy.assign(zero_2d)
         self.laplacian_basis_functions.assign(zero_2d)
 
+        self.mask_drop = None
+        self.mask_keep = None
+        self.first_vert.assign(zero_3d)
+        self.rest_verts.assign(zero_3d)
+        self.call_vertices.assign(zero_3d)
+        self.v_prev.assign(zero_3d)
+        self.v_next.assign(zero_3d)
+        self.edge_normals.assign(zero_3d)
+        self.offsets.assign(zero_2d)
+        self.det_prev_current.assign(zero_2d)
+
         self.save_weights(name_storage + "/nn_weights.weights.h5")
 
     def load_model(self, name_storage: str):
         self.build(input_shape=(None, self.flags["input_dim"]))
         self.load_weights(name_storage + "/nn_weights.weights.h5")
+
+    def setup_model_global_input_wnavem(self,
+                                 xy_per_pol: NDArray[np.float64],
+                                 vertices: NDArray[np.float64],
+                                 jac_per_pol: NDArray[np.float64],
+                                 setup_n_derivatives: SetupDerivatives,
+                                 geometry_utilities: gedim.GeometryUtilities,
+                                 inputs: tf.Tensor):
+        super().setup_model_global_input(xy_per_pol,
+                                         vertices,
+                                         jac_per_pol,
+                                         setup_n_derivatives,
+                                         geometry_utilities)
+        points = inputs[:, :2]
+        params = inputs[:, 2:]
+        self.num_vertices = self.flags["num_vertices"]
+        self.call_num_points.assign(np.int32(tf.shape(points)[0].numpy()))
+
+        self.first_vert = tf.tile(tf.constant([[[1.0, 0.0]]], dtype=points.dtype), [self.call_num_points, 1, 1])
+        self.rest_verts = tf.transpose(tf.reshape(params, (self.call_num_points, 2, self.num_vertices - 1)), [0, 2, 1])
+        self.call_vertices.assign(tf.concat([self.first_vert, self.rest_verts], axis=1))
+
+        self.v_next.assign(tf.roll(self.call_vertices, -1, axis=1))
+        self.v_prev.assign(tf.roll(self.call_vertices, 1, axis=1))
+
+        # edge vectors and NON normalized normals
+        edge_tangents = self.v_next - self.call_vertices
+        self.edge_normals.assign(tf.stack([-edge_tangents[:, :, 1], edge_tangents[:, :, 0]], axis=2))
+
+        # v_i . n_i, so that h_i(x) = x . n_i - offsets_i
+        self.offsets.assign(tf.reduce_sum(self.call_vertices * self.edge_normals, axis=-1))
+
+        # det(n_{i-1}, n_i) as a scalar product of the (rotated) previous normal with the current one
+        prev_edge_normals = tf.roll(self.edge_normals, shift=1, axis=1)
+        rot_prev_edge_normals = tf.stack([prev_edge_normals[:, :, 1],
+                                          -prev_edge_normals[:, :, 0]], axis=2)
+        self.det_prev_current.assign(tf.reduce_sum(rot_prev_edge_normals * self.edge_normals, axis=-1))
+
+        drop = np.zeros((self.num_vertices, self.num_vertices))
+        idx = np.arange(self.num_vertices)
+        drop[idx, idx] = 1.0
+        drop[idx, (idx - 1) % self.num_vertices] = 1.0
+        self.mask_drop = tf.constant(drop, tf.float64)
+        self.mask_keep = tf.constant(1.0 - drop, tf.float64)
+

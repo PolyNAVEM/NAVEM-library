@@ -324,7 +324,8 @@ def train_adam_bfgs(model, loss, inputs, labels, epochs_adam, epochs_bfgs, cb_li
 
     train_with_first_order(model, loss, inputs, labels, inputs.shape[0], epochs_adam, shuffle=False, cb_list=cb_list,
                            info_printer=info_printer)
-    results = train_w_bfgs(model, loss, inputs, labels, epochs_bfgs, bfgs=use_bfgs, info_printer=info_printer)
 
-    assign_best(model)
+    results = train_w_bfgs(model, loss, inputs, labels, epochs_bfgs, bfgs=use_bfgs, info_printer=info_printer)
+    if epochs_bfgs > 1:
+        assign_best(model)
     return results

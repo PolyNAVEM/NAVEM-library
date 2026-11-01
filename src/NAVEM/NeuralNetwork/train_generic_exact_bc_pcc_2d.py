@@ -273,7 +273,11 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         case _:
             raise ValueError("not valid navem type")
 
-    nn.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives, geometry_utilities)
+    if method_type == NAVEMType.W_NAVEM:
+        nn.setup_model_global_input_wnavem(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives,
+                                           geometry_utilities, inputs)
+    else:
+        nn.setup_model_global_input(xy_per_pol, vertices_per_pol, jac_per_pol, setup_n_derivatives, geometry_utilities)
 
     laplacian_per_polygon = np.reshape(np.transpose(np.array(laplacian_per_polygon), axes=[0, 2, 1]), [-1, 1])
     nn.laplacian_basis_functions.assign(tf.convert_to_tensor(np.array(laplacian_per_polygon), dtype=tf.float64))
@@ -309,6 +313,10 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         case _:
             raise ValueError("not valid navem type")
 
+    print("versione base \n", nn.call(inputs))
+    print("versione vect \n", nn.call_gioana(inputs))
+    print(" diff", nn.call(inputs)-nn.call_gioana(inputs))
+
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
         bfgs_steps = np.arange(len(list_of_losses), len(list_of_losses) + len(results[1].losses))
@@ -333,7 +341,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
         considered_loss(labels, nn_output)
 
         match method_type:
-            case NAVEMType.B_NAVEM:
+            case NAVEMType.B_NAVEM | NAVEMType.W_NAVEM:
                 writer.writerow([num_training_polygons, np.sqrt(nn.curr_laplacian.numpy())])
             case NAVEMType.P_NAVEM:
                 writer.writerow([num_training_polygons,
