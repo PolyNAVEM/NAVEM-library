@@ -160,8 +160,8 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
         self.mask_drop = None
         self.mask_keep = None
-        self.first_vert.assign(zero_3d)
-        self.rest_verts.assign(zero_3d)
+        self.first_vert = None
+        self.rest_verts = None
         self.call_vertices.assign(zero_3d)
         self.v_prev.assign(zero_3d)
         self.v_next.assign(zero_3d)

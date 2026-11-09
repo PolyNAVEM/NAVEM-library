@@ -51,7 +51,7 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                                    boundary_method_type_adf: BoundaryMethodType = BoundaryMethodType.segment,
                                                    bubble_type: BubbleType = BubbleType.approximate_distance_function):
     if method_order > 1:
-        if method_type is not NAVEMType.B_NAVEM:
+        if method_type is not NAVEMType.B_NAVEM and method_type is not NAVEMType.W_NAVEM:
             raise ValueError("not implemented high order p-navem")
 
     reference_element = NAVEMPCC2DReferenceElement(method_order)
@@ -312,10 +312,6 @@ def train_exact_bc_navem_pcc_2d_on_generic_polygon(method_order: int,
                                       num_epoches_opt_order2, cb_list, use_bfgs=exact_bfgs)
         case _:
             raise ValueError("not valid navem type")
-
-    print("versione base \n", nn.call(inputs))
-    print("versione vect \n", nn.call_gioana(inputs))
-    print(" diff", nn.call(inputs)-nn.call_gioana(inputs))
 
     if export_training_info:
         adam_steps = np.arange(0, len(list_of_losses))
