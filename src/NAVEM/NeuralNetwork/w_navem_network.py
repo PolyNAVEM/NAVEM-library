@@ -128,6 +128,8 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         u_xx = outer.gradient(u_x, points)[:, 0:1]
         u_yy = outer.gradient(u_y, points)[:, 1:2]
 
+        del outer
+
         return u_xx + u_yy + self.var_g_xx_yy
 
     def pinn_laplace_loss(self, _y_true: tf.Tensor, y_predicted: tf.Tensor) -> tf.Tensor:
@@ -182,14 +184,16 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
                                  setup_n_derivatives: SetupDerivatives,
                                  geometry_utilities: gedim.GeometryUtilities,
                                  inputs: tf.Tensor):
+
         super().setup_model_global_input(xy_per_pol,
                                          vertices,
                                          jac_per_pol,
                                          setup_n_derivatives,
                                          geometry_utilities)
+
         points = inputs[:, :2]
-        params = inputs[:, 2:]
         self.num_vertices = self.flags["num_vertices"]
+        params = inputs[:, 2:2*self.num_vertices]
         self.call_num_points.assign(np.int32(tf.shape(points)[0].numpy()))
 
         self.first_vert = tf.tile(tf.constant([[[1.0, 0.0]]], dtype=points.dtype), [self.call_num_points, 1, 1])
