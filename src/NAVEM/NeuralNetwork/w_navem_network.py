@@ -138,6 +138,43 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
         self.curr_laplacian.assign(integrals)
         return integrals
 
+    def get_u(self, inputs: tf.Tensor) -> tf.Tensor:
+        params = inputs[:, 2:]  # constant w.r.t. differentiation
+        points = inputs[:, :2]
+        u0 = tf.expand_dims(self.u0_minus_lifting(points, params), axis=1)
+        return u0 + self.var_g
+
+    def get_u_and_du(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        params = inputs[:, 2:]  # constant w.r.t. differentiation
+        points = inputs[:, :2]
+
+        with tf.GradientTape() as t:
+            t.watch(points)
+            u0 = self.u0_minus_lifting(points, params)
+        u0_grad = t.gradient(u0, points)
+
+        u = tf.expand_dims(u0, axis=1) + self.var_g
+        grad_u = u0_grad + self.var_g_grad
+        return tf.concat([u, grad_u], 1)
+
+    def get_du(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        params = inputs[:, 2:]  # constant w.r.t. differentiation
+        points = inputs[:, :2]
+
+        with tf.GradientTape() as t:
+            t.watch(points)
+            u0 = self.u0_minus_lifting(points, params)
+        u0_grad = t.gradient(u0, points)
+
+        return u0_grad + self.var_g_grad
+
+
+    def get_second_derivatives_u(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        raise ValueError("Not implemented method")
+
     def save_model(self):
         name_storage = self.flags['name_storage']
 
