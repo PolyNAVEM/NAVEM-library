@@ -172,7 +172,6 @@ class WNAVEMNetwork(tf.keras.Model, AbstractBPNAVEM):
 
 
     def get_second_derivatives_u(self, inputs: tf.Tensor) -> tf.Tensor:
-
         raise ValueError("Not implemented method")
 
     def save_model(self):
